@@ -104,6 +104,39 @@ const publicMeetings = [
   }
 ];
 
+const publicStewards = [
+  {
+    name: "Add steward name",
+    role: "Shop Steward",
+    area: "Moncton",
+    contract: "Contract 1",
+    contact: "Contact details to be added"
+  },
+  {
+    name: "Add steward name",
+    role: "Shop Steward",
+    area: "Moncton",
+    contract: "Contract 2",
+    contact: "Contact details to be added"
+  }
+];
+
+const publicAdminContact = {
+  name: "Local 4005 Admin",
+  role: "Website / member contact",
+  area: "Moncton",
+  contact: "Admin contact details to be added",
+  note: "Use this contact for website updates, public board corrections, and general Local 4005 inquiries."
+};
+
+const publicExecutiveTeam = [
+  { name: "Add president name", role: "President", area: "Local 4005", contact: "Contact details to be added" },
+  { name: "Add vice-president name", role: "Vice-President", area: "Local 4005", contact: "Contact details to be added" },
+  { name: "Add secretary name", role: "Secretary", area: "Local 4005", contact: "Contact details to be added" },
+  { name: "Add treasurer name", role: "Treasurer", area: "Local 4005", contact: "Contact details to be added" },
+  { name: "Add recording secretary name", role: "Recording Secretary", area: "Local 4005", contact: "Contact details to be added" }
+];
+
 const publicResources = [
   { title: "VIA Rail Agreement No. 1", category: "Agreements", contract: "Contract 1", description: "Council 4000 lists Agreement No. 1 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
@@ -188,12 +221,45 @@ async function startAuthenticatedApp() {
 function wirePublicBoard() {
   renderPublicBoard();
   renderMeetingBoard("regular");
+  renderPublicDirectory();
   document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
   document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
   document.querySelector("#question-form")?.addEventListener("submit", submitPublicQuestion);
   ["public-search", "public-contract"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
   });
+}
+
+function renderPublicDirectory() {
+  const stewardList = document.querySelector("#public-steward-list");
+  const adminCard = document.querySelector("#admin-contact-card");
+  const executiveList = document.querySelector("#executive-list");
+  if (stewardList) {
+    stewardList.innerHTML = publicStewards.map(renderContactCard).join("");
+  }
+  if (adminCard) {
+    adminCard.innerHTML = renderContactCard(publicAdminContact, true);
+  }
+  if (executiveList) {
+    executiveList.innerHTML = publicExecutiveTeam.map(renderContactCard).join("");
+  }
+}
+
+function renderContactCard(person, featured = false) {
+  return `
+    <article class="contact-card ${featured ? "featured" : ""}">
+      <div>
+        <h4>${escapeHtml(person.name)}</h4>
+        <p>${escapeHtml(person.role)}</p>
+      </div>
+      <div class="meta-row">
+        <span class="pill">${escapeHtml(person.area)}</span>
+        ${person.contract ? `<span class="pill">${escapeHtml(person.contract)}</span>` : ""}
+      </div>
+      <p>${escapeHtml(person.contact)}</p>
+      ${person.note ? `<p class="contact-note">${escapeHtml(person.note)}</p>` : ""}
+    </article>
+  `;
 }
 
 function renderPublicBoard() {
