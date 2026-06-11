@@ -162,7 +162,7 @@ textarea {
 }
 
 .hero-copy {
-  min-height: clamp(340px, 42vw, 470px);
+  min-height: clamp(300px, 34vw, 420px);
   border-radius: var(--radius);
   padding: clamp(22px, 5vw, 44px);
   background:
@@ -940,10 +940,197 @@ textarea {
   }
 
   .hero-copy {
-    min-height: 430px;
+    min-height: 340px;
   }
 
   .hero-actions a {
     flex: 1 1 100%;
+  }
+}
+
+@media print {
+  @page {
+    margin: 0.45in;
+  }
+
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #111;
+    font-size: 11px;
+  }
+
+  button,
+  .hero-actions,
+  .public-tools,
+  .question-form,
+  #staff-login,
+  #assistant-ask {
+    display: none !important;
+  }
+
+  .public-board,
+  .portal {
+    width: 100%;
+    padding: 0;
+  }
+
+  .public-header,
+  .public-layout > section,
+  .public-layout > aside,
+  .public-directory,
+  .discounts-panel,
+  .public-extra > section,
+  .meeting-board {
+    border-color: #cfd6de;
+    border-radius: 4px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .public-header {
+    display: block;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+  }
+
+  .public-header h1 {
+    margin: 4px 0;
+    font-size: 28px;
+  }
+
+  .public-header p,
+  .hero-copy p {
+    line-height: 1.25;
+  }
+
+  .brand-mark {
+    width: 52px;
+    height: 26px;
+    border-left-width: 4px;
+    font-size: 10px;
+  }
+
+  .public-hero {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin: 8px 0;
+    align-items: start;
+  }
+
+  .hero-copy {
+    min-height: 0;
+    padding: 12px;
+    background: #fff;
+    color: #111;
+    border: 1px solid #cfd6de;
+    border-radius: 4px;
+  }
+
+  .eyebrow {
+    border: 0;
+    background: transparent;
+    color: #555;
+    padding: 0;
+  }
+
+  .hero-copy h2 {
+    margin: 6px 0;
+    font-size: 22px;
+    line-height: 1.08;
+  }
+
+  .hero-copy p {
+    color: #444;
+    font-size: 11px;
+  }
+
+  .meeting-board,
+  .public-layout > section,
+  .public-layout > aside,
+  .public-directory,
+  .discounts-panel,
+  .public-extra > section {
+    padding: 10px;
+  }
+
+  .meeting-tabs {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+
+  .meeting-tab {
+    display: block;
+    min-height: 0;
+    padding: 6px;
+    background: #f2f4f7;
+    color: #111;
+  }
+
+  .meeting-tab.active {
+    background: #f2f4f7;
+    color: #111;
+    box-shadow: inset 3px 0 0 var(--gold) !important;
+  }
+
+  .meeting-detail {
+    padding: 8px;
+  }
+
+  .meeting-detail h3,
+  .announcement-card h3,
+  .resource-item h3,
+  .discount-card h3,
+  .contact-card h4,
+  .qa-card h3 {
+    font-size: 13px;
+  }
+
+  .public-layout,
+  .public-extra,
+  .directory-layout {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .directory-layout > section:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .announcement-list,
+  .contact-grid,
+  .qa-list {
+    gap: 6px;
+  }
+
+  .resource-list,
+  .discount-grid,
+  .executive-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .announcement-card,
+  .resource-item,
+  .contact-card,
+  .discount-card,
+  .qa-card,
+  .answer-box {
+    padding: 8px;
+    border-radius: 4px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .pill {
+    border-radius: 4px;
+    font-size: 9px;
+    padding: 2px 5px;
   }
 }
