@@ -119,7 +119,7 @@ textarea {
 .public-header,
 .public-tools,
 .public-layout > section,
-.public-layout > aside,
+.member-toolbar,
 .public-directory,
 .discounts-panel,
 .form-panel,
@@ -314,14 +314,81 @@ textarea {
 }
 
 .public-layout {
+  display: block;
+  margin-top: 14px;
+  margin-right: 188px;
+  min-height: 0;
+}
+
+.member-toolbar {
+  position: sticky;
+  top: 12px;
+  z-index: 3;
+  float: right;
+  width: 174px;
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 10px;
+  margin: 14px 0 14px 14px;
+}
+
+.member-toolbar .section-heading {
+  margin-bottom: 8px;
+}
+
+.member-toolbar h2 {
+  font-size: 0.95rem;
+}
+
+.resource-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
-  gap: 14px;
+  gap: 7px;
+}
+
+.resource-tool {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  padding: 9px;
+  text-decoration: none;
+}
+
+.resource-tool:hover {
+  filter: brightness(0.98);
+}
+
+.resource-tool span {
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.resource-tool small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.resource-tool.muted {
+  opacity: 0.72;
+}
+
+.public-layout::after {
+  content: "";
+  display: block;
+  clear: both;
+}
+
+.public-layout > section {
   align-items: start;
 }
 
-.public-layout > section,
-.public-layout > aside {
+.public-layout > section {
   padding: 16px;
 }
 
@@ -347,10 +414,6 @@ textarea {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
-}
-
-.compact-list {
-  grid-template-columns: 1fr;
 }
 
 .public-directory {
@@ -958,10 +1021,25 @@ textarea {
   }
 
   .public-hero,
-  .public-layout,
   .directory-layout,
   .grievance-layout {
     grid-template-columns: 1fr;
+  }
+
+  .public-layout {
+    margin-right: 0;
+  }
+
+  .member-toolbar {
+    position: static;
+    float: none;
+    width: auto;
+    max-height: none;
+    margin: 14px 0;
+  }
+
+  .resource-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .grievance-help {
@@ -1008,6 +1086,7 @@ textarea {
   .public-extra,
   .executive-grid,
   .discount-grid,
+  .resource-toolbar,
   .filters,
   .form-row,
   .resource-list {
@@ -1056,11 +1135,11 @@ textarea {
 
   .public-header,
   .public-layout > section,
-  .public-layout > aside,
+  .member-toolbar,
   .public-directory,
   .discounts-panel,
   .public-extra > section,
-    .meeting-board {
+  .meeting-board {
     border-color: #cfd6de;
     border-radius: 4px;
     break-inside: avoid;
@@ -1127,7 +1206,7 @@ textarea {
 
   .meeting-board,
   .public-layout > section,
-  .public-layout > aside,
+  .member-toolbar,
   .public-directory,
   .discounts-panel,
   .public-extra > section {
@@ -1166,13 +1245,25 @@ textarea {
     font-size: 13px;
   }
 
-  .public-layout,
   .public-extra,
   .directory-layout,
   .grievance-layout {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-top: 8px;
+  }
+
+  .public-layout {
+    display: block;
+    margin: 8px 0 0;
+  }
+
+  .member-toolbar {
+    position: static;
+    float: none;
+    width: auto;
+    max-height: none;
+    margin: 8px 0;
   }
 
   .directory-layout > section:last-child {
@@ -1185,6 +1276,7 @@ textarea {
     gap: 6px;
   }
 
+  .resource-toolbar,
   .resource-list,
   .discount-grid,
   .executive-grid {
@@ -1194,6 +1286,7 @@ textarea {
 
   .announcement-card,
   .resource-item,
+  .resource-tool,
   .contact-card,
   .discount-card,
   .form-panel,

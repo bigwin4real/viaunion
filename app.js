@@ -347,15 +347,17 @@ function renderPublicBoard() {
   const publicRows = publicResources.filter(matches);
   if (resourceList) {
     resourceList.innerHTML = publicRows.map((item) => `
-      <article class="resource-item">
-        <h3>${escapeHtml(item.title)}</h3>
-        <p>${escapeHtml(item.description)}</p>
-        <div class="meta-row">
-          <span class="pill">${escapeHtml(item.category)}</span>
-          <span class="pill">${escapeHtml(item.contract)}</span>
-          ${item.url ? `<a class="pill" href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Open</a>` : ""}
+      ${item.url ? `
+        <a class="resource-tool" href="${escapeHtml(item.url)}" ${item.url.startsWith("http") ? `target="_blank" rel="noopener"` : ""}>
+          <span>${escapeHtml(item.title)}</span>
+          <small>${escapeHtml(item.category)} · ${escapeHtml(item.contract)}</small>
+        </a>
+      ` : `
+        <div class="resource-tool muted">
+          <span>${escapeHtml(item.title)}</span>
+          <small>${escapeHtml(item.category)} · ${escapeHtml(item.contract)}</small>
         </div>
-      </article>
+      `}
     `).join("") || `<div class="empty">No resources match the current filters.</div>`;
   }
   renderQABoard();
