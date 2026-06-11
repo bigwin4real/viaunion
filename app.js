@@ -137,32 +137,11 @@ let publicExecutiveTeam = [
 
 const publicDiscounts = [
   {
-    title: "Full employee discounts page",
+    title: "Employee discounts",
     category: "Local 4005",
     audience: "All employees",
-    description: "Open the dedicated discounts page with the guide, source page, and Union Savings link.",
+    description: "Open the local discounts page with guide details copied onto this site.",
     url: "discounts.html"
-  },
-  {
-    title: "All the Deals and Discounts guide",
-    category: "Guide",
-    audience: "All employees",
-    description: "Download the 2026-02-20 union guide from the OTS Ontario board.",
-    url: "https://drive.google.com/file/d/1YNAV_qKGsgNn4xifXmw5pnkywtvvJaHu/view?usp=sharing"
-  },
-  {
-    title: "Union Savings",
-    category: "Discounts",
-    audience: "Union members and employees",
-    description: "Discount platform linked from Council 4000 resources.",
-    url: "https://unionsavings.ca/en"
-  },
-  {
-    title: "Discounts source page",
-    category: "Reference",
-    audience: "All employees",
-    description: "Original Blogspot discount page for the downloadable guide.",
-    url: "https://viaotsunionboard.blogspot.com/p/deals-and-discounts.html"
   }
 ];
 
@@ -172,8 +151,7 @@ const publicResources = [
   { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety and Health Agreement.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "Council 4000 bylaws", category: "Bylaws", contract: "Shared", description: "Council 4000 bylaws and constitution resources.", url: "https://www.unifor4000.com/bylaws-constitution" },
   { title: "Grievance forms", category: "Grievance", contract: "Shared", description: "Council 4000 grievance forms, including Local 4005.", url: "https://www.unifor4000.com/grievance-forms" },
-  { title: "Employee discounts guide", category: "Discounts", contract: "Shared", description: "All the Deals and Discounts guide from the OTS Ontario board, available to all employees.", url: "https://drive.google.com/file/d/1YNAV_qKGsgNn4xifXmw5pnkywtvvJaHu/view?usp=sharing" },
-  { title: "Union Savings discounts", category: "Discounts", contract: "Shared", description: "Member discount platform linked from Council 4000 resources.", url: "https://unionsavings.ca/en" },
+  { title: "Employee discounts", category: "Discounts", contract: "Shared", description: "Discount guide details copied onto this site for all employees.", url: "discounts.html" },
   { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and general agenda information." },
   { title: "New member guide", category: "Guide", contract: "Shared", description: "Plain-language starting point for Local 4005 members." },
   { title: "Claims and payroll", category: "Guide", contract: "Shared", description: "Public-safe guidance on where to start with common questions." },

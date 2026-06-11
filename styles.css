@@ -11,6 +11,7 @@
   --ok: #23784d;
   --warn: #a55f00;
   --radius: 8px;
+  --shadow: 0 10px 30px rgba(23, 50, 77, 0.08);
 }
 
 * {
@@ -27,6 +28,10 @@ body {
   font-size: 16px;
 }
 
+a {
+  color: inherit;
+}
+
 button,
 input,
 select,
@@ -34,19 +39,36 @@ textarea {
   font: inherit;
 }
 
-button {
+button,
+.header-link,
+.discount-card a,
+.hero-actions a {
   border: 0;
   border-radius: 6px;
-  background: var(--navy);
-  color: #fff;
   cursor: pointer;
   min-height: 40px;
+  min-width: 40px;
+  transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+button {
+  background: var(--navy);
+  color: #fff;
   padding: 0 14px;
 }
 
 button:hover,
 a:hover {
   filter: brightness(0.96);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(217, 164, 65, 0.55);
+  outline-offset: 2px;
 }
 
 button.secondary {
@@ -74,6 +96,12 @@ textarea {
   padding: 9px 10px;
 }
 
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--navy);
+}
+
 textarea {
   resize: vertical;
 }
@@ -85,7 +113,7 @@ textarea {
 .public-board {
   width: min(1240px, 100%);
   margin: 0 auto;
-  padding: 18px;
+  padding: clamp(10px, 2vw, 20px);
 }
 
 .public-header,
@@ -100,6 +128,7 @@ textarea {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .public-header {
@@ -126,14 +155,14 @@ textarea {
 
 .public-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(340px, 0.88fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
   gap: 14px;
   align-items: stretch;
   margin: 14px 0;
 }
 
 .hero-copy {
-  min-height: 360px;
+  min-height: clamp(340px, 42vw, 470px);
   border-radius: var(--radius);
   padding: clamp(22px, 5vw, 44px);
   background:
@@ -162,8 +191,8 @@ textarea {
 .hero-copy h2 {
   max-width: 760px;
   margin: 18px 0 10px;
-  font-size: clamp(2rem, 5vw, 4.2rem);
-  line-height: 0.98;
+  font-size: clamp(2rem, 4.6vw, 4rem);
+  line-height: 1.02;
 }
 
 .hero-copy p {
@@ -189,7 +218,7 @@ textarea {
   background: #fff;
   color: var(--navy);
   font-weight: 800;
-  padding: 0 14px;
+  padding: 0 16px;
   text-decoration: none;
 }
 
@@ -212,7 +241,6 @@ textarea {
 
 .meeting-board {
   padding: 16px;
-  box-shadow: 0 14px 40px rgba(23, 50, 77, 0.08);
 }
 
 .meeting-tabs {
@@ -230,6 +258,7 @@ textarea {
   background: #eef2f6;
   color: var(--ink);
   text-align: left;
+  padding: 10px 14px;
 }
 
 .meeting-tab.active {
@@ -306,7 +335,6 @@ textarea {
   border-radius: var(--radius);
   background: #fff;
   padding: 16px;
-  box-shadow: 0 8px 26px rgba(23, 50, 77, 0.06);
 }
 
 .announcement-card h3 {
@@ -357,7 +385,7 @@ textarea {
 }
 
 .executive-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .contact-card {
@@ -398,12 +426,13 @@ textarea {
 
 .discount-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
 }
 
 .discount-card {
   display: grid;
+  grid-template-rows: auto auto 1fr;
   gap: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -431,6 +460,8 @@ textarea {
   font-weight: 800;
   padding: 0 12px;
   text-decoration: none;
+  align-self: end;
+  text-align: center;
 }
 
 .public-extra {
@@ -490,7 +521,7 @@ textarea {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 28px;
+  padding: clamp(20px, 5vw, 28px);
   box-shadow: 0 16px 50px rgba(23, 50, 77, 0.12);
 }
 
@@ -544,7 +575,7 @@ textarea {
 .portal {
   width: min(1440px, 100%);
   margin: 0 auto;
-  padding: 18px;
+  padding: clamp(10px, 2vw, 18px);
 }
 
 .topbar {
@@ -584,7 +615,7 @@ textarea {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
   margin: 14px 0;
 }
@@ -597,6 +628,7 @@ textarea {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .qa-moderation {
@@ -623,7 +655,7 @@ textarea {
 
 .workspace {
   display: grid;
-  grid-template-columns: 220px minmax(300px, 0.85fr) minmax(420px, 1.15fr);
+  grid-template-columns: minmax(200px, 0.55fr) minmax(300px, 0.95fr) minmax(380px, 1.2fr);
   gap: 14px;
   align-items: start;
 }
@@ -822,7 +854,7 @@ textarea {
 
 .resource-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 12px;
 }
 
