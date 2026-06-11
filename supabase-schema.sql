@@ -89,41 +89,117 @@ create table public.internal_files (
 );
 
 create or replace function public.touch_updated_at()
-returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end;
-$$;
-create trigger profiles_touch_updated_at before update on public.profiles for each row execute function public.touch_updated_at();
-create trigger cases_touch_updated_at before update on public.cases for each row execute function public.touch_updated_at();
-create trigger resources_touch_updated_at before update on public.resources for each row execute function public.touch_updated_at();
-
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer set search_path = public as $$
-declare requested_role public.portal_role;
+returns trigger
+language plpgsql
+as $$
 begin
-  requested_role := case when new.raw_user_meta_data ->> 'requested_role' = 'admin' then 'admin'::public.portal_role else 'steward'::public.portal_role end;
-  insert into public.profiles (id, email, full_name, role, active, access_status, request_note)
-  values (new.id, new.email, coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), new.email), requested_role, false, 'pending', nullif(new.raw_user_meta_data ->> 'request_note', ''))
-  on conflict (id) do update set email = excluded.email, full_name = excluded.full_name, role = excluded.role, request_note = excluded.request_note, updated_at = now();
+  new.updated_at = now();
   return new;
 end;
 $$;
-create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+
+create trigger profiles_touch_updated_at
+before update on public.profiles
+for each row execute function public.touch_updated_at();
+
+create trigger cases_touch_updated_at
+before update on public.cases
+for each row execute function public.touch_updated_at();
+
+create trigger resources_touch_updated_at
+before update on public.resources
+for each row execute function public.touch_updated_at();
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  requested_role public.portal_role;
+begin
+  requested_role := case
+    when new.raw_user_meta_data ->> 'requested_role' = 'admin' then 'admin'::public.portal_role
+    else 'steward'::public.portal_role
+  end;
+
+  insert into public.profiles (id, email, full_name, role, active, access_status, request_note)
+  values (
+    new.id,
+    new.email,
+    coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), new.email),
+    requested_role,
+    false,
+    'pending',
+    nullif(new.raw_user_meta_data ->> 'request_note', '')
+  )
+  on conflict (id) do update
+    set email = excluded.email,
+        full_name = excluded.full_name,
+        role = excluded.role,
+        request_note = excluded.request_note,
+        updated_at = now();
+
+  return new;
+end;
+$$;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
 
 create or replace function public.is_active_user()
-returns boolean language sql security definer set search_path = public stable as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and active = true);
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and active = true
+  );
 $$;
+
 create or replace function public.is_admin()
-returns boolean language sql security definer set search_path = public stable as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and active = true and role = 'admin');
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and active = true and role = 'admin'
+  );
 $$;
+
 create or replace function public.is_steward()
-returns boolean language sql security definer set search_path = public stable as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and active = true and role = 'steward');
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and active = true and role = 'steward'
+  );
 $$;
+
 create or replace function public.can_access_case(case_id uuid)
-returns boolean language sql security definer set search_path = public stable as $$
-  select public.is_admin() or exists (select 1 from public.cases where id = case_id and (created_by = auth.uid() or assigned_steward_id = auth.uid()));
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select public.is_admin() or exists (
+    select 1 from public.cases
+    where id = case_id
+      and (created_by = auth.uid() or assigned_steward_id = auth.uid())
+  );
 $$;
 
 alter table public.profiles enable row level security;
@@ -134,30 +210,118 @@ alter table public.resources enable row level security;
 alter table public.public_questions enable row level security;
 alter table public.internal_files enable row level security;
 
-create policy "profiles_select_self_or_admin" on public.profiles for select using (id = auth.uid() or public.is_admin());
-create policy "profiles_admin_manage" on public.profiles for all using (public.is_admin()) with check (public.is_admin());
-create policy "cases_select_authorized" on public.cases for select using (public.can_access_case(id));
-create policy "cases_insert_active" on public.cases for insert with check (public.is_active_user() and created_by = auth.uid());
-create policy "cases_update_authorized" on public.cases for update using (public.can_access_case(id)) with check (public.can_access_case(id));
-create policy "notes_select_authorized" on public.case_notes for select using (public.can_access_case(case_id));
-create policy "notes_insert_authorized" on public.case_notes for insert with check (public.can_access_case(case_id) and created_by = auth.uid());
-create policy "documents_select_authorized" on public.case_documents for select using (public.can_access_case(case_id));
-create policy "documents_insert_authorized" on public.case_documents for insert with check (public.can_access_case(case_id) and uploaded_by = auth.uid());
-create policy "resources_select_active" on public.resources for select using (public.is_active_user());
-create policy "resources_admin_manage" on public.resources for all using (public.is_admin()) with check (public.is_admin());
-create policy "questions_public_answered" on public.public_questions for select using (status = 'answered');
-create policy "questions_public_insert" on public.public_questions for insert with check (status = 'pending');
-create policy "questions_admin_manage" on public.public_questions for all using (public.is_admin()) with check (public.is_admin());
-create policy "internal_files_select_authorized" on public.internal_files for select using (public.is_active_user() and (kind = 'general' or public.is_steward()));
-create policy "internal_files_insert_authorized" on public.internal_files for insert with check (public.is_active_user() and uploaded_by = auth.uid() and (kind = 'general' or public.is_steward()));
+create policy "profiles_select_self_or_admin"
+on public.profiles for select
+using (id = auth.uid() or public.is_admin());
 
-insert into storage.buckets (id, name, public) values ('steward-documents', 'steward-documents', false) on conflict (id) do nothing;
-insert into storage.buckets (id, name, public) values ('internal-files', 'internal-files', false) on conflict (id) do nothing;
+create policy "profiles_admin_manage"
+on public.profiles for all
+using (public.is_admin())
+with check (public.is_admin());
 
-create policy "storage_select_authorized_case_docs" on storage.objects for select using (bucket_id = 'steward-documents' and public.can_access_case((storage.foldername(name))[1]::uuid));
-create policy "storage_insert_authorized_case_docs" on storage.objects for insert with check (bucket_id = 'steward-documents' and public.can_access_case((storage.foldername(name))[1]::uuid));
-create policy "storage_select_authorized_internal_files" on storage.objects for select using (bucket_id = 'internal-files' and public.is_active_user() and ((storage.foldername(name))[1] = 'general' or public.is_steward()));
-create policy "storage_insert_authorized_internal_files" on storage.objects for insert with check (bucket_id = 'internal-files' and public.is_active_user() and ((storage.foldername(name))[1] = 'general' or public.is_steward()));
+create policy "cases_select_authorized"
+on public.cases for select
+using (public.can_access_case(id));
+
+create policy "cases_insert_active"
+on public.cases for insert
+with check (public.is_active_user() and created_by = auth.uid());
+
+create policy "cases_update_authorized"
+on public.cases for update
+using (public.can_access_case(id))
+with check (public.can_access_case(id));
+
+create policy "notes_select_authorized"
+on public.case_notes for select
+using (public.can_access_case(case_id));
+
+create policy "notes_insert_authorized"
+on public.case_notes for insert
+with check (public.can_access_case(case_id) and created_by = auth.uid());
+
+create policy "documents_select_authorized"
+on public.case_documents for select
+using (public.can_access_case(case_id));
+
+create policy "documents_insert_authorized"
+on public.case_documents for insert
+with check (public.can_access_case(case_id) and uploaded_by = auth.uid());
+
+create policy "resources_select_active"
+on public.resources for select
+using (public.is_active_user());
+
+create policy "resources_admin_manage"
+on public.resources for all
+using (public.is_admin())
+with check (public.is_admin());
+
+create policy "questions_public_answered"
+on public.public_questions for select
+using (status = 'answered');
+
+create policy "questions_public_insert"
+on public.public_questions for insert
+with check (status = 'pending');
+
+create policy "questions_moderator_manage"
+on public.public_questions for all
+using (public.is_active_user())
+with check (public.is_active_user());
+
+create policy "internal_files_select_authorized"
+on public.internal_files for select
+using (
+  public.is_active_user()
+  and (kind = 'general' or public.is_steward())
+);
+
+create policy "internal_files_insert_authorized"
+on public.internal_files for insert
+with check (
+  public.is_active_user()
+  and uploaded_by = auth.uid()
+  and (kind = 'general' or public.is_steward())
+);
+
+insert into storage.buckets (id, name, public)
+values ('steward-documents', 'steward-documents', false)
+on conflict (id) do nothing;
+
+insert into storage.buckets (id, name, public)
+values ('internal-files', 'internal-files', false)
+on conflict (id) do nothing;
+
+create policy "storage_select_authorized_case_docs"
+on storage.objects for select
+using (
+  bucket_id = 'steward-documents'
+  and public.can_access_case((storage.foldername(name))[1]::uuid)
+);
+
+create policy "storage_insert_authorized_case_docs"
+on storage.objects for insert
+with check (
+  bucket_id = 'steward-documents'
+  and public.can_access_case((storage.foldername(name))[1]::uuid)
+);
+
+create policy "storage_select_authorized_internal_files"
+on storage.objects for select
+using (
+  bucket_id = 'internal-files'
+  and public.is_active_user()
+  and ((storage.foldername(name))[1] = 'general' or public.is_steward())
+);
+
+create policy "storage_insert_authorized_internal_files"
+on storage.objects for insert
+with check (
+  bucket_id = 'internal-files'
+  and public.is_active_user()
+  and ((storage.foldername(name))[1] = 'general' or public.is_steward())
+);
 
 insert into public.resources (title, category, contract, description, url)
 values

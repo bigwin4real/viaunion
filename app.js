@@ -137,12 +137,44 @@ const publicExecutiveTeam = [
   { name: "Add recording secretary name", role: "Recording Secretary", area: "Local 4005", contact: "Contact details to be added" }
 ];
 
+const publicDiscounts = [
+  {
+    title: "Full employee discounts page",
+    category: "Local 4005",
+    audience: "All employees",
+    description: "Open the dedicated discounts page with the guide, source page, and Union Savings link.",
+    url: "discounts.html"
+  },
+  {
+    title: "All the Deals and Discounts guide",
+    category: "Guide",
+    audience: "All employees",
+    description: "Download the 2026-02-20 union guide from the OTS Ontario board.",
+    url: "https://drive.google.com/file/d/1YNAV_qKGsgNn4xifXmw5pnkywtvvJaHu/view?usp=sharing"
+  },
+  {
+    title: "Union Savings",
+    category: "Discounts",
+    audience: "Union members and employees",
+    description: "Discount platform linked from Council 4000 resources.",
+    url: "https://unionsavings.ca/en"
+  },
+  {
+    title: "Discounts source page",
+    category: "Reference",
+    audience: "All employees",
+    description: "Original Blogspot discount page for the downloadable guide.",
+    url: "https://viaotsunionboard.blogspot.com/p/deals-and-discounts.html"
+  }
+];
+
 const publicResources = [
   { title: "VIA Rail Agreement No. 1", category: "Agreements", contract: "Contract 1", description: "Council 4000 lists Agreement No. 1 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety and Health Agreement.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "Council 4000 bylaws", category: "Bylaws", contract: "Shared", description: "Council 4000 bylaws and constitution resources.", url: "https://www.unifor4000.com/bylaws-constitution" },
   { title: "Grievance forms", category: "Grievance", contract: "Shared", description: "Council 4000 grievance forms, including Local 4005.", url: "https://www.unifor4000.com/grievance-forms" },
+  { title: "Employee discounts guide", category: "Discounts", contract: "Shared", description: "All the Deals and Discounts guide from the OTS Ontario board, available to all employees.", url: "https://drive.google.com/file/d/1YNAV_qKGsgNn4xifXmw5pnkywtvvJaHu/view?usp=sharing" },
   { title: "Union Savings discounts", category: "Discounts", contract: "Shared", description: "Member discount platform linked from Council 4000 resources.", url: "https://unionsavings.ca/en" },
   { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and general agenda information." },
   { title: "New member guide", category: "Guide", contract: "Shared", description: "Plain-language starting point for Local 4005 members." },
@@ -159,7 +191,8 @@ const publicKnowledge = [
 ];
 
 const sampleQuestions = [
-  { id: "q1", name: "Member", question: "Where will current agreements be posted?", answer: "Approved public links will be added to the agreements section.", created_at: new Date().toISOString() }
+  { id: "q1", name: "Member", question: "Where will current agreements be posted?", answer: "Approved public links will be added to the agreements section.", status: "answered", created_at: new Date().toISOString() },
+  { id: "q2", name: "Anonymous", question: "Can a steward review this question?", answer: "", status: "pending", created_at: new Date().toISOString() }
 ];
 
 let currentUser = null;
@@ -221,12 +254,31 @@ function wirePublicBoard() {
   renderPublicBoard();
   renderMeetingBoard("regular");
   renderPublicDirectory();
+  renderDiscounts();
   document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
   document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
   document.querySelector("#question-form")?.addEventListener("submit", submitPublicQuestion);
   ["public-search", "public-contract"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
   });
+}
+
+function renderDiscounts() {
+  const list = document.querySelector("#discount-list");
+  if (!list) return;
+  list.innerHTML = publicDiscounts.map((item) => `
+    <article class="discount-card">
+      <div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.description)}</p>
+      </div>
+      <div class="meta-row">
+        <span class="pill strong">${escapeHtml(item.audience)}</span>
+        <span class="pill">${escapeHtml(item.category)}</span>
+      </div>
+      <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Open discount resource</a>
+    </article>
+  `).join("");
 }
 
 function renderPublicDirectory() {
@@ -460,19 +512,21 @@ function renderRegister() {
 }
 
 async function loadData() {
-  const [{ data: caseRows }, { data: resourceRows }, { data: pendingRows }, { data: internalRows }] = await Promise.all([
+  const [{ data: caseRows }, { data: resourceRows }, { data: pendingRows }, { data: internalRows }, { data: questionRows }] = await Promise.all([
     supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     supabaseClient.from("resources").select("*").order("category"),
     currentProfile.role === "admin"
       ? supabaseClient.from("profiles").select("*").eq("active", false).eq("access_status", "pending").order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
-    supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false })
+    supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
+    supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false })
   ]);
 
   cases = caseRows || [];
   resources = resourceRows || [];
   pendingProfiles = pendingRows || [];
   internalFiles = internalRows || [];
+  publicQuestions = questionRows || [];
   selectedCaseId = cases[0]?.id || null;
   if (selectedCaseId) await loadCaseChildren(selectedCaseId);
 }
@@ -521,7 +575,45 @@ function renderAll() {
   renderCaseForm();
   renderResources();
   renderApprovals();
+  renderQuestionModeration();
   renderInternalFiles();
+}
+
+function renderQuestionModeration() {
+  const list = document.querySelector("#moderation-list");
+  if (!list) return;
+  const total = document.querySelector("#moderation-total");
+  if (total) total.textContent = `${publicQuestions.length} messages`;
+  list.innerHTML = publicQuestions.map((item) => `
+    <article class="moderation-card">
+      <div>
+        <h3>${escapeHtml(item.question)}</h3>
+        <p>${escapeHtml(item.answer || "No public answer yet.")}</p>
+        <div class="meta-row">
+          <span class="pill">${escapeHtml(item.name || "Anonymous")}</span>
+          <span class="pill">${escapeHtml(item.status || "pending")}</span>
+          <span class="pill">${new Date(item.created_at).toLocaleDateString()}</span>
+        </div>
+      </div>
+      <button class="secondary" type="button" data-delete-question-id="${escapeHtml(item.id)}">Remove</button>
+    </article>
+  `).join("") || `<div class="empty">No Q&A messages have been submitted.</div>`;
+  list.querySelectorAll("[data-delete-question-id]").forEach((button) => {
+    button.addEventListener("click", () => deletePublicQuestion(button.dataset.deleteQuestionId));
+  });
+}
+
+async function deletePublicQuestion(questionId) {
+  if (!confirm("Remove this Q&A message?")) return;
+  if (previewMode) {
+    publicQuestions = publicQuestions.filter((item) => item.id !== questionId);
+    renderQuestionModeration();
+    return;
+  }
+  const { error } = await supabaseClient.from("public_questions").delete().eq("id", questionId);
+  if (error) return alert(error.message);
+  await loadData();
+  renderQuestionModeration();
 }
 
 function renderInternalFiles() {

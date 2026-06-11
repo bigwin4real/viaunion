@@ -93,7 +93,9 @@ textarea {
 .public-layout > section,
 .public-layout > aside,
 .public-directory,
+.discounts-panel,
 .approval-panel,
+.qa-moderation,
 .meeting-board {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -186,6 +188,18 @@ textarea {
   border-radius: 6px;
   background: #fff;
   color: var(--navy);
+  font-weight: 800;
+  padding: 0 14px;
+  text-decoration: none;
+}
+
+.header-link {
+  display: inline-grid;
+  place-items: center;
+  min-height: 40px;
+  border-radius: 6px;
+  background: var(--navy);
+  color: #fff;
   font-weight: 800;
   padding: 0 14px;
   text-decoration: none;
@@ -376,6 +390,49 @@ textarea {
   padding-top: 10px;
 }
 
+.discounts-panel {
+  margin-top: 14px;
+  padding: 16px;
+  border-top: 4px solid var(--gold);
+}
+
+.discount-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.discount-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 16px;
+}
+
+.discount-card h3 {
+  margin: 0 0 8px;
+}
+
+.discount-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.discount-card a {
+  display: inline-grid;
+  place-items: center;
+  min-height: 40px;
+  border-radius: 6px;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 800;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
 .public-extra {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -542,6 +599,12 @@ textarea {
   border-radius: var(--radius);
 }
 
+.qa-moderation {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
 .stats-grid article {
   padding: 16px;
   border-top: 4px solid var(--gold);
@@ -569,35 +632,48 @@ textarea {
 .case-column,
 .detail-column,
 .resources,
-.approval-panel {
+.approval-panel,
+.qa-moderation {
   padding: 14px;
 }
 
-.approval-panel {
+.approval-panel,
+.qa-moderation {
   margin-bottom: 14px;
 }
 
-.approval-list {
+.approval-list,
+.moderation-list {
   display: grid;
   gap: 10px;
 }
 
-.approval-card {
+.approval-card,
+.moderation-card {
   display: flex;
   justify-content: space-between;
   gap: 14px;
   align-items: center;
   border: 1px solid var(--line);
-  border-left: 5px solid var(--gold);
   border-radius: var(--radius);
   padding: 12px;
 }
 
-.approval-card h3 {
+.approval-card {
+  border-left: 5px solid var(--gold);
+}
+
+.moderation-card {
+  border-left: 5px solid var(--rail);
+}
+
+.approval-card h3,
+.moderation-card h3 {
   margin: 0 0 6px;
 }
 
-.approval-card p {
+.approval-card p,
+.moderation-card p {
   margin: 0 0 6px;
   color: var(--muted);
   line-height: 1.35;
@@ -795,6 +871,7 @@ textarea {
   }
 
   .executive-grid,
+  .discount-grid,
   .resource-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -813,7 +890,8 @@ textarea {
   .topbar,
   .account-box,
   .section-heading,
-  .approval-card {
+  .approval-card,
+  .moderation-card {
     align-items: stretch;
     flex-direction: column;
   }
@@ -822,6 +900,7 @@ textarea {
   .public-tools,
   .public-extra,
   .executive-grid,
+  .discount-grid,
   .filters,
   .form-row,
   .resource-list {
