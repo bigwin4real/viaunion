@@ -26,7 +26,7 @@ const sampleCases = [
   {
     id: "preview-2",
     member_name: "Training Case",
-    member_contact: "555-0100",
+    member_contact: "member@example.ca",
     contract: "Contract 2",
     issue_type: "Payroll",
     status: "Waiting on company",
@@ -109,8 +109,8 @@ let publicStewards = [];
 let publicAdmins = [];
 
 let publicExecutiveTeam = [
-  { name: "Steve Harding", role: "President, Local 4005 / VP to the President of Council 4000", area: "Local 4005", contact: "Cell: (506) 627-8446" },
-  { name: "Rheanne Gautreau", role: "Regional Representative - Local 4005", area: "NB / PEI / NS / NL", contact: "Cell: (506) 871-2683" },
+  { name: "Steve Harding", role: "President, Local 4005 / VP to the President of Council 4000", area: "Local 4005", contact: "Listed on Council 4000 contact page" },
+  { name: "Rheanne Gautreau", role: "Regional Representative - Local 4005", area: "NB / PEI / NS / NL", contact: "Listed on Council 4000 regional representatives page" },
   { name: "To be confirmed", role: "Other Local 4005 executive positions", area: "Local 4005", contact: "Not listed on the public Unifor source pages." }
 ];
 
@@ -129,7 +129,6 @@ const publicResources = [
   { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety and Health Agreement.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "Council 4000 bylaws", category: "Bylaws", contract: "Shared", description: "Council 4000 bylaws and constitution resources.", url: "https://www.unifor4000.com/bylaws-constitution" },
-  { title: "Grievance form", category: "Grievance", contract: "Shared", description: "Download or submit a grievance intake copy to a selected steward, regional representative, or custom email.", url: "grievance.html" },
   { title: "Employee discounts", category: "Discounts", contract: "Shared", description: "Discount guide details copied onto this site for all employees.", url: "discounts.html" },
   { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and general agenda information." },
   { title: "New member guide", category: "Guide", contract: "Shared", description: "Plain-language starting point for Local 4005 members." },

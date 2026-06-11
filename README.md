@@ -78,9 +78,11 @@ Private steward/admin tools include:
 - internal file storage
 - steward-only locked Excel grievance tracker area
 
-## Grievance form email
+## Grievance form status
 
-`grievance.html` works without server email by downloading a completed copy and opening the member's email client. To enable direct server-side email through Cloudflare Pages Functions, add these environment variables:
+The public grievance form is not linked from the live member board right now. The form files remain in the repo so they can be re-enabled later.
+
+When re-enabled, `grievance.html` works without server email by downloading a completed copy and opening the member's email client. To enable direct server-side email through Cloudflare Pages Functions, add these environment variables:
 
 ```text
 RESEND_API_KEY=your_resend_api_key
