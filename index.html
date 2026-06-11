@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VIA Rail Local 4005 Steward Portal</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+  </head>
+  <body>
+    <main id="app" class="app-shell">
+      <section class="auth-panel" aria-labelledby="app-title">
+        <div class="brand-mark">4005</div>
+        <h1 id="app-title">VIA Rail Local 4005</h1>
+        <p>Secure steward portal for Moncton case tracking, grievances, documents, and resources.</p>
+        <form id="login-form" class="login-form">
+          <label>
+            Email
+            <input id="email" type="email" autocomplete="email" required>
+          </label>
+          <label>
+            Password
+            <input id="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button type="submit">Sign in</button>
+        </form>
+        <p id="auth-message" class="message" role="status"></p>
+      </section>
+    </main>
+
+    <template id="portal-template">
+      <div class="portal">
+        <header class="topbar">
+          <div>
+            <div class="brand-row">
+              <span class="brand-mark small">4005</span>
+              <span>VIA Rail Local 4005</span>
+            </div>
+            <h1>Steward Portal</h1>
+          </div>
+          <div class="account-box">
+            <span id="user-label"></span>
+            <button id="sign-out" type="button">Sign out</button>
+          </div>
+        </header>
+
+        <section class="stats-grid" aria-label="Case summary">
+          <article>
+            <span id="open-count">0</span>
+            <p>Open cases</p>
+          </article>
+          <article>
+            <span id="deadline-count">0</span>
+            <p>Due this week</p>
+          </article>
+          <article>
+            <span id="waiting-count">0</span>
+            <p>Waiting on company</p>
+          </article>
+          <article>
+            <span id="resolved-count">0</span>
+            <p>Resolved</p>
+          </article>
+        </section>
+
+        <section class="workspace">
+          <aside class="filters" aria-label="Filters">
+            <label>
+              Search
+              <input id="search" type="search" placeholder="Member, issue, note">
+            </label>
+            <label>
+              Contract
+              <select id="contract-filter">
+                <option value="all">All contracts</option>
+                <option value="Contract 1">Contract 1</option>
+                <option value="Contract 2">Contract 2</option>
+                <option value="Shared">Shared</option>
+              </select>
+            </label>
+            <label>
+              Status
+              <select id="status-filter">
+                <option value="all">All statuses</option>
+                <option value="Intake">Intake</option>
+                <option value="Reviewing">Reviewing</option>
+                <option value="Filed">Filed</option>
+                <option value="Waiting on company">Waiting on company</option>
+                <option value="Meeting scheduled">Meeting scheduled</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Withdrawn">Withdrawn</option>
+              </select>
+            </label>
+            <button id="new-case" type="button">New case</button>
+          </aside>
+
+          <section class="case-column" aria-labelledby="cases-title">
+            <div class="section-heading">
+              <h2 id="cases-title">Cases</h2>
+              <span id="case-total"></span>
+            </div>
+            <div id="case-list" class="case-list"></div>
+          </section>
+
+          <section class="detail-column" aria-labelledby="detail-title">
+            <div class="section-heading">
+              <h2 id="detail-title">Case details</h2>
+              <button id="save-case" type="button">Save</button>
+            </div>
+            <form id="case-form" class="case-form">
+              <input id="case-id" type="hidden">
+              <label>
+                Member name
+                <input id="member-name" required>
+              </label>
+              <label>
+                Member contact
+                <input id="member-contact" placeholder="Phone or email">
+              </label>
+              <div class="form-row">
+                <label>
+                  Contract
+                  <select id="case-contract">
+                    <option>Contract 1</option>
+                    <option>Contract 2</option>
+                    <option>Shared</option>
+                  </select>
+                </label>
+                <label>
+                  Issue type
+                  <select id="issue-type">
+                    <option>Grievance</option>
+                    <option>Discipline</option>
+                    <option>Claim</option>
+                    <option>Scheduling</option>
+                    <option>Payroll</option>
+                    <option>Accommodation</option>
+                    <option>Safety</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Status
+                  <select id="case-status">
+                    <option>Intake</option>
+                    <option>Reviewing</option>
+                    <option>Filed</option>
+                    <option>Waiting on company</option>
+                    <option>Meeting scheduled</option>
+                    <option>Resolved</option>
+                    <option>Withdrawn</option>
+                  </select>
+                </label>
+                <label>
+                  Next deadline
+                  <input id="next-deadline" type="date">
+                </label>
+              </div>
+              <label>
+                Next action
+                <input id="next-action" placeholder="Prepare filing, call member, follow up">
+              </label>
+              <label>
+                Summary
+                <textarea id="summary" rows="4"></textarea>
+              </label>
+              <label>
+                Private note
+                <textarea id="new-note" rows="3" placeholder="Add a dated note to the activity log"></textarea>
+              </label>
+            </form>
+            <section class="documents">
+              <div class="section-heading compact">
+                <h3>Documents</h3>
+                <label class="file-button">
+                  Upload
+                  <input id="document-upload" type="file">
+                </label>
+              </div>
+              <ul id="document-list"></ul>
+            </section>
+            <section class="activity">
+              <h3>Activity</h3>
+              <ul id="activity-list"></ul>
+            </section>
+          </section>
+        </section>
+
+        <section class="resources" aria-labelledby="resources-title">
+          <div class="section-heading">
+            <h2 id="resources-title">Steward resources</h2>
+            <span>Protected references and templates</span>
+          </div>
+          <div id="resource-list" class="resource-list"></div>
+        </section>
+      </div>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
