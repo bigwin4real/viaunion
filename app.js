@@ -104,30 +104,9 @@ const publicMeetings = [
   }
 ];
 
-let publicStewards = [
-  {
-    name: "Add steward name",
-    role: "Shop Steward",
-    area: "Moncton",
-    contract: "Contract 1",
-    contact: "Contact details to be added"
-  },
-  {
-    name: "Add steward name",
-    role: "Shop Steward",
-    area: "Moncton",
-    contract: "Contract 2",
-    contact: "Contact details to be added"
-  }
-];
+let publicStewards = [];
 
-let publicAdminContact = {
-  name: "Steve Harding",
-  role: "President, Local 4005 / VP to the President of Council 4000",
-  area: "Moncton",
-  contact: "Cell: (506) 627-8446",
-  note: "Verified from Unifor National Council 4000 public contact page."
-};
+let publicAdmins = [];
 
 let publicExecutiveTeam = [
   { name: "Steve Harding", role: "President, Local 4005 / VP to the President of Council 4000", area: "Local 4005", contact: "Cell: (506) 627-8446" },
@@ -195,6 +174,9 @@ if (previewMode) {
   pendingProfiles = [
     { id: "pending-1", full_name: "New Steward", email: "new.steward@example.ca", role: "steward", request_note: "Moncton steward access request", created_at: new Date().toISOString() }
   ];
+  publicStewards = [
+    { name: "Nicolas Hachey", role: "Shop Steward", area: "Moncton VCC", contract: "Contract 1", contact: "hacheyn@me.com" }
+  ];
   renderPortal();
 } else if (isConfigured) {
   startAuthenticatedApp();
@@ -230,6 +212,7 @@ function wirePublicBoard() {
   renderPublicBoard();
   renderMeetingBoard("regular");
   renderPublicDirectory();
+  loadPublicAccountDirectory();
   loadOfficialContacts();
   renderDiscounts();
   document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
@@ -240,17 +223,48 @@ function wirePublicBoard() {
   });
 }
 
+async function loadPublicAccountDirectory() {
+  if (!isConfigured) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from("public_directory_entries")
+      .select("*")
+      .eq("is_public", true)
+      .order("display_order", { ascending: true })
+      .order("display_name", { ascending: true });
+    if (error) return;
+    publicStewards = (data || [])
+      .filter((entry) => entry.directory_role === "steward")
+      .map(directoryEntryToContact);
+    publicAdmins = (data || [])
+      .filter((entry) => entry.directory_role === "admin")
+      .map(directoryEntryToContact);
+    renderPublicDirectory();
+  } catch {
+    // Account-backed directory is optional until Supabase is configured.
+  }
+}
+
 async function loadOfficialContacts() {
   try {
     const response = await fetch("/api/local-4005-contacts");
     if (!response.ok) return;
     const data = await response.json();
-    if (data.adminContact) publicAdminContact = data.adminContact;
     if (Array.isArray(data.executiveTeam) && data.executiveTeam.length) publicExecutiveTeam = data.executiveTeam;
     renderPublicDirectory();
   } catch {
     // Keep verified fallback contacts when the official-source sync is unavailable.
   }
+}
+
+function directoryEntryToContact(entry) {
+  return {
+    name: entry.display_name,
+    role: entry.public_title,
+    area: entry.location || "",
+    contract: entry.contract || "",
+    contact: entry.public_contact || "Contact through Local 4005"
+  };
 }
 
 function renderDiscounts() {
@@ -276,10 +290,10 @@ function renderPublicDirectory() {
   const adminCard = document.querySelector("#admin-contact-card");
   const executiveList = document.querySelector("#executive-list");
   if (stewardList) {
-    stewardList.innerHTML = publicStewards.map(renderContactCard).join("");
+    stewardList.innerHTML = publicStewards.map(renderContactCard).join("") || `<div class="empty">No approved steward accounts are listed publicly yet.</div>`;
   }
   if (adminCard) {
-    adminCard.innerHTML = renderContactCard(publicAdminContact, true);
+    adminCard.innerHTML = publicAdmins.map((person) => renderContactCard(person, true)).join("") || `<div class="empty">No approved admin accounts are listed publicly yet.</div>`;
   }
   if (executiveList) {
     executiveList.innerHTML = publicExecutiveTeam.map(renderContactCard).join("");
@@ -445,6 +459,7 @@ function renderAuth() {
   app.innerHTML = document.querySelector("#auth-template").innerHTML;
   document.querySelector("#back-public").addEventListener("click", () => window.location.reload());
   document.querySelector("#request-access").addEventListener("click", renderRegister);
+  document.querySelector("#reset-password").addEventListener("click", sendPasswordReset);
   document.querySelector("#login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const authMessage = document.querySelector("#auth-message");
@@ -462,6 +477,23 @@ function renderAuth() {
     authMessage.textContent = error ? error.message : "Signed in.";
     if (!error) await startAuthenticatedApp();
   });
+}
+
+async function sendPasswordReset() {
+  const authMessage = document.querySelector("#auth-message");
+  const email = value("email");
+  if (!email) {
+    authMessage.textContent = "Enter your email address first.";
+    return;
+  }
+  if (!isConfigured) {
+    authMessage.textContent = "Supabase is not configured yet, so password reset email cannot be sent.";
+    return;
+  }
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin
+  });
+  authMessage.textContent = error ? error.message : "Password reset email sent.";
 }
 
 function renderRegister() {

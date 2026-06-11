@@ -77,6 +77,22 @@ create table public.public_questions (
   answered_at timestamptz
 );
 
+create table public.public_directory_entries (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references public.profiles(id) on delete cascade,
+  directory_role public.portal_role not null,
+  display_name text not null,
+  public_title text not null,
+  location text,
+  contract public.case_contract not null default 'Shared',
+  public_contact text,
+  is_public boolean not null default true,
+  display_order integer not null default 100,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(profile_id, directory_role)
+);
+
 create table public.internal_files (
   id uuid primary key default gen_random_uuid(),
   file_name text not null,
@@ -108,6 +124,10 @@ for each row execute function public.touch_updated_at();
 
 create trigger resources_touch_updated_at
 before update on public.resources
+for each row execute function public.touch_updated_at();
+
+create trigger public_directory_entries_touch_updated_at
+before update on public.public_directory_entries
 for each row execute function public.touch_updated_at();
 
 create or replace function public.handle_new_user()
@@ -188,6 +208,20 @@ as $$
   );
 $$;
 
+create or replace function public.is_public_profile(profile_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where profiles.id = profile_id
+      and profiles.active
+      and profiles.access_status = 'approved'
+  );
+$$;
+
 create or replace function public.can_access_case(case_id uuid)
 returns boolean
 language sql
@@ -208,6 +242,7 @@ alter table public.case_notes enable row level security;
 alter table public.case_documents enable row level security;
 alter table public.resources enable row level security;
 alter table public.public_questions enable row level security;
+alter table public.public_directory_entries enable row level security;
 alter table public.internal_files enable row level security;
 
 create policy "profiles_select_self_or_admin"
@@ -269,6 +304,15 @@ create policy "questions_moderator_manage"
 on public.public_questions for all
 using (public.is_active_user())
 with check (public.is_active_user());
+
+create policy "public_directory_select_public"
+on public.public_directory_entries for select
+using (is_public and public.is_public_profile(profile_id));
+
+create policy "public_directory_admin_manage"
+on public.public_directory_entries for all
+using (public.is_admin())
+with check (public.is_admin());
 
 create policy "internal_files_select_authorized"
 on public.internal_files for select
