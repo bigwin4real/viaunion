@@ -12,143 +12,29 @@
     <main id="app" class="app-shell">
       <section class="public-board" aria-labelledby="app-title">
         <header class="public-header">
-          <div>
-            <div class="brand-row">
-              <span class="brand-mark small">4005</span>
-              <span>Moncton</span>
-            </div>
-            <h1 id="app-title">VIA Rail Local 4005</h1>
-            <p>Union board for Contract 1 and Contract 2 members.</p>
-          </div>
+          <div><div class="brand-row"><span class="brand-mark small">4005</span><span>Moncton</span></div><h1 id="app-title">VIA Rail Local 4005</h1><p>Union board for Contract 1 and Contract 2 members.</p></div>
           <button id="staff-login" type="button">Steward/Admin sign in</button>
         </header>
-
         <section class="public-tools" aria-label="Board filters">
-          <label>
-            Search
-            <input id="public-search" type="search" placeholder="Meeting, contract, grievance, resource">
-          </label>
-          <label>
-            Contract
-            <select id="public-contract">
-              <option value="all">All contracts</option>
-              <option value="Contract 1">Contract 1</option>
-              <option value="Contract 2">Contract 2</option>
-              <option value="Shared">Shared</option>
-            </select>
-          </label>
+          <label>Search<input id="public-search" type="search" placeholder="Meeting, contract, grievance, resource"></label>
+          <label>Contract<select id="public-contract"><option value="all">All contracts</option><option value="Contract 1">Contract 1</option><option value="Contract 2">Contract 2</option><option value="Shared">Shared</option></select></label>
         </section>
-
         <section class="public-layout">
-          <section aria-labelledby="announcements-title">
-            <div class="section-heading">
-              <h2 id="announcements-title">Announcements</h2>
-              <span id="announcement-total"></span>
-            </div>
-            <div id="announcement-list" class="announcement-list"></div>
-          </section>
-
-          <aside aria-labelledby="member-resources-title">
-            <div class="section-heading">
-              <h2 id="member-resources-title">Member resources</h2>
-            </div>
-            <div id="public-resource-list" class="resource-list compact-list"></div>
-          </aside>
+          <section aria-labelledby="announcements-title"><div class="section-heading"><h2 id="announcements-title">Announcements</h2><span id="announcement-total"></span></div><div id="announcement-list" class="announcement-list"></div></section>
+          <aside aria-labelledby="member-resources-title"><div class="section-heading"><h2 id="member-resources-title">Member resources</h2></div><div id="public-resource-list" class="resource-list compact-list"></div></aside>
+        </section>
+        <section class="public-extra">
+          <section aria-labelledby="assistant-title"><div class="section-heading"><h2 id="assistant-title">Agreement assistant</h2><span>Cloudflare Workers AI</span></div><label>Ask about agreements, bylaws, discounts, or public resources<input id="assistant-question" placeholder="Example: Where do I find Agreement No. 2?"></label><button id="assistant-ask" type="button">Ask AI</button><div id="assistant-answer" class="answer-box"></div></section>
+          <section aria-labelledby="qa-title"><div class="section-heading"><h2 id="qa-title">Q&A board</h2><span>Public questions</span></div><form id="question-form" class="question-form"><label>Name<input id="question-name" placeholder="Optional"></label><label>Question<textarea id="question-body" rows="3" required></textarea></label><button type="submit">Post question</button></form><p id="question-message" class="message" role="status"></p><div id="qa-list" class="qa-list"></div></section>
         </section>
       </section>
     </main>
 
-    <template id="auth-template">
-      <section class="auth-panel" aria-labelledby="auth-title">
-        <div class="brand-mark">4005</div>
-        <h1 id="auth-title">Steward/Admin sign in</h1>
-        <p>Authorized access for Moncton shop stewards and administrators.</p>
-        <form id="login-form" class="login-form">
-          <label>
-            Email
-            <input id="email" type="email" autocomplete="email" required>
-          </label>
-          <label>
-            Password
-            <input id="password" type="password" autocomplete="current-password" required>
-          </label>
-          <div class="button-row">
-            <button type="submit">Sign in</button>
-            <button id="back-public" class="secondary" type="button">Back to board</button>
-          </div>
-        </form>
-        <p id="auth-message" class="message" role="status"></p>
-      </section>
-    </template>
+    <template id="auth-template"><section class="auth-panel" aria-labelledby="auth-title"><div class="brand-mark">4005</div><h1 id="auth-title">Steward/Admin sign in</h1><p>Authorized access for Moncton shop stewards and administrators.</p><form id="login-form" class="login-form"><label>Email<input id="email" type="email" autocomplete="email" required></label><label>Password<input id="password" type="password" autocomplete="current-password" required></label><div class="button-row"><button type="submit">Sign in</button><button id="request-access" class="secondary" type="button">Request access</button><button id="back-public" class="secondary" type="button">Back to board</button></div></form><p id="auth-message" class="message" role="status"></p></section></template>
 
-    <template id="portal-template">
-      <div class="portal">
-        <header class="topbar">
-          <div>
-            <div class="brand-row">
-              <span class="brand-mark small">4005</span>
-              <span>VIA Rail Local 4005</span>
-            </div>
-            <h1>Steward Portal</h1>
-          </div>
-          <div class="account-box">
-            <span id="user-label"></span>
-            <button id="sign-out" type="button">Sign out</button>
-          </div>
-        </header>
+    <template id="register-template"><section class="auth-panel" aria-labelledby="register-title"><div class="brand-mark">4005</div><h1 id="register-title">Request steward access</h1><p>New steward and admin accounts are reviewed before private tools open.</p><form id="register-form" class="login-form"><label>Full name<input id="register-name" autocomplete="name" required></label><label>Email<input id="register-email" type="email" autocomplete="email" required></label><label>Requested access<select id="register-role"><option value="steward">Steward</option><option value="admin">Admin</option></select></label><label>Reason<textarea id="register-note" rows="3" placeholder="Position, location, or who should approve this request"></textarea></label><label>Password<input id="register-password" type="password" autocomplete="new-password" minlength="8" required></label><div class="button-row"><button type="submit">Submit request</button><button id="back-login" class="secondary" type="button">Back to sign in</button></div></form><p id="register-message" class="message" role="status"></p></section></template>
 
-        <section class="stats-grid" aria-label="Case summary">
-          <article><span id="open-count">0</span><p>Open cases</p></article>
-          <article><span id="deadline-count">0</span><p>Due this week</p></article>
-          <article><span id="waiting-count">0</span><p>Waiting on company</p></article>
-          <article><span id="resolved-count">0</span><p>Resolved</p></article>
-        </section>
-
-        <section class="workspace">
-          <aside class="filters" aria-label="Filters">
-            <label>Search<input id="search" type="search" placeholder="Member, issue, note"></label>
-            <label>Contract<select id="contract-filter"><option value="all">All contracts</option><option value="Contract 1">Contract 1</option><option value="Contract 2">Contract 2</option><option value="Shared">Shared</option></select></label>
-            <label>Status<select id="status-filter"><option value="all">All statuses</option><option value="Intake">Intake</option><option value="Reviewing">Reviewing</option><option value="Filed">Filed</option><option value="Waiting on company">Waiting on company</option><option value="Meeting scheduled">Meeting scheduled</option><option value="Resolved">Resolved</option><option value="Withdrawn">Withdrawn</option></select></label>
-            <button id="new-case" type="button">New case</button>
-          </aside>
-
-          <section class="case-column" aria-labelledby="cases-title">
-            <div class="section-heading"><h2 id="cases-title">Cases</h2><span id="case-total"></span></div>
-            <div id="case-list" class="case-list"></div>
-          </section>
-
-          <section class="detail-column" aria-labelledby="detail-title">
-            <div class="section-heading"><h2 id="detail-title">Case details</h2><button id="save-case" type="button">Save</button></div>
-            <form id="case-form" class="case-form">
-              <input id="case-id" type="hidden">
-              <label>Member name<input id="member-name" required></label>
-              <label>Member contact<input id="member-contact" placeholder="Phone or email"></label>
-              <div class="form-row">
-                <label>Contract<select id="case-contract"><option>Contract 1</option><option>Contract 2</option><option>Shared</option></select></label>
-                <label>Issue type<select id="issue-type"><option>Grievance</option><option>Discipline</option><option>Claim</option><option>Scheduling</option><option>Payroll</option><option>Accommodation</option><option>Safety</option><option>Other</option></select></label>
-              </div>
-              <div class="form-row">
-                <label>Status<select id="case-status"><option>Intake</option><option>Reviewing</option><option>Filed</option><option>Waiting on company</option><option>Meeting scheduled</option><option>Resolved</option><option>Withdrawn</option></select></label>
-                <label>Next deadline<input id="next-deadline" type="date"></label>
-              </div>
-              <label>Next action<input id="next-action" placeholder="Prepare filing, call member, follow up"></label>
-              <label>Summary<textarea id="summary" rows="4"></textarea></label>
-              <label>Private note<textarea id="new-note" rows="3" placeholder="Add a dated note to the activity log"></textarea></label>
-            </form>
-            <section class="documents">
-              <div class="section-heading compact"><h3>Documents</h3><label class="file-button">Upload<input id="document-upload" type="file"></label></div>
-              <ul id="document-list"></ul>
-            </section>
-            <section class="activity"><h3>Activity</h3><ul id="activity-list"></ul></section>
-          </section>
-        </section>
-
-        <section class="resources" aria-labelledby="resources-title">
-          <div class="section-heading"><h2 id="resources-title">Steward resources</h2><span>Protected references and templates</span></div>
-          <div id="resource-list" class="resource-list"></div>
-        </section>
-      </div>
-    </template>
+    <template id="portal-template"><div class="portal"><header class="topbar"><div><div class="brand-row"><span class="brand-mark small">4005</span><span>VIA Rail Local 4005</span></div><h1>Steward Portal</h1></div><div class="account-box"><span id="user-label"></span><button id="sign-out" type="button">Sign out</button></div></header><section class="stats-grid" aria-label="Case summary"><article><span id="open-count">0</span><p>Open cases</p></article><article><span id="deadline-count">0</span><p>Due this week</p></article><article><span id="waiting-count">0</span><p>Waiting on company</p></article><article><span id="resolved-count">0</span><p>Resolved</p></article></section><section id="approval-panel" class="approval-panel" hidden><div class="section-heading"><h2>Access approvals</h2><span id="approval-total"></span></div><div id="approval-list" class="approval-list"></div></section><section class="internal-files" aria-labelledby="internal-files-title"><div class="section-heading"><h2 id="internal-files-title">Internal file storage</h2><span>Authorized users only</span></div><div class="file-tools"><label>File category<select id="internal-file-kind"><option value="general">General internal file</option><option value="grievance_tracker">Locked grievance tracker Excel</option></select></label><label>Upload file<input id="internal-file-upload" type="file"></label></div><p class="helper-text">The grievance tracker area is intended for locked Excel workbooks used by stewards.</p><div id="internal-file-list" class="internal-file-list"></div></section><section class="workspace"><aside class="filters" aria-label="Filters"><label>Search<input id="search" type="search" placeholder="Member, issue, note"></label><label>Contract<select id="contract-filter"><option value="all">All contracts</option><option value="Contract 1">Contract 1</option><option value="Contract 2">Contract 2</option><option value="Shared">Shared</option></select></label><label>Status<select id="status-filter"><option value="all">All statuses</option><option value="Intake">Intake</option><option value="Reviewing">Reviewing</option><option value="Filed">Filed</option><option value="Waiting on company">Waiting on company</option><option value="Meeting scheduled">Meeting scheduled</option><option value="Resolved">Resolved</option><option value="Withdrawn">Withdrawn</option></select></label><button id="new-case" type="button">New case</button></aside><section class="case-column" aria-labelledby="cases-title"><div class="section-heading"><h2 id="cases-title">Cases</h2><span id="case-total"></span></div><div id="case-list" class="case-list"></div></section><section class="detail-column" aria-labelledby="detail-title"><div class="section-heading"><h2 id="detail-title">Case details</h2><button id="save-case" type="button">Save</button></div><form id="case-form" class="case-form"><input id="case-id" type="hidden"><label>Member name<input id="member-name" required></label><label>Member contact<input id="member-contact" placeholder="Phone or email"></label><div class="form-row"><label>Contract<select id="case-contract"><option>Contract 1</option><option>Contract 2</option><option>Shared</option></select></label><label>Issue type<select id="issue-type"><option>Grievance</option><option>Discipline</option><option>Claim</option><option>Scheduling</option><option>Payroll</option><option>Accommodation</option><option>Safety</option><option>Other</option></select></label></div><div class="form-row"><label>Status<select id="case-status"><option>Intake</option><option>Reviewing</option><option>Filed</option><option>Waiting on company</option><option>Meeting scheduled</option><option>Resolved</option><option>Withdrawn</option></select></label><label>Next deadline<input id="next-deadline" type="date"></label></div><label>Next action<input id="next-action" placeholder="Prepare filing, call member, follow up"></label><label>Summary<textarea id="summary" rows="4"></textarea></label><label>Private note<textarea id="new-note" rows="3" placeholder="Add a dated note to the activity log"></textarea></label></form><section class="documents"><div class="section-heading compact"><h3>Documents</h3><label class="file-button">Upload<input id="document-upload" type="file"></label></div><ul id="document-list"></ul></section><section class="activity"><h3>Activity</h3><ul id="activity-list"></ul></section></section></section><section class="resources" aria-labelledby="resources-title"><div class="section-heading"><h2 id="resources-title">Steward resources</h2><span>Protected references and templates</span></div><div id="resource-list" class="resource-list"></div></section></div></template>
 
     <script src="app.js"></script>
   </body>
