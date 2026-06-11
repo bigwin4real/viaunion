@@ -104,7 +104,7 @@ const publicMeetings = [
   }
 ];
 
-const publicStewards = [
+let publicStewards = [
   {
     name: "Add steward name",
     role: "Shop Steward",
@@ -121,20 +121,18 @@ const publicStewards = [
   }
 ];
 
-const publicAdminContact = {
-  name: "Local 4005 Admin",
-  role: "Website / member contact",
+let publicAdminContact = {
+  name: "Steve Harding",
+  role: "President, Local 4005 / VP to the President of Council 4000",
   area: "Moncton",
-  contact: "Admin contact details to be added",
-  note: "Use this contact for website updates, public board corrections, and general Local 4005 inquiries."
+  contact: "Cell: (506) 627-8446",
+  note: "Verified from Unifor National Council 4000 public contact page."
 };
 
-const publicExecutiveTeam = [
-  { name: "Add president name", role: "President", area: "Local 4005", contact: "Contact details to be added" },
-  { name: "Add vice-president name", role: "Vice-President", area: "Local 4005", contact: "Contact details to be added" },
-  { name: "Add secretary name", role: "Secretary", area: "Local 4005", contact: "Contact details to be added" },
-  { name: "Add treasurer name", role: "Treasurer", area: "Local 4005", contact: "Contact details to be added" },
-  { name: "Add recording secretary name", role: "Recording Secretary", area: "Local 4005", contact: "Contact details to be added" }
+let publicExecutiveTeam = [
+  { name: "Steve Harding", role: "President, Local 4005 / VP to the President of Council 4000", area: "Local 4005", contact: "Cell: (506) 627-8446" },
+  { name: "Rheanne Gautreau", role: "Regional Representative - Local 4005", area: "NB / PEI / NS / NL", contact: "Cell: (506) 871-2683" },
+  { name: "To be confirmed", role: "Other Local 4005 executive positions", area: "Local 4005", contact: "Not listed on the public Unifor source pages." }
 ];
 
 const publicDiscounts = [
@@ -254,6 +252,7 @@ function wirePublicBoard() {
   renderPublicBoard();
   renderMeetingBoard("regular");
   renderPublicDirectory();
+  loadOfficialContacts();
   renderDiscounts();
   document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
   document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
@@ -261,6 +260,19 @@ function wirePublicBoard() {
   ["public-search", "public-contract"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
   });
+}
+
+async function loadOfficialContacts() {
+  try {
+    const response = await fetch("/api/local-4005-contacts");
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.adminContact) publicAdminContact = data.adminContact;
+    if (Array.isArray(data.executiveTeam) && data.executiveTeam.length) publicExecutiveTeam = data.executiveTeam;
+    renderPublicDirectory();
+  } catch {
+    // Keep verified fallback contacts when the official-source sync is unavailable.
+  }
 }
 
 function renderDiscounts() {
