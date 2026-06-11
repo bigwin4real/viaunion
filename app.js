@@ -9,32 +9,8 @@ const previewMode = !isConfigured && isLocalhost && new URLSearchParams(window.l
 const supabaseClient = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const sampleCases = [
-  {
-    id: "preview-1",
-    member_name: "Sample Member",
-    member_contact: "member@example.ca",
-    contract: "Contract 1",
-    issue_type: "Grievance",
-    status: "Intake",
-    next_deadline: nextDate(3),
-    next_action: "Confirm facts and collect supporting documents",
-    summary: "Example intake for a scheduling dispute. Replace with real data after Supabase is configured.",
-    assigned_steward_id: null,
-    created_at: new Date().toISOString()
-  },
-  {
-    id: "preview-2",
-    member_name: "Training Case",
-    member_contact: "555-0100",
-    contract: "Contract 2",
-    issue_type: "Payroll",
-    status: "Waiting on company",
-    next_deadline: nextDate(6),
-    next_action: "Follow up with company representative",
-    summary: "Example payroll claim tracking item for steward workflow testing.",
-    assigned_steward_id: null,
-    created_at: new Date().toISOString()
-  }
+  { id: "preview-1", member_name: "Sample Member", member_contact: "member@example.ca", contract: "Contract 1", issue_type: "Grievance", status: "Intake", next_deadline: nextDate(3), next_action: "Confirm facts and collect supporting documents", summary: "Example intake for a scheduling dispute. Replace with real data after Supabase is configured.", assigned_steward_id: null, created_at: new Date().toISOString() },
+  { id: "preview-2", member_name: "Training Case", member_contact: "555-0100", contract: "Contract 2", issue_type: "Payroll", status: "Waiting on company", next_deadline: nextDate(6), next_action: "Follow up with company representative", summary: "Example payroll claim tracking item for steward workflow testing.", assigned_steward_id: null, created_at: new Date().toISOString() }
 ];
 
 const sampleResources = [
@@ -46,6 +22,21 @@ const sampleResources = [
   { id: "r6", title: "Meeting Minutes", category: "Meetings", contract: "Shared", description: "Protected meeting records and action items.", url: "#" }
 ];
 
+const publicAnnouncements = [
+  { title: "Welcome to the Local 4005 Moncton union board", date: "2026-06-10", contract: "Shared", category: "Notice", summary: "Public notices, member resources, and Contract 1 / Contract 2 updates will appear here." },
+  { title: "Contract 1 resources", date: "2026-06-10", contract: "Contract 1", category: "Resources", summary: "Use this section for public-safe Contract 1 guides, meeting notices, and general information." },
+  { title: "Contract 2 resources", date: "2026-06-10", contract: "Contract 2", category: "Resources", summary: "Use this section for public-safe Contract 2 guides, meeting notices, and general information." }
+];
+
+const publicResources = [
+  { title: "Collective agreements", category: "Agreements", contract: "Shared", description: "Public or member-safe agreement references and update notes." },
+  { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and general agenda information." },
+  { title: "New member guide", category: "Guide", contract: "Shared", description: "Plain-language starting point for Local 4005 members." },
+  { title: "Claims and payroll", category: "Guide", contract: "Shared", description: "Public-safe guidance on where to start with common questions." },
+  { title: "Health and safety", category: "Committee", contract: "Shared", description: "Committee information and public-safe safety resources." },
+  { title: "Contact a steward", category: "Support", contract: "Shared", description: "Use this area for approved contact instructions." }
+];
+
 let currentUser = null;
 let currentProfile = null;
 let cases = [];
@@ -55,25 +46,6 @@ let documents = [];
 let selectedCaseId = null;
 
 const app = document.querySelector("#app");
-const loginForm = document.querySelector("#login-form");
-const authMessage = document.querySelector("#auth-message");
-
-loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!isConfigured) {
-    authMessage.innerHTML = `Supabase is not configured. Create <strong>config.js</strong> from <strong>config.example.js</strong> with your project URL and anon key.`;
-    if (isLocalhost) {
-      authMessage.innerHTML += ` For layout review only, open <a href="?preview=1">localhost preview mode</a>.`;
-    }
-    return;
-  }
-
-  const email = document.querySelector("#email").value;
-  const password = document.querySelector("#password").value;
-  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-  authMessage.textContent = error ? error.message : "Signed in.";
-  if (!error) await startAuthenticatedApp();
-});
 
 if (previewMode) {
   currentUser = { id: "preview-user", email: "preview@local4005.test" };
@@ -83,6 +55,9 @@ if (previewMode) {
   renderPortal();
 } else if (isConfigured) {
   startAuthenticatedApp();
+  wirePublicBoard();
+} else {
+  wirePublicBoard();
 }
 
 async function startAuthenticatedApp() {
@@ -90,15 +65,11 @@ async function startAuthenticatedApp() {
   currentUser = data.user;
   if (!currentUser) return;
 
-  const { data: profile, error } = await supabaseClient
-    .from("profiles")
-    .select("*")
-    .eq("id", currentUser.id)
-    .single();
-
+  const { data: profile, error } = await supabaseClient.from("profiles").select("*").eq("id", currentUser.id).single();
   if (error || !profile?.active) {
     await supabaseClient.auth.signOut();
-    authMessage.textContent = "This account is not authorized for the steward portal.";
+    const authMessage = document.querySelector("#auth-message");
+    if (authMessage) authMessage.textContent = "This account is not authorized for the steward portal.";
     return;
   }
 
@@ -107,12 +78,80 @@ async function startAuthenticatedApp() {
   renderPortal();
 }
 
+function wirePublicBoard() {
+  renderPublicBoard();
+  document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
+  ["public-search", "public-contract"].forEach((id) => {
+    document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
+  });
+}
+
+function renderPublicBoard() {
+  const term = document.querySelector("#public-search")?.value.trim().toLowerCase() || "";
+  const contract = document.querySelector("#public-contract")?.value || "all";
+  const matches = (item) => {
+    const text = [item.title, item.category, item.contract, item.summary, item.description].join(" ").toLowerCase();
+    return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
+  };
+  const announcements = publicAnnouncements.filter(matches);
+  const announcementList = document.querySelector("#announcement-list");
+  const announcementTotal = document.querySelector("#announcement-total");
+  if (announcementTotal) announcementTotal.textContent = `${announcements.length} shown`;
+  if (announcementList) {
+    announcementList.innerHTML = announcements.map((item) => `
+      <article class="announcement-card">
+        <div class="meta-row">
+          <span class="pill">${escapeHtml(item.contract)}</span>
+          <span class="pill">${escapeHtml(item.category)}</span>
+          <span class="pill">${escapeHtml(item.date)}</span>
+        </div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.summary)}</p>
+      </article>
+    `).join("") || `<div class="empty">No public notices match the current filters.</div>`;
+  }
+
+  const resourceList = document.querySelector("#public-resource-list");
+  const publicRows = publicResources.filter(matches);
+  if (resourceList) {
+    resourceList.innerHTML = publicRows.map((item) => `
+      <article class="resource-item">
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.description)}</p>
+        <div class="meta-row">
+          <span class="pill">${escapeHtml(item.category)}</span>
+          <span class="pill">${escapeHtml(item.contract)}</span>
+        </div>
+      </article>
+    `).join("") || `<div class="empty">No resources match the current filters.</div>`;
+  }
+}
+
+function renderAuth() {
+  app.innerHTML = document.querySelector("#auth-template").innerHTML;
+  document.querySelector("#back-public").addEventListener("click", () => window.location.reload());
+  document.querySelector("#login-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const authMessage = document.querySelector("#auth-message");
+    if (!isConfigured) {
+      authMessage.innerHTML = `Supabase is not configured. Create <strong>config.js</strong> from <strong>config.example.js</strong> with your project URL and anon key.`;
+      if (isLocalhost) authMessage.innerHTML += ` For layout review only, open <a href="?preview=1">localhost preview mode</a>.`;
+      return;
+    }
+
+    const email = document.querySelector("#email").value;
+    const password = document.querySelector("#password").value;
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    authMessage.textContent = error ? error.message : "Signed in.";
+    if (!error) await startAuthenticatedApp();
+  });
+}
+
 async function loadData() {
   const [{ data: caseRows }, { data: resourceRows }] = await Promise.all([
     supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     supabaseClient.from("resources").select("*").order("category")
   ]);
-
   cases = caseRows || [];
   resources = resourceRows || [];
   selectedCaseId = cases[0]?.id || null;
@@ -125,7 +164,6 @@ async function loadCaseChildren(caseId) {
     documents = [];
     return;
   }
-
   const [{ data: noteRows }, { data: documentRows }] = await Promise.all([
     supabaseClient.from("case_notes").select("*").eq("case_id", caseId).order("created_at", { ascending: false }),
     supabaseClient.from("case_documents").select("*").eq("case_id", caseId).order("created_at", { ascending: false })
@@ -147,9 +185,7 @@ function wirePortalEvents() {
     if (supabaseClient) await supabaseClient.auth.signOut();
     window.location.href = window.location.pathname;
   });
-  ["search", "contract-filter", "status-filter"].forEach((id) => {
-    document.querySelector(`#${id}`).addEventListener("input", renderAll);
-  });
+  ["search", "contract-filter", "status-filter"].forEach((id) => document.querySelector(`#${id}`).addEventListener("input", renderAll));
   document.querySelector("#new-case").addEventListener("click", clearCaseForm);
   document.querySelector("#save-case").addEventListener("click", saveCase);
   document.querySelector("#document-upload").addEventListener("change", uploadDocument);
@@ -168,9 +204,7 @@ function filteredCases() {
   const status = document.querySelector("#status-filter")?.value || "all";
   return cases.filter((item) => {
     const text = [item.member_name, item.member_contact, item.issue_type, item.status, item.summary, item.next_action].join(" ").toLowerCase();
-    return (!term || text.includes(term)) &&
-      (contract === "all" || item.contract === contract) &&
-      (status === "all" || item.status === status);
+    return (!term || text.includes(term)) && (contract === "all" || item.contract === contract) && (status === "all" || item.status === status);
   });
 }
 
@@ -195,28 +229,19 @@ function renderCases() {
     <button class="case-card ${item.id === selectedCaseId ? "active" : ""}" type="button" data-case-id="${item.id}">
       <h3>${escapeHtml(item.member_name)}</h3>
       <p>${escapeHtml(item.issue_type)} · ${escapeHtml(item.next_action || "No next action set")}</p>
-      <div class="meta-row">
-        <span class="pill">${escapeHtml(item.contract)}</span>
-        <span class="pill ${item.status === "Resolved" ? "ok" : ""}">${escapeHtml(item.status)}</span>
-        ${item.next_deadline ? `<span class="pill ${daysUntil(item.next_deadline) <= 7 ? "warn" : ""}">${escapeHtml(item.next_deadline)}</span>` : ""}
-      </div>
+      <div class="meta-row"><span class="pill">${escapeHtml(item.contract)}</span><span class="pill ${item.status === "Resolved" ? "ok" : ""}">${escapeHtml(item.status)}</span>${item.next_deadline ? `<span class="pill ${daysUntil(item.next_deadline) <= 7 ? "warn" : ""}">${escapeHtml(item.next_deadline)}</span>` : ""}</div>
     </button>
   `).join("");
-  list.querySelectorAll("[data-case-id]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      selectedCaseId = button.dataset.caseId;
-      await loadCaseChildren(selectedCaseId);
-      renderAll();
-    });
-  });
+  list.querySelectorAll("[data-case-id]").forEach((button) => button.addEventListener("click", async () => {
+    selectedCaseId = button.dataset.caseId;
+    await loadCaseChildren(selectedCaseId);
+    renderAll();
+  }));
 }
 
 function renderCaseForm() {
   const item = cases.find((row) => row.id === selectedCaseId);
-  if (!item) {
-    clearCaseForm();
-    return;
-  }
+  if (!item) return clearCaseForm();
   setValue("case-id", item.id);
   setValue("member-name", item.member_name);
   setValue("member-contact", item.member_contact);
@@ -238,38 +263,17 @@ function renderResources() {
     const text = [item.title, item.category, item.description].join(" ").toLowerCase();
     return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
   });
-  document.querySelector("#resource-list").innerHTML = rows.map((item) => `
-    <article class="resource-item">
-      <h3>${escapeHtml(item.title)}</h3>
-      <p>${escapeHtml(item.description || "")}</p>
-      <div class="meta-row">
-        <span class="pill">${escapeHtml(item.category)}</span>
-        <span class="pill">${escapeHtml(item.contract)}</span>
-      </div>
-    </article>
-  `).join("") || `<div class="empty">No resources match the current filters.</div>`;
+  document.querySelector("#resource-list").innerHTML = rows.map((item) => `<article class="resource-item"><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.description || "")}</p><div class="meta-row"><span class="pill">${escapeHtml(item.category)}</span><span class="pill">${escapeHtml(item.contract)}</span></div></article>`).join("") || `<div class="empty">No resources match the current filters.</div>`;
 }
 
 function renderDocuments() {
   const list = document.querySelector("#document-list");
-  list.innerHTML = documents.map((item) => `
-    <li>
-      <strong>${escapeHtml(item.file_name)}</strong>
-      <button class="secondary" type="button" data-doc-path="${escapeHtml(item.storage_path)}">Open</button>
-    </li>
-  `).join("") || `<li class="empty">No documents uploaded for this case.</li>`;
-  list.querySelectorAll("[data-doc-path]").forEach((button) => {
-    button.addEventListener("click", () => openDocument(button.dataset.docPath));
-  });
+  list.innerHTML = documents.map((item) => `<li><strong>${escapeHtml(item.file_name)}</strong><button class="secondary" type="button" data-doc-path="${escapeHtml(item.storage_path)}">Open</button></li>`).join("") || `<li class="empty">No documents uploaded for this case.</li>`;
+  list.querySelectorAll("[data-doc-path]").forEach((button) => button.addEventListener("click", () => openDocument(button.dataset.docPath)));
 }
 
 function renderActivity() {
-  document.querySelector("#activity-list").innerHTML = notes.map((item) => `
-    <li>
-      <strong>${new Date(item.created_at).toLocaleString()}</strong>
-      <p>${escapeHtml(item.body)}</p>
-    </li>
-  `).join("") || `<li class="empty">No activity yet.</li>`;
+  document.querySelector("#activity-list").innerHTML = notes.map((item) => `<li><strong>${new Date(item.created_at).toLocaleString()}</strong><p>${escapeHtml(item.body)}</p></li>`).join("") || `<li class="empty">No activity yet.</li>`;
 }
 
 function clearCaseForm() {
@@ -285,19 +289,8 @@ function clearCaseForm() {
 }
 
 async function saveCase() {
-  const payload = {
-    member_name: value("member-name"),
-    member_contact: value("member-contact"),
-    contract: value("case-contract"),
-    issue_type: value("issue-type"),
-    status: value("case-status"),
-    next_deadline: value("next-deadline") || null,
-    next_action: value("next-action"),
-    summary: value("summary"),
-    updated_by: currentUser.id
-  };
+  const payload = { member_name: value("member-name"), member_contact: value("member-contact"), contract: value("case-contract"), issue_type: value("issue-type"), status: value("case-status"), next_deadline: value("next-deadline") || null, next_action: value("next-action"), summary: value("summary"), updated_by: currentUser.id };
   const noteText = value("new-note");
-
   if (previewMode) {
     const id = value("case-id") || crypto.randomUUID();
     const existingIndex = cases.findIndex((item) => item.id === id);
@@ -309,20 +302,11 @@ async function saveCase() {
     renderAll();
     return;
   }
-
   const caseId = value("case-id");
-  let result;
-  if (caseId) {
-    result = await supabaseClient.from("cases").update(payload).eq("id", caseId).select().single();
-  } else {
-    result = await supabaseClient.from("cases").insert({ ...payload, created_by: currentUser.id }).select().single();
-  }
+  const result = caseId ? await supabaseClient.from("cases").update(payload).eq("id", caseId).select().single() : await supabaseClient.from("cases").insert({ ...payload, created_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
   selectedCaseId = result.data.id;
-
-  if (noteText) {
-    await supabaseClient.from("case_notes").insert({ case_id: selectedCaseId, body: noteText, created_by: currentUser.id });
-  }
+  if (noteText) await supabaseClient.from("case_notes").insert({ case_id: selectedCaseId, body: noteText, created_by: currentUser.id });
   await loadData();
   await loadCaseChildren(selectedCaseId);
   renderAll();
@@ -336,19 +320,10 @@ async function uploadDocument(event) {
     event.target.value = "";
     return;
   }
-
   const storagePath = `${selectedCaseId}/${Date.now()}-${file.name}`;
   const upload = await supabaseClient.storage.from(DOCUMENT_BUCKET).upload(storagePath, file);
   if (upload.error) return alert(upload.error.message);
-
-  const record = await supabaseClient.from("case_documents").insert({
-    case_id: selectedCaseId,
-    file_name: file.name,
-    storage_path: storagePath,
-    mime_type: file.type,
-    file_size: file.size,
-    uploaded_by: currentUser.id
-  });
+  const record = await supabaseClient.from("case_documents").insert({ case_id: selectedCaseId, file_name: file.name, storage_path: storagePath, mime_type: file.type, file_size: file.size, uploaded_by: currentUser.id });
   if (record.error) return alert(record.error.message);
   await loadCaseChildren(selectedCaseId);
   renderDocuments();
@@ -384,11 +359,5 @@ function daysUntil(dateText) {
 }
 
 function escapeHtml(text) {
-  return String(text || "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#039;"
-  }[char]));
+  return String(text || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char]));
 }
