@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Grievance Form | VIA Rail Local 4005 Moncton</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="public-board grievance-page" aria-labelledby="grievance-title">
+        <header class="public-header">
+          <div>
+            <div class="brand-row">
+              <span class="brand-mark small">4005</span>
+              <span>Moncton</span>
+            </div>
+            <h1 id="grievance-title">Grievance form</h1>
+            <p>Submit a grievance intake copy to a selected shop steward, regional representative, or custom email.</p>
+          </div>
+          <a class="header-link" href="index.html">Back to board</a>
+        </header>
+
+        <section class="grievance-layout">
+          <form id="grievance-form" class="grievance-form">
+            <section class="form-panel">
+              <div class="section-heading">
+                <h2>Member information</h2>
+                <span>Required</span>
+              </div>
+              <div class="form-row">
+                <label>
+                  Member name
+                  <input id="member-name" required>
+                </label>
+                <label>
+                  Employee number
+                  <input id="employee-number">
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Phone
+                  <input id="member-phone" type="tel">
+                </label>
+                <label>
+                  Email
+                  <input id="member-email" type="email" required>
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Work location
+                  <input id="work-location" value="Moncton VCC">
+                </label>
+                <label>
+                  Agreement
+                  <select id="agreement">
+                    <option>Contract 1</option>
+                    <option>Contract 2</option>
+                    <option>Shared / unsure</option>
+                  </select>
+                </label>
+              </div>
+            </section>
+
+            <section class="form-panel">
+              <div class="section-heading">
+                <h2>Issue details</h2>
+                <span>Attach evidence by email</span>
+              </div>
+              <div class="form-row">
+                <label>
+                  Issue type
+                  <select id="issue-type">
+                    <option>Grievance</option>
+                    <option>Discipline</option>
+                    <option>Claim</option>
+                    <option>Scheduling</option>
+                    <option>Payroll</option>
+                    <option>Accommodation</option>
+                    <option>Safety</option>
+                    <option>Other</option>
+                  </select>
+                </label>
+                <label>
+                  Date of incident
+                  <input id="incident-date" type="date">
+                </label>
+              </div>
+              <label>
+                What happened?
+                <textarea id="summary" rows="6" required></textarea>
+              </label>
+              <label>
+                Remedy requested
+                <textarea id="remedy" rows="4" placeholder="What result are you asking for?"></textarea>
+              </label>
+              <label>
+                Documents or witnesses
+                <textarea id="evidence" rows="4" placeholder="List documents, screenshots, names, dates, or other evidence."></textarea>
+              </label>
+            </section>
+
+            <section class="form-panel">
+              <div class="section-heading">
+                <h2>Send copy to</h2>
+                <span>Choose one</span>
+              </div>
+              <div class="recipient-options">
+                <label class="choice-card">
+                  <input name="recipient" type="radio" value="steward" checked>
+                  <span>Nicolas Hachey, Shop Steward, Contract 1, Moncton VCC</span>
+                </label>
+                <label class="choice-card">
+                  <input name="recipient" type="radio" value="regional">
+                  <span>Regional representative</span>
+                </label>
+                <label class="choice-card">
+                  <input name="recipient" type="radio" value="custom">
+                  <span>Custom email</span>
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Regional/custom email
+                  <input id="custom-email" type="email" placeholder="name@example.com">
+                </label>
+                <label>
+                  Copy me
+                  <select id="copy-member">
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                  </select>
+                </label>
+              </div>
+              <div class="button-row">
+                <button type="submit">Submit grievance copy</button>
+                <button id="download-copy" class="secondary" type="button">Download completed copy</button>
+                <button id="print-blank" class="secondary" type="button">Print blank form</button>
+              </div>
+              <p id="grievance-message" class="message" role="status"></p>
+            </section>
+          </form>
+
+          <aside class="form-panel grievance-help">
+            <h2>Before submitting</h2>
+            <p>This form is an intake copy for steward review. Keep original documents, screenshots, discipline letters, schedules, claims, and notes.</p>
+            <p>Exact timelines and filing requirements should be confirmed with a steward or regional representative.</p>
+            <h3>What gets sent</h3>
+            <p>The completed form details are sent as plain text. Attach supporting files in the email client if the automatic send fallback opens.</p>
+          </aside>
+        </section>
+      </section>
+    </main>
+    <script src="grievance.js"></script>
+  </body>
+</html>

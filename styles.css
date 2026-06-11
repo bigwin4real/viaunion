@@ -122,6 +122,7 @@ textarea {
 .public-layout > aside,
 .public-directory,
 .discounts-panel,
+.form-panel,
 .approval-panel,
 .qa-moderation,
 .meeting-board {
@@ -462,6 +463,61 @@ textarea {
   text-decoration: none;
   align-self: end;
   text-align: center;
+}
+
+.grievance-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  gap: 14px;
+  margin-top: 14px;
+  align-items: start;
+}
+
+.grievance-form {
+  display: grid;
+  gap: 14px;
+}
+
+.form-panel {
+  padding: 16px;
+}
+
+.recipient-options {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.choice-card {
+  display: flex;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  padding: 12px;
+}
+
+.choice-card input {
+  width: auto;
+  min-height: 0;
+}
+
+.grievance-help {
+  position: sticky;
+  top: 14px;
+}
+
+.grievance-help h2,
+.grievance-help h3 {
+  margin: 0 0 10px;
+}
+
+.grievance-help p {
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .public-extra {
@@ -889,8 +945,13 @@ textarea {
 
   .public-hero,
   .public-layout,
-  .directory-layout {
+  .directory-layout,
+  .grievance-layout {
     grid-template-columns: 1fr;
+  }
+
+  .grievance-help {
+    position: static;
   }
 
   .directory-layout > section:last-child {
@@ -985,7 +1046,7 @@ textarea {
   .public-directory,
   .discounts-panel,
   .public-extra > section,
-  .meeting-board {
+    .meeting-board {
     border-color: #cfd6de;
     border-radius: 4px;
     break-inside: avoid;
@@ -1093,7 +1154,8 @@ textarea {
 
   .public-layout,
   .public-extra,
-  .directory-layout {
+  .directory-layout,
+  .grievance-layout {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-top: 8px;
@@ -1120,6 +1182,7 @@ textarea {
   .resource-item,
   .contact-card,
   .discount-card,
+  .form-panel,
   .qa-card,
   .answer-box {
     padding: 8px;

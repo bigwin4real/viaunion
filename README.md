@@ -78,6 +78,17 @@ Private steward/admin tools include:
 - internal file storage
 - steward-only locked Excel grievance tracker area
 
+## Grievance form email
+
+`grievance.html` works without server email by downloading a completed copy and opening the member's email client. To enable direct server-side email through Cloudflare Pages Functions, add these environment variables:
+
+```text
+RESEND_API_KEY=your_resend_api_key
+GRIEVANCE_FROM_EMAIL=verified-sender@your-domain.ca
+```
+
+The form can send a copy to the selected shop steward, a regional representative email entered by the member, or a custom email.
+
 Public agreement links are sourced from Unifor National Council 4000:
 
 - VIA Rail Agreement No. 1 and No. 2: https://www.unifor4000.com/collective-agreements

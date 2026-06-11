@@ -129,7 +129,7 @@ const publicResources = [
   { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety and Health Agreement.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "Council 4000 bylaws", category: "Bylaws", contract: "Shared", description: "Council 4000 bylaws and constitution resources.", url: "https://www.unifor4000.com/bylaws-constitution" },
-  { title: "Grievance forms", category: "Grievance", contract: "Shared", description: "Council 4000 grievance forms, including Local 4005.", url: "https://www.unifor4000.com/grievance-forms" },
+  { title: "Grievance form", category: "Grievance", contract: "Shared", description: "Download or submit a grievance intake copy to a selected steward, regional representative, or custom email.", url: "grievance.html" },
   { title: "Employee discounts", category: "Discounts", contract: "Shared", description: "Discount guide details copied onto this site for all employees.", url: "discounts.html" },
   { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and general agenda information." },
   { title: "New member guide", category: "Guide", contract: "Shared", description: "Plain-language starting point for Local 4005 members." },
