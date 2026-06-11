@@ -433,12 +433,15 @@ textarea {
 
 .discount-card {
   display: grid;
-  grid-template-rows: auto auto 1fr;
   gap: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
   padding: 16px;
+}
+
+.discount-card.detailed {
+  grid-template-rows: auto 1fr auto;
 }
 
 .discount-card h3 {
@@ -449,6 +452,17 @@ textarea {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.discount-card ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.discount-card li + li {
+  margin-top: 6px;
 }
 
 .discount-card a {
