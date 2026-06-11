@@ -152,11 +152,10 @@ const publicResources = [
 ];
 
 const publicKnowledge = [
-  { title: "VIA Rail Agreement No. 1", category: "Agreements", text: "Council 4000 lists VIA Rail Agreement No. 1 - National as 2025-2027 on its Collective Agreements page." },
-  { title: "VIA Rail Agreement No. 2", category: "Agreements", text: "Council 4000 lists VIA Rail Agreement No. 2 - National as 2025-2027 on its Collective Agreements page." },
-  { title: "Bylaws", category: "Bylaws", text: "Council 4000 bylaws and the Unifor Constitution are public resources linked from the Council 4000 bylaws page." },
-  { title: "Discounts", category: "Discounts", text: "Union Savings is linked from Council 4000 resources as the member discount platform." },
-  { title: "Q&A board", category: "Questions", text: "Members can submit public questions. Answers should be reviewed before being treated as official guidance." }
+  { title: "VIA Rail Agreement No. 1", category: "Agreement No. 1", text: "Council 4000 lists VIA Rail Agreement No. 1 - National as 2025-2027 on its Collective Agreements page." },
+  { title: "VIA Rail Agreement No. 2", category: "Agreement No. 2", text: "Council 4000 lists VIA Rail Agreement No. 2 - National as 2025-2027 on its Collective Agreements page." },
+  { title: "Supplemental agreements", category: "Supplementals", text: "Council 4000 links supplemental agreements for Agreement No. 1 and Agreement No. 2 on its Collective Agreements page." },
+  { title: "Safety and Health Agreement", category: "Safety", text: "Council 4000 links the VIA Rail Safety and Health Agreement on its Collective Agreements page." }
 ];
 
 const sampleQuestions = [
@@ -334,7 +333,7 @@ async function answerPublicQuestion() {
   const question = value("assistant-question").toLowerCase();
   const answerBox = document.querySelector("#assistant-answer");
   if (!question) {
-    answerBox.textContent = "Type a question to search public agreement notes and resources.";
+    answerBox.textContent = "Type a question about Agreement No. 1, Agreement No. 2, supplementals, or the Safety and Health Agreement.";
     return;
   }
   answerBox.textContent = "Checking agreement assistant...";
@@ -361,7 +360,7 @@ async function answerPublicQuestion() {
   });
   answerBox.innerHTML = matches.length
     ? matches.map((item) => `<p><strong>${escapeHtml(item.title)}:</strong> ${escapeHtml(item.text)}</p>`).join("")
-    : `<p>No matching public note yet. Submit it to the Q&A board for review.</p>`;
+    : `<p>No matching agreement note yet. Check the linked Council 4000 agreements and contact a steward for interpretation.</p>`;
 }
 
 async function submitPublicQuestion(event) {
