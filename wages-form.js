@@ -53,12 +53,30 @@ for (const day of DAYS) {
     row.className = 'day-row';
     row.innerHTML = `
         <div class="day-label">${day.label}</div>
-        <input type="date" name="${day.key}Date" aria-label="${day.label} date">
-        <input type="time" name="${day.key}From" aria-label="${day.label} from">
-        <input type="time" name="${day.key}To" aria-label="${day.label} to">
-        <input type="number" step="0.25" min="0" name="${day.key}Straight" aria-label="${day.label} straight time hours" placeholder="0.0">
-        <input type="number" step="0.25" min="0" name="${day.key}Overtime" aria-label="${day.label} overtime hours" placeholder="0.0">
-        <textarea name="${day.key}Reason" aria-label="${day.label} reason for claim" placeholder="Reason for claim"></textarea>
+        <label class="day-field">
+            <span>Date</span>
+            <input type="date" name="${day.key}Date" aria-label="${day.label} date">
+        </label>
+        <label class="day-field">
+            <span>From</span>
+            <input type="time" name="${day.key}From" aria-label="${day.label} from">
+        </label>
+        <label class="day-field">
+            <span>To</span>
+            <input type="time" name="${day.key}To" aria-label="${day.label} to">
+        </label>
+        <label class="day-field">
+            <span>Straight</span>
+            <input type="number" step="0.25" min="0" name="${day.key}Straight" aria-label="${day.label} straight time hours" placeholder="0.0">
+        </label>
+        <label class="day-field">
+            <span>Overtime</span>
+            <input type="number" step="0.25" min="0" name="${day.key}Overtime" aria-label="${day.label} overtime hours" placeholder="0.0">
+        </label>
+        <label class="day-field reason-field">
+            <span>Reason for claim</span>
+            <textarea name="${day.key}Reason" aria-label="${day.label} reason for claim" placeholder="Reason for claim"></textarea>
+        </label>
     `;
     dayGrid.appendChild(row);
 }

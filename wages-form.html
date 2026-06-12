@@ -193,7 +193,7 @@
         /* Weekly grid */
         .day-grid {
             display: grid;
-            grid-template-columns: 110px 110px 110px 90px 90px 1fr;
+            grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.9fr minmax(180px, 1.8fr);
             gap: 0.5rem;
             align-items: end;
         }
@@ -205,10 +205,10 @@
         }
         .day-row {
             display: grid;
-            grid-template-columns: 110px 110px 110px 90px 90px 1fr;
+            grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.9fr minmax(180px, 1.8fr);
             gap: 0.5rem;
             margin-bottom: 0.5rem;
-            align-items: center;
+            align-items: start;
         }
         .day-row .day-label {
             font-weight: 600;
@@ -217,8 +217,19 @@
             margin-top: 0.75rem;
             margin-bottom: 0.25rem;
         }
-        .day-row input,
-        .day-row textarea {
+        .day-field {
+            display: grid;
+            gap: 0.25rem;
+        }
+        .day-field span {
+            display: none;
+            color: #555;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .day-field input,
+        .day-field textarea {
             padding: 0.5rem;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -226,19 +237,51 @@
             font-family: inherit;
             width: 100%;
         }
-        .day-row textarea {
+        .day-field textarea {
             min-height: 38px;
             resize: vertical;
         }
         @media (max-width: 800px) {
-            .day-grid, .day-row {
-                grid-template-columns: 1fr 1fr;
+            .wages-form-container {
+                width: min(100% - 16px, 1000px);
+                margin: 8px auto;
+                padding: 14px;
             }
-            .day-grid-header {
+            .form-row,
+            .form-row.three {
+                grid-template-columns: 1fr;
+                gap: 0.9rem;
+            }
+            .day-grid {
                 display: none;
+            }
+            .day-row {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.75rem;
+                border: 1px solid #d7dde6;
+                border-radius: 8px;
+                background: #fff;
+                padding: 12px;
+                margin-bottom: 12px;
             }
             .day-row .day-label {
                 grid-column: 1 / -1;
+                margin: 0;
+                padding-bottom: 4px;
+                border-bottom: 1px solid #e7ebf0;
+                font-size: 1rem;
+            }
+            .day-field span {
+                display: block;
+            }
+            .reason-field {
+                grid-column: 1 / -1;
+            }
+            .button-group {
+                justify-content: stretch;
+            }
+            .button-group button {
+                flex: 1 1 100%;
             }
         }
     </style>
