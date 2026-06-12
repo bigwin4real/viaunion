@@ -101,8 +101,8 @@ async function request(path, options = {}) {
   });
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
-  if (!response.ok && !data.error) {
-    data.error = { message: data.message || text || response.statusText };
+  if (!response.ok) {
+    throw new Error(data.message || data.error?.message || text || response.statusText);
   }
   return data;
 }
