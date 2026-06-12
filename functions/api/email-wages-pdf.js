@@ -11,12 +11,7 @@
  *    wrangler secret put GRIEVANCE_FROM_EMAIL
  */
 
-export default {
-    async fetch(request, env) {
-        if (request.method !== 'POST') {
-            return new Response('Method not allowed', { status: 405 });
-        }
-
+export async function onRequestPost({ request, env }) {
         if (!env.RESEND_API_KEY || !env.GRIEVANCE_FROM_EMAIL) {
             return new Response(
                 JSON.stringify({ 
@@ -32,7 +27,7 @@ export default {
 
         try {
             const body = await request.json();
-            const { email, memberName, memberNumber } = body;
+            const { email, memberName } = body;
 
             if (!email || !memberName) {
                 return new Response(
@@ -51,7 +46,7 @@ export default {
                     from: env.GRIEVANCE_FROM_EMAIL,
                     to: email,
                     subject: `Wages Lost Time and Expense Claim - Submitted`,
-                    html: generateEmailHTML(memberName, memberNumber),
+                    html: generateEmailHTML(memberName),
                     reply_to: env.GRIEVANCE_FROM_EMAIL
                 })
             });
@@ -92,10 +87,9 @@ export default {
                 }
             );
         }
-    }
-};
+}
 
-function generateEmailHTML(memberName, memberNumber) {
+function generateEmailHTML(memberName) {
     const currentDate = new Date().toLocaleDateString();
     
     return `
@@ -127,11 +121,6 @@ function generateEmailHTML(memberName, memberNumber) {
             <div class="field">
                 <span class="field-label">Member Name:</span><br>
                 ${escapeHtml(memberName)}
-            </div>
-            
-            <div class="field">
-                <span class="field-label">Member Number:</span><br>
-                ${escapeHtml(memberNumber)}
             </div>
             
             <div class="field">

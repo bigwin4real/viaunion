@@ -40,6 +40,7 @@ const sampleCases = [
 
 const sampleResources = [
   { id: "r1", title: "Collective Agreements", category: "Agreements", contract: "Shared", description: "Protected links to Contract 1 and Contract 2 reference copies.", url: "#" },
+  { id: "r-wages", title: "Lost time / expense form", category: "Forms", contract: "Shared", description: "Steward/admin form for Unifor wages, lost time, and expense claims.", url: "wages-form.html" },
   { id: "r2", title: "Grievance Template", category: "Templates", contract: "Shared", description: "Standard form language and filing checklist for shop stewards.", url: "#" },
   { id: "r3", title: "Claims and Payroll Guide", category: "Guides", contract: "Contract 2", description: "Common claim paths, supporting evidence, and follow-up notes.", url: "#" },
   { id: "r4", title: "Moncton Steward Contacts", category: "Contacts", contract: "Shared", description: "Internal contacts placeholder for authorized users only.", url: "#" },
@@ -213,6 +214,7 @@ function wirePublicBoard() {
   renderPublicDirectory();
   loadPublicAccountDirectory();
   loadOfficialContacts();
+  loadPublicQuestions();
   renderDiscounts();
   document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
   document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
@@ -420,6 +422,25 @@ async function answerPublicQuestion() {
     : `<p>No matching agreement note yet. Check the linked Council 4000 agreements and contact a steward for interpretation.</p>`;
 }
 
+async function loadPublicQuestions() {
+  if (!isConfigured) {
+    renderQABoard();
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from("public_questions")
+      .select("*")
+      .eq("status", "answered")
+      .order("answered_at", { ascending: false });
+    if (error) return;
+    publicQuestions = data || [];
+  } catch (error) {
+    // Network or Supabase error: leave sample/local questions in place.
+  }
+  renderQABoard();
+}
+
 async function submitPublicQuestion(event) {
   event.preventDefault();
   const message = document.querySelector("#question-message");
@@ -433,9 +454,9 @@ async function submitPublicQuestion(event) {
       message.textContent = error.message;
       return;
     }
-    message.textContent = "Question submitted for review.";
+    message.textContent = "Thanks — your question was submitted. Once a steward answers it, it will appear on this board for everyone.";
   } else {
-    publicQuestions.unshift({ id: crypto.randomUUID(), name, question, answer: "Pending review.", created_at: new Date().toISOString() });
+    publicQuestions.unshift({ id: crypto.randomUUID(), name, question, answer: "Pending review.", status: "pending", created_at: new Date().toISOString() });
     message.textContent = "Question added locally for preview.";
     renderQABoard();
   }
@@ -445,15 +466,17 @@ async function submitPublicQuestion(event) {
 function renderQABoard() {
   const list = document.querySelector("#qa-list");
   if (!list) return;
-  list.innerHTML = publicQuestions.map((item) => `
-    <article class="qa-card">
-      <h3>${escapeHtml(item.question)}</h3>
-      <p>${escapeHtml(item.answer || "Pending review.")}</p>
-      <div class="meta-row">
-        <span class="pill">${escapeHtml(item.name || "Anonymous")}</span>
-      </div>
-    </article>
-  `).join("");
+  list.innerHTML = publicQuestions.length
+    ? publicQuestions.map((item) => `
+        <article class="qa-card">
+          <h3>${escapeHtml(item.question)}</h3>
+          <p>${escapeHtml(item.answer || "Pending review.")}</p>
+          <div class="meta-row">
+            <span class="pill">${escapeHtml(item.name || "Anonymous")}</span>
+          </div>
+        </article>
+      `).join("")
+    : `<div class="empty">No answered questions yet. Ask one above — once a steward answers, it will be posted here for everyone.</div>`;
 }
 
 function renderAuth() {
@@ -547,6 +570,16 @@ async function loadData() {
 
   cases = caseRows || [];
   resources = resourceRows || [];
+  if (!resources.some((item) => item.url === "wages-form.html")) {
+    resources.unshift({
+      id: "builtin-wages-form",
+      title: "Lost time / expense form",
+      category: "Forms",
+      contract: "Shared",
+      description: "Steward/admin form for Unifor wages, lost time, and expense claims.",
+      url: "wages-form.html"
+    });
+  }
   pendingProfiles = pendingRows || [];
   internalFiles = internalRows || [];
   publicQuestions = questionRows || [];
@@ -843,6 +876,7 @@ function renderResources() {
         <span class="pill">${escapeHtml(item.category)}</span>
         <span class="pill">${escapeHtml(item.contract)}</span>
       </div>
+      ${item.url ? `<a href="${escapeHtml(item.url)}" ${item.url.startsWith("http") ? `target="_blank" rel="noopener"` : ""}>Open</a>` : ""}
     </article>
   `).join("") || `<div class="empty">No resources match the current filters.</div>`;
 }

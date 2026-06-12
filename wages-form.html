@@ -5,9 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wages Lost Time and Expense Claim Form</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
     <style>
+        body.locked main {
+            display: none;
+        }
+        .access-lock {
+            display: none;
+            max-width: 560px;
+            margin: 3rem auto;
+            padding: 2rem;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        body.locked .access-lock {
+            display: block;
+        }
+        .access-lock a {
+            display: inline-grid;
+            place-items: center;
+            min-height: 40px;
+            padding: 0 14px;
+            border-radius: 6px;
+            background: #003366;
+            color: white;
+            font-weight: 700;
+            text-decoration: none;
+        }
         .wages-form-container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 2rem auto;
             padding: 2rem;
             background: white;
@@ -37,6 +66,9 @@
         .form-row.full {
             grid-template-columns: 1fr;
         }
+        .form-row.three {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
         .form-group {
             display: flex;
             flex-direction: column;
@@ -65,7 +97,7 @@
         }
         .form-group textarea {
             resize: vertical;
-            min-height: 80px;
+            min-height: 60px;
         }
         .signature-box {
             border: 2px solid #333;
@@ -157,115 +189,147 @@
             color: #666;
             margin-top: 0.25rem;
         }
+
+        /* Weekly grid */
+        .day-grid {
+            display: grid;
+            grid-template-columns: 110px 110px 110px 90px 90px 1fr;
+            gap: 0.5rem;
+            align-items: end;
+        }
+        .day-grid-header {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+        }
+        .day-row {
+            display: grid;
+            grid-template-columns: 110px 110px 110px 90px 90px 1fr;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            align-items: center;
+        }
+        .day-row .day-label {
+            font-weight: 600;
+            color: #003366;
+            grid-column: 1 / -1;
+            margin-top: 0.75rem;
+            margin-bottom: 0.25rem;
+        }
+        .day-row input,
+        .day-row textarea {
+            padding: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            width: 100%;
+        }
+        .day-row textarea {
+            min-height: 38px;
+            resize: vertical;
+        }
+        @media (max-width: 800px) {
+            .day-grid, .day-row {
+                grid-template-columns: 1fr 1fr;
+            }
+            .day-grid-header {
+                display: none;
+            }
+            .day-row .day-label {
+                grid-column: 1 / -1;
+            }
+        }
     </style>
 </head>
-<body>
+<body class="locked">
+    <section class="access-lock" aria-labelledby="access-lock-title">
+        <h1 id="access-lock-title">Steward/Admin access required</h1>
+        <p>This lost time and expense claim form is only available to approved stewards and admins.</p>
+        <a href="index.html">Go to sign in</a>
+    </section>
     <main class="wages-form-container">
         <header>
             <h1>Wages Lost Time and Expense Claim Form</h1>
             <p style="color: #666; margin-top: 0.5rem;">
-                Unifor — Official Fillable Form
+                Unifor — Official Bilingual Fillable Form
             </p>
         </header>
 
         <form id="wagesForm">
-            <!-- Member Information -->
+            <!-- Member / Header Information -->
             <section class="form-section">
                 <h3>Member Information</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="memberName" class="required">Full Name</label>
+                        <label for="memberName" class="required">Name (Nom)</label>
                         <input type="text" id="memberName" name="memberName" required>
                     </div>
                     <div class="form-group">
-                        <label for="memberNumber" class="required">Member Number</label>
-                        <input type="text" id="memberNumber" name="memberNumber" required>
+                        <label for="payrollPeriodEnding">Payroll Period Ending</label>
+                        <input type="date" id="payrollPeriodEnding" name="payrollPeriodEnding">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="dateOfBirth">Date of Birth</label>
-                        <input type="date" id="dateOfBirth" name="dateOfBirth">
+                        <label for="address1">Address (Adresse)</label>
+                        <input type="text" id="address1" name="address1">
                     </div>
                     <div class="form-group">
-                        <label for="department">Department / Division</label>
-                        <input type="text" id="department" name="department">
+                        <label for="address2">Address line 2 / City</label>
+                        <input type="text" id="address2" name="address2">
                     </div>
                 </div>
-                <div class="form-row">
+                <div class="form-row three">
                     <div class="form-group">
-                        <label for="email" class="required">Email Address</label>
-                        <input type="email" id="email" name="email" required>
+                        <label for="postalCode">Postal Code (Code postal)</label>
+                        <input type="text" id="postalCode" name="postalCode">
                     </div>
                     <div class="form-group">
-                        <label for="phone">Phone Number</label>
-                        <input type="tel" id="phone" name="phone">
+                        <label for="workplace">Workplace</label>
+                        <input type="text" id="workplace" name="workplace">
+                    </div>
+                    <div class="form-group">
+                        <label for="classification">Classification</label>
+                        <input type="text" id="classification" name="classification">
+                    </div>
+                </div>
+                <div class="form-row three">
+                    <div class="form-group">
+                        <label for="sin">SIN (NAS)</label>
+                        <input type="text" id="sin" name="sin" placeholder="XXX-XXX-XXX">
+                    </div>
+                    <div class="form-group">
+                        <label for="unit">Unit (Unité)</label>
+                        <input type="text" id="unit" name="unit">
+                    </div>
+                    <div class="form-group">
+                        <label for="localUnion">Local Union (Syndicat local)</label>
+                        <input type="text" id="localUnion" name="localUnion" value="4005">
                     </div>
                 </div>
             </section>
 
-            <!-- Claim Details -->
+            <!-- Weekly Time / Claim Grid -->
             <section class="form-section">
-                <h3>Claim Details</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="claimStartDate" class="required">Claim Period Start</label>
-                        <input type="date" id="claimStartDate" name="claimStartDate" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="claimEndDate" class="required">Claim Period End</label>
-                        <input type="date" id="claimEndDate" name="claimEndDate" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="claimType" class="required">Type of Claim</label>
-                        <select id="claimType" name="claimType" required>
-                            <option value="">Select claim type</option>
-                            <option value="Wages Lost">Wages Lost</option>
-                            <option value="Lost Time">Lost Time</option>
-                            <option value="Expenses">Expenses</option>
-                            <option value="Combined">Combined</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="totalAmount" class="required">Total Amount Claimed</label>
-                        <input type="number" id="totalAmount" name="totalAmount" step="0.01" min="0" required>
-                        <div class="helper-text">Enter amount in dollars (e.g., 125.50)</div>
-                    </div>
-                </div>
-                <div class="form-row full">
-                    <div class="form-group">
-                        <label for="claimDescription" class="required">Description of Claim</label>
-                        <textarea id="claimDescription" name="claimDescription" required placeholder="Provide details about the wages lost, time lost, or expenses being claimed."></textarea>
-                    </div>
-                </div>
-            </section>
+                <h3>Weekly Claim Details</h3>
+                <p class="helper-text">
+                    For each day you are claiming, enter the date, time period, and the
+                    straight time and/or overtime hours, plus the reason for the claim.
+                    General terms such as "union business" are not sufficient — give full details.
+                </p>
 
-            <!-- Supporting Documentation -->
-            <section class="form-section">
-                <h3>Supporting Documentation</h3>
-                <div class="form-row full">
-                    <div class="form-group">
-                        <label for="documentation">Documentation Provided</label>
-                        <textarea id="documentation" name="documentation" placeholder="List any supporting documents attached (e.g., pay stubs, receipts, correspondence)."></textarea>
-                    </div>
+                <div class="day-grid day-grid-header">
+                    <div>Date</div>
+                    <div>From</div>
+                    <div>To</div>
+                    <div>Straight Time (hrs)</div>
+                    <div>Overtime (hrs)</div>
+                    <div>Reason for Claim</div>
                 </div>
-            </section>
 
-            <!-- Union Steward / Representative -->
-            <section class="form-section">
-                <h3>Union Steward / Representative Information</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="stewardName">Steward Name</label>
-                        <input type="text" id="stewardName" name="stewardName">
-                    </div>
-                    <div class="form-group">
-                        <label for="stewardContact">Steward Contact</label>
-                        <input type="tel" id="stewardContact" name="stewardContact">
-                    </div>
-                </div>
+                <div id="dayGrid"></div>
             </section>
 
             <!-- Signature & Authorization -->
@@ -286,12 +350,16 @@
                         <label for="signatureDate" class="required">Date</label>
                         <input type="date" id="signatureDate" name="signatureDate" required>
                     </div>
+                    <div class="form-group">
+                        <label for="email">Email (for sending you a copy)</label>
+                        <input type="email" id="email" name="email">
+                    </div>
                 </div>
                 <div class="form-row full" style="margin-top: 1rem;">
                     <div class="form-group">
                         <label for="authorization">
                             <input type="checkbox" id="authorization" name="authorization" required>
-                            I certify that the information provided is accurate and complete. I authorize Unifor to process this claim.
+                            I certify that the information provided is accurate and complete.
                         </label>
                     </div>
                 </div>

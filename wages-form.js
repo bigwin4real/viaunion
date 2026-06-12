@@ -1,11 +1,74 @@
+const portalConfig = window.STEWARD_PORTAL_CONFIG || {};
+const portalSupabaseUrl = portalConfig.supabaseUrl || "YOUR_SUPABASE_URL";
+const portalSupabaseKey = portalConfig.supabaseAnonKey || "YOUR_SUPABASE_ANON_KEY";
+const portalIsConfigured = portalSupabaseUrl.startsWith("https://") && portalSupabaseKey.length > 30;
+const portalIsLocalPreview = ["localhost", "127.0.0.1", ""].includes(window.location.hostname) && new URLSearchParams(window.location.search).get("preview") === "1";
+
+initWagesForm();
+
+async function initWagesForm() {
+    const allowed = await canAccessWagesForm();
+    if (!allowed) return;
+    document.body.classList.remove("locked");
+    setupWagesForm();
+}
+
+async function canAccessWagesForm() {
+    if (portalIsLocalPreview) return true;
+    if (!portalIsConfigured || !window.supabase) return false;
+
+    const client = window.supabase.createClient(portalSupabaseUrl, portalSupabaseKey);
+    const { data: userData } = await client.auth.getUser();
+    const user = userData?.user;
+    if (!user) return false;
+
+    const { data: profile, error } = await client
+        .from("profiles")
+        .select("role, active")
+        .eq("id", user.id)
+        .single();
+
+    if (error || !profile?.active) return false;
+    return ["admin", "steward"].includes(profile.role);
+}
+
+function setupWagesForm() {
+// Days of the week, matching functions/api/pdf-mapper.js
+const DAYS = [
+    { key: 'mon', label: 'Monday' },
+    { key: 'tue', label: 'Tuesday' },
+    { key: 'wed', label: 'Wednesday' },
+    { key: 'thu', label: 'Thursday' },
+    { key: 'fri', label: 'Friday' },
+    { key: 'sat', label: 'Saturday' },
+    { key: 'sun', label: 'Sunday' }
+];
+
+// Build the weekly grid rows
+const dayGrid = document.getElementById('dayGrid');
+for (const day of DAYS) {
+    const row = document.createElement('div');
+    row.className = 'day-row';
+    row.innerHTML = `
+        <div class="day-label">${day.label}</div>
+        <input type="date" name="${day.key}Date" aria-label="${day.label} date">
+        <input type="time" name="${day.key}From" aria-label="${day.label} from">
+        <input type="time" name="${day.key}To" aria-label="${day.label} to">
+        <input type="number" step="0.25" min="0" name="${day.key}Straight" aria-label="${day.label} straight time hours" placeholder="0.0">
+        <input type="number" step="0.25" min="0" name="${day.key}Overtime" aria-label="${day.label} overtime hours" placeholder="0.0">
+        <textarea name="${day.key}Reason" aria-label="${day.label} reason for claim" placeholder="Reason for claim"></textarea>
+    `;
+    dayGrid.appendChild(row);
+}
+
 // Signature Canvas Setup
 const canvas = document.getElementById('signatureCanvas');
 const ctx = canvas.getContext('2d');
 let isDrawing = false;
 let lastX = 0;
 let lastY = 0;
+let hasSignature = false;
 
-// Set canvas size
 function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * window.devicePixelRatio;
@@ -20,7 +83,6 @@ function resizeCanvas() {
 resizeCanvas();
 window.addEventListener('resize', resizeCanvas);
 
-// Signature drawing functions
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     lastX = e.clientX - rect.left;
@@ -30,18 +92,19 @@ canvas.addEventListener('mousedown', (e) => {
 
 canvas.addEventListener('mousemove', (e) => {
     if (!isDrawing) return;
-    
+
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    
+
     ctx.beginPath();
     ctx.moveTo(lastX, lastY);
     ctx.lineTo(x, y);
     ctx.stroke();
-    
+
     lastX = x;
     lastY = y;
+    hasSignature = true;
 });
 
 canvas.addEventListener('mouseup', () => {
@@ -52,7 +115,6 @@ canvas.addEventListener('mouseleave', () => {
     isDrawing = false;
 });
 
-// Touch support for mobile
 canvas.addEventListener('touchstart', (e) => {
     const touch = e.touches[0];
     const rect = canvas.getBoundingClientRect();
@@ -64,19 +126,20 @@ canvas.addEventListener('touchstart', (e) => {
 
 canvas.addEventListener('touchmove', (e) => {
     if (!isDrawing) return;
-    
+
     const touch = e.touches[0];
     const rect = canvas.getBoundingClientRect();
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
-    
+
     ctx.beginPath();
     ctx.moveTo(lastX, lastY);
     ctx.lineTo(x, y);
     ctx.stroke();
-    
+
     lastX = x;
     lastY = y;
+    hasSignature = true;
     e.preventDefault();
 });
 
@@ -84,10 +147,10 @@ canvas.addEventListener('touchend', () => {
     isDrawing = false;
 });
 
-// Clear signature
 document.getElementById('clearSignature').addEventListener('click', (e) => {
     e.preventDefault();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasSignature = false;
 });
 
 // Form handling
@@ -107,6 +170,7 @@ function showMessage(text, type = 'info') {
 function resetForm() {
     form.reset();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasSignature = false;
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('signatureDate').value = today;
 }
@@ -121,36 +185,31 @@ document.getElementById('signatureDate').valueAsDate = new Date();
 
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    // Validation
-    if (!canvas.toDataURL().includes('image')) {
+
+    if (!hasSignature) {
         showMessage('Please provide a signature', 'error');
         return;
     }
-    
+
     try {
         document.getElementById('submitForm').disabled = true;
-        showMessage('Processing your claim form...', 'info');
-        
-        // Collect form data
+        showMessage('Generating your claim form PDF...', 'info');
+
         const formData = new FormData(form);
-        
-        // Get signature as data URL
+
         const signatureData = canvas.toDataURL('image/png');
         formData.append('signature', signatureData);
-        
-        // Send to worker for PDF generation
+
         const response = await fetch('/api/generate-wages-pdf', {
             method: 'POST',
             body: formData
         });
-        
+
         if (!response.ok) {
             const error = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(error.message || 'Failed to generate PDF');
+            throw new Error(error.error || error.message || 'Failed to generate PDF');
         }
-        
-        // Download the PDF
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -160,16 +219,18 @@ form.addEventListener('submit', async (e) => {
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
-        
+
         showMessage('PDF generated and downloaded successfully!', 'success');
-        
-        // Optional: Show option to email
-        setTimeout(() => {
-            if (confirm('Would you like to email this completed form?')) {
-                showEmailOption(formData);
-            }
-        }, 500);
-        
+
+        const email = document.getElementById('email').value;
+        if (email) {
+            setTimeout(() => {
+                if (confirm(`Would you like to email a copy of this submission confirmation to ${email}?`)) {
+                    sendConfirmationEmail(email);
+                }
+            }, 500);
+        }
+
     } catch (error) {
         console.error('Form submission error:', error);
         showMessage(`Error: ${error.message}`, 'error');
@@ -178,15 +239,10 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
-async function showEmailOption(formData) {
-    const email = document.getElementById('email').value;
-    const proceed = confirm(`Send completed form to ${email}?`);
-    
-    if (!proceed) return;
-    
+async function sendConfirmationEmail(email) {
     try {
-        showMessage('Sending email...', 'info');
-        
+        showMessage('Sending confirmation email...', 'info');
+
         const response = await fetch('/api/email-wages-pdf', {
             method: 'POST',
             headers: {
@@ -194,18 +250,20 @@ async function showEmailOption(formData) {
             },
             body: JSON.stringify({
                 email: email,
-                memberName: document.getElementById('memberName').value,
-                memberNumber: document.getElementById('memberNumber').value
+                memberName: document.getElementById('memberName').value
             })
         });
-        
+
+        const result = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-            throw new Error('Failed to send email');
+            throw new Error(result.error || 'Failed to send email');
         }
-        
-        showMessage('Email sent successfully!', 'success');
+
+        showMessage(result.message || 'Email sent successfully!', 'success');
     } catch (error) {
         console.error('Email error:', error);
         showMessage(`Email error: ${error.message}`, 'error');
     }
+}
 }

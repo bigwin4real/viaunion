@@ -5,16 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 4005",
-    "build": "npm run build:workers",
-    "build:workers": "esbuild functions/*.js --bundle --format=esm --outdir=functions/dist",
+    "build": "echo \"No build step required for Cloudflare Pages\"",
     "deploy": "wrangler pages deploy . --project-name viarail4005moncton"
   },
   "dependencies": {
-    "pdf-lib": "^1.17.1",
-    "form-data": "^4.0.0",
-    "node-fetch": "^3.3.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.20.0"
+    "pdf-lib": "^1.17.1"
   }
 }
