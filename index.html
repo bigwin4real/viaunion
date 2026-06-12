@@ -189,6 +189,22 @@
             <input id="register-email" type="email" autocomplete="email" required>
           </label>
           <label>
+            Phone
+            <input id="register-phone" type="tel" autocomplete="tel" placeholder="Optional">
+          </label>
+          <fieldset class="share-options">
+            <legend>Public directory sharing</legend>
+            <label class="checkbox-row">
+              <input id="register-share-email" type="checkbox">
+              Show my email publicly if approved
+            </label>
+            <label class="checkbox-row">
+              <input id="register-share-phone" type="checkbox">
+              Show my phone publicly if approved
+            </label>
+            <p class="helper-text">Leave both unchecked if you only want members to contact you through Local 4005.</p>
+          </fieldset>
+          <label>
             Requested access
             <select id="register-role">
               <option value="steward">Steward</option>

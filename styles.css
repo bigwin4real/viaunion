@@ -771,6 +771,32 @@ textarea {
   margin-top: 22px;
 }
 
+.share-options {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+.share-options legend {
+  padding: 0 6px;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.checkbox-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-weight: 700;
+}
+
+.checkbox-row input {
+  width: auto;
+  margin-top: 3px;
+}
+
 .button-row {
   display: flex;
   gap: 10px;

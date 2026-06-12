@@ -20,6 +20,7 @@ const headers = {
 
 const { user, created } = await createOrFindUser();
 await patchProfile(user.id);
+await upsertDirectoryEntry(user.id);
 if (SUPABASE_ANON_KEY) await sendPasswordResetEmail();
 
 console.log(`Created/updated admin account for ${FULL_NAME} <${EMAIL}>`);
@@ -37,7 +38,9 @@ async function createOrFindUser() {
       user_metadata: {
         full_name: FULL_NAME,
         requested_role: "admin",
-        request_note: "Initial Local 4005 admin account"
+        request_note: "Initial Local 4005 admin account",
+        share_email: false,
+        share_phone: false
       }
     })
   });
@@ -71,10 +74,30 @@ async function patchProfile(userId) {
       id: userId,
       email: EMAIL,
       full_name: FULL_NAME,
+      share_email: false,
+      share_phone: false,
       role: "admin",
       active: true,
       access_status: "approved",
       approved_at: new Date().toISOString()
+    })
+  });
+}
+
+async function upsertDirectoryEntry(profileId) {
+  await request("/rest/v1/public_directory_entries?on_conflict=profile_id,directory_role", {
+    method: "POST",
+    headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify({
+      profile_id: profileId,
+      directory_role: "admin",
+      display_name: FULL_NAME,
+      public_title: "Admin contact",
+      location: "Local 4005 Moncton",
+      contract: "Shared",
+      public_contact: null,
+      is_public: true,
+      display_order: 5
     })
   });
 }

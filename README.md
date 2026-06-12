@@ -59,7 +59,7 @@ New users can request steward/admin access from the sign-in screen. Their accoun
 
 Public admin and steward listings are account-backed. A person only appears on the public board when they have an approved Auth/profile account and a row in `public_directory_entries`.
 
-The script creates or updates `hacheyn@me.com`, approves the profile as a steward, lists Nicolas publicly as `Shop Steward`, `Moncton VCC`, `Contract 1`, and requests a Supabase password reset email when `SUPABASE_ANON_KEY` is provided. The sign-in screen also has an `Email password reset` button.
+The script creates or updates `hacheyn@me.com`, approves the profile as a steward, lists Nicolas publicly as `Shop Steward`, `Moncton VCC`, `Contract 1`, and does not publish an email or phone number by default. It requests a Supabase password reset email when `SUPABASE_ANON_KEY` is provided. The sign-in screen also has an `Email password reset` button.
 
 For Cloudflare Pages, make sure the deployed `config.js` has the same Supabase Project URL and anon key. Do not put the service-role key in `config.js` or any browser file.
 

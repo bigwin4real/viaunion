@@ -83,6 +83,8 @@ async function patchProfile(userId) {
       id: userId,
       email: EMAIL,
       full_name: FULL_NAME,
+      share_email: false,
+      share_phone: false,
       role: "steward",
       active: true,
       access_status: "approved",
@@ -102,7 +104,7 @@ async function upsertDirectoryEntry(profileId) {
       public_title: PUBLIC_TITLE,
       location: LOCATION,
       contract: CONTRACT,
-      public_contact: EMAIL,
+      public_contact: null,
       is_public: true,
       display_order: 10
     })

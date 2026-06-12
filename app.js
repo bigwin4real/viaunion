@@ -172,10 +172,10 @@ if (previewMode) {
     { id: "file-1", file_name: "Locked-Grievance-Tracker.xlsx", kind: "grievance_tracker", storage_path: "grievance-tracker/Locked-Grievance-Tracker.xlsx", uploaded_at: new Date().toISOString() }
   ];
   pendingProfiles = [
-    { id: "pending-1", full_name: "New Steward", email: "new.steward@example.ca", role: "steward", request_note: "Moncton steward access request", created_at: new Date().toISOString() }
+    { id: "pending-1", full_name: "New Steward", email: "new.steward@example.ca", role: "steward", request_note: "Moncton steward access request", share_email: false, share_phone: false, created_at: new Date().toISOString() }
   ];
   publicStewards = [
-    { name: "Nicolas Hachey", role: "Shop Steward", area: "Moncton VCC", contract: "Contract 1", contact: "hacheyn@me.com" }
+    { name: "Nicolas Hachey", role: "Shop Steward", area: "Moncton VCC", contract: "Contract 1", contact: "Contact through Local 4005" }
   ];
   renderPortal();
 } else if (isConfigured) {
@@ -533,9 +533,12 @@ function renderRegister() {
 
     const fullName = value("register-name");
     const email = value("register-email");
+    const phone = value("register-phone");
     const password = value("register-password");
     const role = value("register-role");
     const requestNote = value("register-note");
+    const shareEmail = document.querySelector("#register-share-email")?.checked || false;
+    const sharePhone = document.querySelector("#register-share-phone")?.checked || false;
     const { error } = await supabaseClient.auth.signUp({
       email,
       password,
@@ -543,7 +546,10 @@ function renderRegister() {
         data: {
           full_name: fullName,
           requested_role: role,
-          request_note: requestNote
+          request_note: requestNote,
+          phone,
+          share_email: shareEmail,
+          share_phone: sharePhone
         }
       }
     });
@@ -759,6 +765,8 @@ function renderApprovals() {
         <p>${escapeHtml(profile.request_note || "No reason provided.")}</p>
         <div class="meta-row">
           <span class="pill">${escapeHtml(profile.role)}</span>
+          <span class="pill">${profile.share_email ? "Email public" : "Email private"}</span>
+          <span class="pill">${profile.share_phone ? "Phone public" : "Phone private"}</span>
           <span class="pill">${new Date(profile.created_at).toLocaleDateString()}</span>
         </div>
       </div>
@@ -788,8 +796,33 @@ async function updateAccessRequest(profileId, approved) {
     : { active: false, access_status: "rejected", approved_by: currentUser.id, approved_at: new Date().toISOString() };
   const { error } = await supabaseClient.from("profiles").update(payload).eq("id", profileId);
   if (error) return alert(error.message);
+  if (approved) await upsertApprovedDirectoryEntry(profileId);
   await loadData();
   renderApprovals();
+}
+
+async function upsertApprovedDirectoryEntry(profileId) {
+  const { data: profile, error } = await supabaseClient
+    .from("profiles")
+    .select("id,email,full_name,role,phone,share_email,share_phone")
+    .eq("id", profileId)
+    .single();
+  if (error || !profile) return;
+
+  const contactParts = [];
+  if (profile.share_email && profile.email) contactParts.push(profile.email);
+  if (profile.share_phone && profile.phone) contactParts.push(profile.phone);
+
+  await supabaseClient.from("public_directory_entries").upsert({
+    profile_id: profile.id,
+    directory_role: profile.role,
+    display_name: profile.full_name,
+    public_title: profile.role === "admin" ? "Admin contact" : "Shop Steward",
+    location: "Local 4005",
+    contract: "Shared",
+    public_contact: contactParts.join(" / ") || null,
+    is_public: true
+  }, { onConflict: "profile_id,directory_role" });
 }
 
 function filteredCases() {
