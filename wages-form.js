@@ -3,6 +3,8 @@ const portalSupabaseUrl = portalConfig.supabaseUrl || "YOUR_SUPABASE_URL";
 const portalSupabaseKey = portalConfig.supabaseAnonKey || "YOUR_SUPABASE_ANON_KEY";
 const portalIsConfigured = portalSupabaseUrl.startsWith("https://") && portalSupabaseKey.length > 30;
 const portalIsLocalPreview = ["localhost", "127.0.0.1", ""].includes(window.location.hostname) && new URLSearchParams(window.location.search).get("preview") === "1";
+const PDF_TEMPLATE_NAME = "Wages Lost Time and Expense_Bilingual_Fillable_Revised Mar 26.pdf";
+const REASON_PREFIX = "RAISONS DE LA RÉCLAMATION REASONS FOR CLAIM GIVE FULL DETAILS TERMS SUCH AS UNION BUSINESS ETC ARE NOT SUFFICIENT DONNER DES DÉTAILS PRÉCIS LES RAISONS COMME TRAVAIL DE SYNDICAT ETC NE SONT PAS SUFFISANTES";
 
 initWagesForm();
 
@@ -33,7 +35,7 @@ async function canAccessWagesForm() {
 }
 
 function setupWagesForm() {
-// Days of the week, matching functions/api/pdf-mapper.js
+// Days of the week, matching the official PDF row labels.
 const DAYS = [
     { key: 'mon', label: 'Monday' },
     { key: 'tue', label: 'Tuesday' },
@@ -195,22 +197,8 @@ form.addEventListener('submit', async (e) => {
         document.getElementById('submitForm').disabled = true;
         showMessage('Generating your claim form PDF...', 'info');
 
-        const formData = new FormData(form);
-
-        const signatureData = canvas.toDataURL('image/png');
-        formData.append('signature', signatureData);
-
-        const response = await fetch('/api/generate-wages-pdf', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (!response.ok) {
-            const error = await response.json().catch(() => ({ message: response.statusText }));
-            throw new Error(error.error || error.message || 'Failed to generate PDF');
-        }
-
-        const blob = await response.blob();
+        const pdfBytes = await makePdf();
+        const blob = new Blob([pdfBytes], { type: "application/pdf" });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -265,5 +253,98 @@ async function sendConfirmationEmail(email) {
         console.error('Email error:', error);
         showMessage(`Email error: ${error.message}`, 'error');
     }
+}
+
+async function makePdf() {
+    if (!window.PDFLib) throw new Error("PDF tools are still loading. Try again in a moment.");
+
+    const templateResponse = await fetch(encodeURI(PDF_TEMPLATE_NAME));
+    if (!templateResponse.ok) throw new Error("Could not load the official PDF template.");
+
+    const pdfDoc = await window.PDFLib.PDFDocument.load(await templateResponse.arrayBuffer());
+    const pdfForm = pdfDoc.getForm();
+    const formData = new FormData(form);
+
+    setPdfText(pdfForm, "Nom", formData.get("memberName"));
+    setPdfText(pdfForm, "Adresse 1", formData.get("address1"));
+    setPdfText(pdfForm, "Adresse 2", formData.get("address2"));
+    setPdfText(pdfForm, "Code postal", formData.get("postalCode"));
+    setPdfText(pdfForm, "WORKPLACE", formData.get("workplace"));
+    setPdfText(pdfForm, "CLASSIFICATION", formData.get("classification"));
+    setPdfText(pdfForm, "NAS", formData.get("sin"));
+    setPdfText(pdfForm, "UNITUNITÉ", formData.get("unit"));
+    setPdfText(pdfForm, "LOCAL UNIONSYNDICAT LOCAL", formData.get("localUnion"));
+    setPdfText(pdfForm, "Payroll Period EndingPériode de paye terminé le", formatDate(formData.get("payrollPeriodEnding")));
+
+    let straightTotal = 0;
+    let overtimeTotal = 0;
+    const suffixes = {
+        mon: "MON LUN",
+        tue: "TUES MAR",
+        wed: "WED MER",
+        thu: "THUR JEU",
+        fri: "FRI VEN",
+        sat: "SAT SAM",
+        sun: "SUN DIM"
+    };
+
+    for (const [key, suffix] of Object.entries(suffixes)) {
+        setPdfText(pdfForm, `DATE${suffix}`, formatDate(formData.get(`${key}Date`)));
+        setPdfText(pdfForm, `FROMDE${suffix}`, formData.get(`${key}From`));
+        setPdfText(pdfForm, `TOÀ${suffix}`, formData.get(`${key}To`));
+        setPdfText(pdfForm, `STRAIGHT RÉGULIÉRES${suffix}`, formatHours(formData.get(`${key}Straight`)));
+        setPdfText(pdfForm, `OVERTIME SUPPLÉMENTAIRES${suffix}`, formatHours(formData.get(`${key}Overtime`)));
+        setPdfText(pdfForm, `${REASON_PREFIX}${suffix}`, formData.get(`${key}Reason`));
+
+        const straight = parseFloat(formData.get(`${key}Straight`));
+        const overtime = parseFloat(formData.get(`${key}Overtime`));
+        if (!Number.isNaN(straight)) straightTotal += straight;
+        if (!Number.isNaN(overtime)) overtimeTotal += overtime;
+    }
+
+    if (straightTotal > 0) {
+        setPdfText(pdfForm, "STRAIGHT RÉGULIÉRESSUBTOTALSSOMMES PARTIELLES", formatHours(straightTotal));
+        setPdfText(pdfForm, "STRAIGHT RÉGULIÉRESTOTAL HOURSTOTAUX HORAIRE", formatHours(straightTotal));
+    }
+    if (overtimeTotal > 0) {
+        setPdfText(pdfForm, "OVERTIME SUPPLÉMENTAIRESSUBTOTALSSOMMES PARTIELLES", formatHours(overtimeTotal));
+        setPdfText(pdfForm, "OVERTIME SUPPLÉMENTAIRESTOTAL HOURSTOTAUX HORAIRE", formatHours(overtimeTotal));
+    }
+
+    setPdfText(pdfForm, "MUST BE SIGNED BY CLAIMANTDOIT ÉTRE SIGNÉ PAR LE DEMANDEUR", formatDate(formData.get("signatureDate")));
+
+    const signatureImage = await pdfDoc.embedPng(canvas.toDataURL("image/png"));
+    pdfDoc.getPages()[0].drawImage(signatureImage, {
+        x: 405,
+        y: 83,
+        width: 178,
+        height: 42
+    });
+
+    pdfForm.flatten();
+    return pdfDoc.save();
+}
+
+function setPdfText(pdfForm, fieldName, value) {
+    try {
+        const text = value ? String(value).trim() : "";
+        if (text) pdfForm.getTextField(fieldName).setText(text);
+    } catch {
+        // Some official PDF fields vary by template revision; skip missing fields.
+    }
+}
+
+function formatHours(value) {
+    const numberValue = parseFloat(value);
+    if (Number.isNaN(numberValue)) return "";
+    return numberValue % 1 === 0 ? String(numberValue) : numberValue.toFixed(2);
+}
+
+function formatDate(value) {
+    if (!value) return "";
+    const parts = String(value).split("-");
+    if (parts.length !== 3) return String(value);
+    const [year, month, day] = parts;
+    return `${month}/${day}/${year}`;
 }
 }

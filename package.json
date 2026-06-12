@@ -11,7 +11,5 @@
     "supabase:create-admin": "node scripts/create-initial-admin.mjs",
     "supabase:create-nicolas": "node scripts/create-nicolas-steward.mjs"
   },
-  "dependencies": {
-    "pdf-lib": "^1.17.1"
-  }
+  "dependencies": {}
 }
