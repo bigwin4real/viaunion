@@ -40,7 +40,7 @@ if (SUPABASE_ANON_KEY) {
 }
 
 async function createOrFindUser() {
-  const created = await request("/auth/v1/admin/users", {
+  const created = await requestAllowError("/auth/v1/admin/users", {
     method: "POST",
     body: JSON.stringify({
       email: EMAIL,
@@ -137,6 +137,19 @@ async function request(path, options = {}) {
   const data = text ? JSON.parse(text) : {};
   if (!response.ok) {
     throw new Error(data.message || data.error?.message || text || response.statusText);
+  }
+  return data;
+}
+
+async function requestAllowError(path, options = {}) {
+  const response = await fetch(`${SUPABASE_URL}${path}`, {
+    ...options,
+    headers: { ...headers, ...(options.headers || {}) }
+  });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!response.ok && !data.error) {
+    data.error = { message: data.message || data.msg || text || response.statusText };
   }
   return data;
 }
