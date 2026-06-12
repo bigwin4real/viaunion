@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wages Lost Time and Expense Claim Form</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .wages-form-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .form-section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .form-section:last-child {
+            border-bottom: none;
+        }
+        .form-section h3 {
+            color: #333;
+            margin-top: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .form-row.full {
+            grid-template-columns: 1fr;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-size: 0.95rem;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #0066cc;
+            box-shadow: 0 0 0 2px rgba(0,102,204,0.1);
+        }
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .signature-box {
+            border: 2px solid #333;
+            border-radius: 4px;
+            background: #fafafa;
+            margin-top: 0.5rem;
+        }
+        #signatureCanvas {
+            display: block;
+            cursor: crosshair;
+            width: 100%;
+            height: 120px;
+            border-radius: 2px;
+        }
+        .signature-controls {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .signature-controls button {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+        }
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            justify-content: flex-end;
+        }
+        .btn-primary {
+            background: #0066cc;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .btn-primary:hover {
+            background: #0052a3;
+        }
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .btn-secondary {
+            background: white;
+            color: #333;
+            padding: 0.75rem 2rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .btn-secondary:hover {
+            background: #f5f5f5;
+        }
+        .message {
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .message.success {
+            display: block;
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+        .message.error {
+            display: block;
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #f44336;
+        }
+        .message.info {
+            display: block;
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #2196f3;
+        }
+        .required::after {
+            content: " *";
+            color: red;
+        }
+        .helper-text {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <main class="wages-form-container">
+        <header>
+            <h1>Wages Lost Time and Expense Claim Form</h1>
+            <p style="color: #666; margin-top: 0.5rem;">
+                Unifor — Official Fillable Form
+            </p>
+        </header>
+
+        <form id="wagesForm">
+            <!-- Member Information -->
+            <section class="form-section">
+                <h3>Member Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="memberName" class="required">Full Name</label>
+                        <input type="text" id="memberName" name="memberName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="memberNumber" class="required">Member Number</label>
+                        <input type="text" id="memberNumber" name="memberNumber" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dateOfBirth">Date of Birth</label>
+                        <input type="date" id="dateOfBirth" name="dateOfBirth">
+                    </div>
+                    <div class="form-group">
+                        <label for="department">Department / Division</label>
+                        <input type="text" id="department" name="department">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="email" class="required">Email Address</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Claim Details -->
+            <section class="form-section">
+                <h3>Claim Details</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="claimStartDate" class="required">Claim Period Start</label>
+                        <input type="date" id="claimStartDate" name="claimStartDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="claimEndDate" class="required">Claim Period End</label>
+                        <input type="date" id="claimEndDate" name="claimEndDate" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="claimType" class="required">Type of Claim</label>
+                        <select id="claimType" name="claimType" required>
+                            <option value="">Select claim type</option>
+                            <option value="Wages Lost">Wages Lost</option>
+                            <option value="Lost Time">Lost Time</option>
+                            <option value="Expenses">Expenses</option>
+                            <option value="Combined">Combined</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalAmount" class="required">Total Amount Claimed</label>
+                        <input type="number" id="totalAmount" name="totalAmount" step="0.01" min="0" required>
+                        <div class="helper-text">Enter amount in dollars (e.g., 125.50)</div>
+                    </div>
+                </div>
+                <div class="form-row full">
+                    <div class="form-group">
+                        <label for="claimDescription" class="required">Description of Claim</label>
+                        <textarea id="claimDescription" name="claimDescription" required placeholder="Provide details about the wages lost, time lost, or expenses being claimed."></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Supporting Documentation -->
+            <section class="form-section">
+                <h3>Supporting Documentation</h3>
+                <div class="form-row full">
+                    <div class="form-group">
+                        <label for="documentation">Documentation Provided</label>
+                        <textarea id="documentation" name="documentation" placeholder="List any supporting documents attached (e.g., pay stubs, receipts, correspondence)."></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Union Steward / Representative -->
+            <section class="form-section">
+                <h3>Union Steward / Representative Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="stewardName">Steward Name</label>
+                        <input type="text" id="stewardName" name="stewardName">
+                    </div>
+                    <div class="form-group">
+                        <label for="stewardContact">Steward Contact</label>
+                        <input type="tel" id="stewardContact" name="stewardContact">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Signature & Authorization -->
+            <section class="form-section">
+                <h3>Signature & Authorization</h3>
+                <div class="form-group">
+                    <label class="required">Member Signature</label>
+                    <p class="helper-text">Sign in the box below. Click to draw your signature.</p>
+                    <div class="signature-box">
+                        <canvas id="signatureCanvas"></canvas>
+                    </div>
+                    <div class="signature-controls">
+                        <button type="button" id="clearSignature" class="btn-secondary">Clear Signature</button>
+                    </div>
+                </div>
+                <div class="form-row" style="margin-top: 1.5rem;">
+                    <div class="form-group">
+                        <label for="signatureDate" class="required">Date</label>
+                        <input type="date" id="signatureDate" name="signatureDate" required>
+                    </div>
+                </div>
+                <div class="form-row full" style="margin-top: 1rem;">
+                    <div class="form-group">
+                        <label for="authorization">
+                            <input type="checkbox" id="authorization" name="authorization" required>
+                            I certify that the information provided is accurate and complete. I authorize Unifor to process this claim.
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Messages -->
+            <div id="formMessage" class="message"></div>
+
+            <!-- Action Buttons -->
+            <div class="button-group">
+                <button type="button" id="resetForm" class="btn-secondary">Clear Form</button>
+                <button type="submit" id="submitForm" class="btn-primary">Generate PDF & Download</button>
+            </div>
+        </form>
+    </main>
+
+    <script src="wages-form.js"></script>
+</body>
+</html>
