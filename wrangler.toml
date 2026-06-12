@@ -4,3 +4,24 @@ compatibility_date = "2026-06-10"
 
 [ai]
 binding = "AI"
+
+[[routes]]
+pattern = "/api/*"
+zone_name = "example.com"
+
+[env.production]
+vars = { ENVIRONMENT = "production" }
+
+[env.development]
+vars = { ENVIRONMENT = "development" }
+
+# Optional: R2 bucket for storing PDF templates
+# Uncomment to enable R2 storage
+# [[r2_buckets]]
+# binding = "TEMPLATE_BUCKET"
+# bucket_name = "unifor-templates"
+
+# Optional: Email service configuration
+# Configure in environment secrets:
+# wrangler secret put RESEND_API_KEY
+# wrangler secret put GRIEVANCE_FROM_EMAIL
