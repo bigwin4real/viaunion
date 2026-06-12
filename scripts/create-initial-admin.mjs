@@ -6,6 +6,7 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const EMAIL = process.env.ADMIN_EMAIL;
 const FULL_NAME = process.env.ADMIN_NAME || "Local 4005 Admin";
 const TEMP_PASSWORD = process.env.ADMIN_TEMP_PASSWORD || randomUUID();
+const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || "https://viarail4005moncton.pages.dev";
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !EMAIL) {
   console.error("Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and ADMIN_EMAIL before running this script.");
@@ -103,7 +104,7 @@ async function upsertDirectoryEntry(profileId) {
 }
 
 async function sendPasswordResetEmail() {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(PUBLIC_SITE_URL)}`, {
     method: "POST",
     headers: {
       apikey: SUPABASE_ANON_KEY,

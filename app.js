@@ -178,6 +178,8 @@ if (previewMode) {
     { name: "Nicolas Hachey", role: "Shop Steward", area: "Moncton VCC", contract: "Contract 1", contact: "Contact through Local 4005" }
   ];
   renderPortal();
+} else if (isPasswordRecoveryLink()) {
+  renderPasswordUpdate();
 } else if (isConfigured) {
   startAuthenticatedApp();
   wirePublicBoard();
@@ -515,9 +517,48 @@ async function sendPasswordReset() {
     return;
   }
   const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin
+    redirectTo: `${window.location.origin}${window.location.pathname}`
   });
   authMessage.textContent = error ? error.message : "Password reset email sent.";
+}
+
+function isPasswordRecoveryLink() {
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const query = new URLSearchParams(window.location.search);
+  return hash.get("type") === "recovery" || query.get("type") === "recovery";
+}
+
+function renderPasswordUpdate() {
+  app.innerHTML = document.querySelector("#password-update-template").innerHTML;
+  document.querySelector("#password-update-board").addEventListener("click", () => {
+    window.history.replaceState({}, document.title, window.location.pathname);
+    window.location.reload();
+  });
+  document.querySelector("#password-update-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = document.querySelector("#password-update-message");
+    if (!isConfigured) {
+      message.textContent = "Supabase is not configured yet.";
+      return;
+    }
+
+    const password = value("new-password");
+    const confirmPassword = value("confirm-password");
+    if (password !== confirmPassword) {
+      message.textContent = "Passwords do not match.";
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.updateUser({ password });
+    if (error) {
+      message.textContent = error.message;
+      return;
+    }
+
+    window.history.replaceState({}, document.title, window.location.pathname);
+    message.textContent = "Password updated. Signing you in...";
+    await startAuthenticatedApp();
+  });
 }
 
 function renderRegister() {

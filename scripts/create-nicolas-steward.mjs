@@ -9,6 +9,7 @@ const PUBLIC_TITLE = "Shop Steward";
 const LOCATION = "Moncton VCC";
 const CONTRACT = "Contract 1";
 const TEMP_PASSWORD = process.env.NICOLAS_TEMP_PASSWORD || randomUUID();
+const PUBLIC_SITE_URL = process.env.PUBLIC_SITE_URL || "https://viarail4005moncton.pages.dev";
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.");
@@ -112,7 +113,7 @@ async function upsertDirectoryEntry(profileId) {
 }
 
 async function sendPasswordResetEmail() {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover`, {
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/recover?redirect_to=${encodeURIComponent(PUBLIC_SITE_URL)}`, {
     method: "POST",
     headers: {
       apikey: SUPABASE_ANON_KEY,
