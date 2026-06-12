@@ -3,15 +3,12 @@ import { randomUUID } from "node:crypto";
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-const EMAIL = "hacheyn@me.com";
-const FULL_NAME = "Nicolas Hachey";
-const PUBLIC_TITLE = "Shop Steward";
-const LOCATION = "Moncton VCC";
-const CONTRACT = "Contract 1";
-const TEMP_PASSWORD = process.env.NICOLAS_TEMP_PASSWORD || randomUUID();
+const EMAIL = process.env.ADMIN_EMAIL;
+const FULL_NAME = process.env.ADMIN_NAME || "Local 4005 Admin";
+const TEMP_PASSWORD = process.env.ADMIN_TEMP_PASSWORD || randomUUID();
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY before running this script.");
+if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !EMAIL) {
+  console.error("Set SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and ADMIN_EMAIL before running this script.");
   process.exit(1);
 }
 
@@ -23,24 +20,15 @@ const headers = {
 
 const { user, created } = await createOrFindUser();
 await patchProfile(user.id);
-await upsertDirectoryEntry(user.id);
 if (SUPABASE_ANON_KEY) await sendPasswordResetEmail();
 
-console.log(`Created/updated steward account for ${FULL_NAME} <${EMAIL}>`);
-if (created) {
-  console.log(`Temporary password: ${TEMP_PASSWORD}`);
-} else {
-  console.log("Auth user already existed; password was not changed.");
-}
-console.log("Ask Nicolas to sign in and change the password after Supabase email/password auth is configured.");
-if (SUPABASE_ANON_KEY) {
-  console.log("Password reset email requested through Supabase.");
-} else {
-  console.log("Set SUPABASE_ANON_KEY as well if you want this script to request the password reset email.");
-}
+console.log(`Created/updated admin account for ${FULL_NAME} <${EMAIL}>`);
+if (created) console.log(`Temporary password: ${TEMP_PASSWORD}`);
+else console.log("Auth user already existed; password was not changed.");
+if (SUPABASE_ANON_KEY) console.log("Password reset email requested through Supabase.");
 
 async function createOrFindUser() {
-  const created = await request("/auth/v1/admin/users", {
+  const createdUser = await request("/auth/v1/admin/users", {
     method: "POST",
     body: JSON.stringify({
       email: EMAIL,
@@ -48,15 +36,15 @@ async function createOrFindUser() {
       email_confirm: true,
       user_metadata: {
         full_name: FULL_NAME,
-        requested_role: "steward",
-        request_note: "Initial Moncton VCC shop steward account"
+        requested_role: "admin",
+        request_note: "Initial Local 4005 admin account"
       }
     })
   });
 
-  if (!created.error) return { user: created, created: true };
-  if (!String(created.error.message || "").toLowerCase().includes("already")) {
-    throw new Error(created.error.message || JSON.stringify(created.error));
+  if (!createdUser.error) return { user: createdUser, created: true };
+  if (!String(createdUser.error.message || "").toLowerCase().includes("already")) {
+    throw new Error(createdUser.error.message || JSON.stringify(createdUser.error));
   }
 
   const existing = await findUserByEmail(EMAIL);
@@ -83,28 +71,10 @@ async function patchProfile(userId) {
       id: userId,
       email: EMAIL,
       full_name: FULL_NAME,
-      role: "steward",
+      role: "admin",
       active: true,
       access_status: "approved",
       approved_at: new Date().toISOString()
-    })
-  });
-}
-
-async function upsertDirectoryEntry(profileId) {
-  await request("/rest/v1/public_directory_entries?on_conflict=profile_id,directory_role", {
-    method: "POST",
-    headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify({
-      profile_id: profileId,
-      directory_role: "steward",
-      display_name: FULL_NAME,
-      public_title: PUBLIC_TITLE,
-      location: LOCATION,
-      contract: CONTRACT,
-      public_contact: EMAIL,
-      is_public: true,
-      display_order: 10
     })
   });
 }
@@ -116,9 +86,7 @@ async function sendPasswordResetEmail() {
       apikey: SUPABASE_ANON_KEY,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({
-      email: EMAIL
-    })
+    body: JSON.stringify({ email: EMAIL })
   });
   if (!response.ok) {
     const text = await response.text();

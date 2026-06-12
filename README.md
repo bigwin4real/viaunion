@@ -21,34 +21,47 @@ Preview mode only works on localhost and is not a security model.
 ## Configure Supabase
 
 1. Create a Supabase project.
-2. Run `supabase-schema.sql` in the Supabase SQL editor.
-3. Create auth users in Supabase.
-4. Add or approve matching rows in `public.profiles` for each authorized user.
-5. Copy `config.example.js` to `config.js`.
-6. Replace the placeholder Supabase URL and anon key in `config.js`.
+2. In Supabase, open **SQL Editor** and run the full contents of `supabase-schema.sql`.
+3. In **Authentication > Providers**, enable Email.
+4. In **Project Settings > API**, copy:
+   - Project URL
+   - anon public key
+   - service_role key
+5. Write the site config:
 
-New users can request steward/admin access from the sign-in screen. Their account stays inactive until an active admin approves it in the portal.
-
-Example first admin profile after creating your first Auth user:
-
-```sql
-update public.profiles
-set role = 'admin', active = true, access_status = 'approved'
-where id = 'AUTH_USER_UUID_HERE';
+```bash
+SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co" \
+SUPABASE_ANON_KEY="YOUR_ANON_KEY" \
+npm run supabase:config
 ```
 
-Public admin and steward listings are account-backed. A person only appears on the public board when they have an approved Auth/profile account and a row in `public_directory_entries`.
-
-To create the initial Nicolas Hachey steward account with a Supabase service-role key:
+6. Create the first approved admin account:
 
 ```bash
 SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co" \
 SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY" \
 SUPABASE_ANON_KEY="YOUR_ANON_KEY" \
-node scripts/create-nicolas-steward.mjs
+ADMIN_EMAIL="your-email@example.com" \
+ADMIN_NAME="Your Name" \
+npm run supabase:create-admin
 ```
 
+7. Create Nicolas Hachey's approved steward account:
+
+```bash
+SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co" \
+SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY" \
+SUPABASE_ANON_KEY="YOUR_ANON_KEY" \
+npm run supabase:create-nicolas
+```
+
+New users can request steward/admin access from the sign-in screen. Their account stays inactive until an active admin approves it in the portal.
+
+Public admin and steward listings are account-backed. A person only appears on the public board when they have an approved Auth/profile account and a row in `public_directory_entries`.
+
 The script creates or updates `hacheyn@me.com`, approves the profile as a steward, lists Nicolas publicly as `Shop Steward`, `Moncton VCC`, `Contract 1`, and requests a Supabase password reset email when `SUPABASE_ANON_KEY` is provided. The sign-in screen also has an `Email password reset` button.
+
+For Cloudflare Pages, make sure the deployed `config.js` has the same Supabase Project URL and anon key. Do not put the service-role key in `config.js` or any browser file.
 
 ## Security notes
 

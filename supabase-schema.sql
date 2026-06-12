@@ -67,6 +67,9 @@ create table public.resources (
   updated_at timestamptz not null default now()
 );
 
+create unique index if not exists resources_title_category_contract_key
+on public.resources (title, category, contract);
+
 create table public.public_questions (
   id uuid primary key default gen_random_uuid(),
   name text,
@@ -374,4 +377,9 @@ values
   ('Claims and Payroll Guide', 'Guides', 'Shared', 'Common claim paths, evidence checklist, and follow-up notes.', null),
   ('Moncton Steward Contacts', 'Contacts', 'Shared', 'Internal steward and committee contact reference.', null),
   ('Health and Safety Notes', 'Committees', 'Shared', 'Committee notes, inspection references, and escalation paths.', null),
-  ('Meeting Minutes', 'Meetings', 'Shared', 'Protected meeting records and action items.', null);
+  ('Meeting Minutes', 'Meetings', 'Shared', 'Protected meeting records and action items.', null),
+  ('Lost time / expense form', 'Forms', 'Shared', 'Steward/admin form for Unifor wages, lost time, and expense claims.', 'wages-form.html')
+on conflict (title, category, contract) do update
+set description = excluded.description,
+    url = excluded.url,
+    updated_at = now();
