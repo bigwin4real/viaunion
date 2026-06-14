@@ -263,11 +263,11 @@ form.addEventListener('submit', async (e) => {
 
         showMessage('PDF generated and downloaded successfully!', 'success');
 
-        const email = document.getElementById('email').value;
+        const email = document.getElementById('email').value.trim();
         if (email) {
             setTimeout(() => {
-                if (confirm(`Would you like to email a copy of this submission confirmation to ${email}?`)) {
-                    sendConfirmationEmail(email);
+                if (confirm(`Email a copy of this completed PDF to ${email}?`)) {
+                    sendConfirmationEmail(email, pdfBytes);
                 }
             }, 500);
         }
@@ -280,9 +280,9 @@ form.addEventListener('submit', async (e) => {
     }
 });
 
-async function sendConfirmationEmail(email) {
+async function sendConfirmationEmail(email, pdfBytes) {
     try {
-        showMessage('Sending confirmation email...', 'info');
+        showMessage('Emailing completed PDF...', 'info');
 
         const response = await fetch('/api/email-wages-pdf', {
             method: 'POST',
@@ -291,7 +291,9 @@ async function sendConfirmationEmail(email) {
             },
             body: JSON.stringify({
                 email: email,
-                memberName: document.getElementById('memberName').value
+                memberName: document.getElementById('memberName').value,
+                fileName: `Wages-Claim-${new Date().toISOString().split('T')[0]}.pdf`,
+                pdfBase64: bytesToBase64(pdfBytes)
             })
         });
 
@@ -306,6 +308,15 @@ async function sendConfirmationEmail(email) {
         console.error('Email error:', error);
         showMessage(`Email error: ${error.message}`, 'error');
     }
+}
+
+function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
 }
 
 async function makePdf() {

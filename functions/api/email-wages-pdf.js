@@ -15,11 +15,10 @@ export async function onRequestPost({ request, env }) {
         if (!env.RESEND_API_KEY || !env.GRIEVANCE_FROM_EMAIL) {
             return new Response(
                 JSON.stringify({ 
-                    message: 'Email service not configured. PDF has been generated.',
-                    note: 'Steward/admin can manually email the completed form if needed.'
+                    error: 'Email service is not configured. Set RESEND_API_KEY and GRIEVANCE_FROM_EMAIL in Cloudflare Pages.'
                 }),
                 {
-                    status: 200,
+                    status: 503,
                     headers: { 'Content-Type': 'application/json' }
                 }
             );
@@ -27,9 +26,9 @@ export async function onRequestPost({ request, env }) {
 
         try {
             const body = await request.json();
-            const { email, memberName } = body;
+            const { email, memberName, fileName, pdfBase64 } = body;
 
-            if (!email || !memberName) {
+            if (!email || !memberName || !fileName || !pdfBase64) {
                 return new Response(
                     JSON.stringify({ error: 'Missing required fields' }),
                     { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -47,7 +46,13 @@ export async function onRequestPost({ request, env }) {
                     to: email,
                     subject: `Wages Lost Time and Expense Claim - Submitted`,
                     html: generateEmailHTML(memberName),
-                    reply_to: env.GRIEVANCE_FROM_EMAIL
+                    reply_to: env.GRIEVANCE_FROM_EMAIL,
+                    attachments: [
+                        {
+                            filename: sanitizeFileName(fileName),
+                            content: pdfBase64
+                        }
+                    ]
                 })
             });
 
@@ -158,4 +163,8 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return String(text || '').replace(/[&<>"']/g, m => map[m]);
+}
+
+function sanitizeFileName(fileName) {
+    return String(fileName || 'Wages-Claim.pdf').replace(/[^a-zA-Z0-9._-]/g, '-');
 }
