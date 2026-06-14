@@ -365,7 +365,7 @@ async function makePdf() {
         height: 42
     });
 
-    pdfForm.flatten();
+    pdfForm.updateFieldAppearances();
     return pdfDoc.save();
 }
 
