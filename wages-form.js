@@ -307,7 +307,7 @@ async function sendConfirmationEmail(email) {
 }
 
 async function makePdf() {
-    if (!window.PDFLib) throw new Error("PDF tools are still loading. Try again in a moment.");
+    await waitForPdfTools();
 
     const templateResponse = await fetch(encodeURI(PDF_TEMPLATE_NAME));
     if (!templateResponse.ok) throw new Error("Could not load the official PDF template.");
@@ -365,6 +365,48 @@ async function makePdf() {
 
     pdfForm.flatten();
     return pdfDoc.save();
+}
+
+async function waitForPdfTools() {
+    if (window.PDFLib?.PDFDocument) return;
+
+    const sources = [
+        "pdf-lib.min.js",
+        "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"
+    ];
+
+    for (const source of sources) {
+        try {
+            await loadScriptOnce(source);
+            if (window.PDFLib?.PDFDocument) return;
+        } catch {
+            // Try the next source.
+        }
+    }
+
+    throw new Error("PDF tools could not load. Refresh the page and try again.");
+}
+
+function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing?.dataset.loaded === "true") {
+            resolve();
+            return;
+        }
+        if (existing) {
+            existing.remove();
+        }
+
+        const script = document.createElement("script");
+        script.src = src;
+        script.onload = () => {
+            script.dataset.loaded = "true";
+            resolve();
+        };
+        script.onerror = () => reject(new Error(`Could not load ${src}`));
+        document.head.appendChild(script);
+    });
 }
 
 function setCombinedName() {
