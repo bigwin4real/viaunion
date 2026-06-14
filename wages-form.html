@@ -4,16 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wages Lost Time and Expense Claim Form</title>
-    <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <style>
+        :root {
+            color-scheme: light;
+            --form-bg: #f6f1ea;
+            --form-ink: #252a33;
+            --form-muted: #667385;
+            --form-line: #d9dfe8;
+            --form-red: #d71920;
+            --form-blue: #003f7d;
+            --form-gold: #ffc72c;
+        }
+        html {
+            background: var(--form-bg);
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                linear-gradient(180deg, rgba(215, 25, 32, 0.12), rgba(255, 199, 44, 0.08) 280px, transparent 560px),
+                var(--form-bg);
+            color: var(--form-ink);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.45;
+        }
         body.locked main {
             display: none;
         }
         .wages-form-container,
         .wages-form-container * {
             box-sizing: border-box;
+        }
+        .wages-form-container button,
+        .wages-form-container input,
+        .wages-form-container select,
+        .wages-form-container textarea {
+            font: inherit;
         }
         .access-lock {
             display: none;
@@ -79,6 +108,7 @@
             flex-direction: column;
         }
         .form-group label {
+            display: block;
             font-weight: 500;
             margin-bottom: 0.5rem;
             color: #333;
@@ -92,6 +122,8 @@
             padding: 0.75rem;
             border: 1px solid #ccc;
             border-radius: 4px;
+            background: #fff;
+            color: #252a33;
             font-family: inherit;
             font-size: 1rem;
         }
@@ -228,14 +260,22 @@
         .day-enable {
             display: flex;
             gap: 0.6rem;
-            align-items: flex-start;
+            align-items: center;
             color: #333;
             font-weight: 700;
+            margin: 0 0 0.65rem;
         }
         .option-row input,
-        .day-enable input {
-            width: auto;
-            margin-top: 0.15rem;
+        .day-enable input,
+        #authorization {
+            flex: 0 0 auto;
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            min-height: 20px;
+            margin: 0;
+            padding: 0;
+            accent-color: #003f7d;
         }
         .general-reason-panel {
             margin-top: 1rem;
