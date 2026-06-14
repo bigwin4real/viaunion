@@ -100,17 +100,31 @@
             min-height: 60px;
         }
         .signature-box {
-            border: 2px solid #333;
-            border-radius: 4px;
-            background: #fafafa;
+            position: relative;
+            border: 3px solid #003366;
+            border-radius: 8px;
+            background:
+                linear-gradient(transparent 58px, rgba(0, 63, 125, 0.12) 59px, transparent 60px),
+                #fff;
             margin-top: 0.5rem;
+            min-height: 170px;
+        }
+        .signature-box::before {
+            content: "Sign here";
+            position: absolute;
+            left: 14px;
+            top: 12px;
+            color: #8a96a3;
+            font-weight: 700;
+            pointer-events: none;
         }
         #signatureCanvas {
             display: block;
             cursor: crosshair;
             width: 100%;
-            height: 120px;
-            border-radius: 2px;
+            height: 170px;
+            border-radius: 5px;
+            touch-action: none;
         }
         .signature-controls {
             display: flex;
@@ -189,40 +203,70 @@
             color: #666;
             margin-top: 0.25rem;
         }
+        .admin-only,
+        .claim-mode {
+            border: 1px solid #d7dde6;
+            border-radius: 8px;
+            background: #f8fbff;
+            padding: 1rem;
+        }
+        .admin-only h4,
+        .claim-mode h4 {
+            margin: 0 0 0.75rem;
+            color: #003366;
+        }
+        .option-row,
+        .day-enable {
+            display: flex;
+            gap: 0.6rem;
+            align-items: flex-start;
+            color: #333;
+            font-weight: 700;
+        }
+        .option-row input,
+        .day-enable input {
+            width: auto;
+            margin-top: 0.15rem;
+        }
+        .general-reason-panel {
+            margin-top: 1rem;
+        }
+        .general-reason-panel textarea {
+            min-height: 110px;
+        }
 
-        /* Weekly grid */
-        .day-grid {
-            display: grid;
-            grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.9fr minmax(180px, 1.8fr);
-            gap: 0.5rem;
-            align-items: end;
-        }
-        .day-grid-header {
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: #555;
-            text-transform: uppercase;
-        }
+        /* Optional day entries */
         .day-row {
             display: grid;
-            grid-template-columns: 1.1fr 1fr 1fr 0.9fr 0.9fr minmax(180px, 1.8fr);
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin-top: 0.85rem;
+            padding: 1rem;
+            border: 1px solid #d7dde6;
+            border-left: 5px solid #d71920;
+            border-radius: 8px;
+            background: #fff;
             align-items: start;
         }
-        .day-row .day-label {
+        .day-enable {
             font-weight: 600;
             color: #003366;
             grid-column: 1 / -1;
-            margin-top: 0.75rem;
-            margin-bottom: 0.25rem;
+            margin-bottom: 0.1rem;
+        }
+        .day-row.disabled {
+            background: #f5f7fa;
+            border-left-color: #b7c0cc;
+        }
+        .day-row.disabled .day-field {
+            display: none;
         }
         .day-field {
             display: grid;
             gap: 0.25rem;
         }
         .day-field span {
-            display: none;
+            display: block;
             color: #555;
             font-size: 0.78rem;
             font-weight: 700;
@@ -241,6 +285,9 @@
             min-height: 38px;
             resize: vertical;
         }
+        .reason-field {
+            grid-column: span 2;
+        }
         @media (max-width: 800px) {
             .wages-form-container {
                 width: min(100% - 16px, 1000px);
@@ -252,27 +299,13 @@
                 grid-template-columns: 1fr;
                 gap: 0.9rem;
             }
-            .day-grid {
-                display: none;
-            }
             .day-row {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
-                gap: 0.75rem;
-                border: 1px solid #d7dde6;
-                border-radius: 8px;
-                background: #fff;
-                padding: 12px;
-                margin-bottom: 12px;
             }
-            .day-row .day-label {
+            .day-enable {
                 grid-column: 1 / -1;
-                margin: 0;
-                padding-bottom: 4px;
+                padding-bottom: 0.35rem;
                 border-bottom: 1px solid #e7ebf0;
-                font-size: 1rem;
-            }
-            .day-field span {
-                display: block;
             }
             .reason-field {
                 grid-column: 1 / -1;
@@ -282,6 +315,11 @@
             }
             .button-group button {
                 flex: 1 1 100%;
+            }
+        }
+        @media (max-width: 520px) {
+            .button-group {
+                flex-direction: column;
             }
         }
     </style>
@@ -303,17 +341,18 @@
         <form id="wagesForm">
             <!-- Member / Header Information -->
             <section class="form-section">
-                <h3>Member Information</h3>
+                <h3>Member / Claimant Information</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="memberName" class="required">Name (Nom)</label>
-                        <input type="text" id="memberName" name="memberName" required>
+                        <label for="firstName" class="required">First name</label>
+                        <input type="text" id="firstName" name="firstName" autocomplete="given-name" required>
                     </div>
                     <div class="form-group">
-                        <label for="payrollPeriodEnding">Payroll Period Ending</label>
-                        <input type="date" id="payrollPeriodEnding" name="payrollPeriodEnding">
+                        <label for="lastName" class="required">Last name</label>
+                        <input type="text" id="lastName" name="lastName" autocomplete="family-name" required>
                     </div>
                 </div>
+                <input type="hidden" id="memberName" name="memberName">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="address1">Address (Adresse)</label>
@@ -329,6 +368,13 @@
                         <label for="postalCode">Postal Code (Code postal)</label>
                         <input type="text" id="postalCode" name="postalCode">
                     </div>
+                </div>
+            </section>
+
+            <section class="form-section admin-only">
+                <h3>Steward / Administration Details</h3>
+                <p class="helper-text">These fields are for steward or administration use. Complete them only when known.</p>
+                <div class="form-row three">
                     <div class="form-group">
                         <label for="workplace">Workplace</label>
                         <input type="text" id="workplace" name="workplace">
@@ -351,28 +397,38 @@
                         <label for="localUnion">Local Union (Syndicat local)</label>
                         <input type="text" id="localUnion" name="localUnion" value="4005">
                     </div>
+                    <div class="form-group">
+                        <label for="payrollPeriodEnding">Payroll Period Ending</label>
+                        <input type="date" id="payrollPeriodEnding" name="payrollPeriodEnding">
+                    </div>
                 </div>
             </section>
 
             <!-- Weekly Time / Claim Grid -->
             <section class="form-section">
-                <h3>Weekly Claim Details</h3>
+                <h3>Claim Details</h3>
                 <p class="helper-text">
-                    For each day you are claiming, enter the date, time period, and the
-                    straight time and/or overtime hours, plus the reason for the claim.
-                    General terms such as "union business" are not sufficient — give full details.
+                    Use a general claim reason when the claim does not need day-by-day time entries.
+                    Select specific days only when dates or hours need to be shown on the official form.
                 </p>
 
-                <div class="day-grid day-grid-header">
-                    <div>Date</div>
-                    <div>From</div>
-                    <div>To</div>
-                    <div>Straight Time (hrs)</div>
-                    <div>Overtime (hrs)</div>
-                    <div>Reason for Claim</div>
+                <div class="claim-mode">
+                    <h4>Claim entry type</h4>
+                    <label class="option-row">
+                        <input type="radio" name="claimMode" value="general" checked>
+                        General reason only
+                    </label>
+                    <label class="option-row">
+                        <input type="radio" name="claimMode" value="days">
+                        Specific days / hours
+                    </label>
+                    <label id="general-reason-panel" class="form-group general-reason-panel">
+                        General reason for claim
+                        <textarea id="generalReason" name="generalReason" placeholder="Give full details for the claim."></textarea>
+                    </label>
                 </div>
 
-                <div id="dayGrid"></div>
+                <div id="dayGrid" hidden></div>
             </section>
 
             <!-- Signature & Authorization -->
@@ -380,7 +436,7 @@
                 <h3>Signature & Authorization</h3>
                 <div class="form-group">
                     <label class="required">Member Signature</label>
-                    <p class="helper-text">Sign in the box below. Click to draw your signature.</p>
+                    <p class="helper-text">Sign in the box below with your finger or mouse.</p>
                     <div class="signature-box">
                         <canvas id="signatureCanvas"></canvas>
                     </div>

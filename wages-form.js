@@ -35,51 +35,85 @@ async function canAccessWagesForm() {
 }
 
 function setupWagesForm() {
-// Days of the week, matching the official PDF row labels.
-const DAYS = [
-    { key: 'mon', label: 'Monday' },
-    { key: 'tue', label: 'Tuesday' },
-    { key: 'wed', label: 'Wednesday' },
-    { key: 'thu', label: 'Thursday' },
-    { key: 'fri', label: 'Friday' },
-    { key: 'sat', label: 'Saturday' },
-    { key: 'sun', label: 'Sunday' }
-];
+    const form = document.getElementById('wagesForm');
+    const messageDiv = document.getElementById('formMessage');
+    const dayGrid = document.getElementById('dayGrid');
+    const generalReasonPanel = document.getElementById('general-reason-panel');
 
-// Build the weekly grid rows
-const dayGrid = document.getElementById('dayGrid');
-for (const day of DAYS) {
-    const row = document.createElement('div');
-    row.className = 'day-row';
-    row.innerHTML = `
-        <div class="day-label">${day.label}</div>
-        <label class="day-field">
-            <span>Date</span>
-            <input type="date" name="${day.key}Date" aria-label="${day.label} date">
-        </label>
-        <label class="day-field">
-            <span>From</span>
-            <input type="time" name="${day.key}From" aria-label="${day.label} from">
-        </label>
-        <label class="day-field">
-            <span>To</span>
-            <input type="time" name="${day.key}To" aria-label="${day.label} to">
-        </label>
-        <label class="day-field">
-            <span>Straight</span>
-            <input type="number" step="0.25" min="0" name="${day.key}Straight" aria-label="${day.label} straight time hours" placeholder="0.0">
-        </label>
-        <label class="day-field">
-            <span>Overtime</span>
-            <input type="number" step="0.25" min="0" name="${day.key}Overtime" aria-label="${day.label} overtime hours" placeholder="0.0">
-        </label>
-        <label class="day-field reason-field">
-            <span>Reason for claim</span>
-            <textarea name="${day.key}Reason" aria-label="${day.label} reason for claim" placeholder="Reason for claim"></textarea>
-        </label>
-    `;
-    dayGrid.appendChild(row);
+    // Days of the week, matching the official PDF row labels.
+    const DAYS = [
+        { key: 'mon', label: 'Monday' },
+        { key: 'tue', label: 'Tuesday' },
+        { key: 'wed', label: 'Wednesday' },
+        { key: 'thu', label: 'Thursday' },
+        { key: 'fri', label: 'Friday' },
+        { key: 'sat', label: 'Saturday' },
+        { key: 'sun', label: 'Sunday' }
+    ];
+
+    for (const day of DAYS) {
+        const row = document.createElement('div');
+        row.className = 'day-row disabled';
+        row.dataset.dayKey = day.key;
+        row.innerHTML = `
+            <label class="day-enable">
+                <input type="checkbox" name="${day.key}Enabled" aria-label="Include ${day.label}">
+                <span>${day.label}</span>
+            </label>
+            <label class="day-field">
+                <span>Date</span>
+                <input type="date" name="${day.key}Date" aria-label="${day.label} date" disabled>
+            </label>
+            <label class="day-field">
+                <span>From</span>
+                <input type="time" name="${day.key}From" aria-label="${day.label} from" disabled>
+            </label>
+            <label class="day-field">
+                <span>To</span>
+                <input type="time" name="${day.key}To" aria-label="${day.label} to" disabled>
+            </label>
+            <label class="day-field">
+                <span>Straight</span>
+                <input type="number" step="0.25" min="0" name="${day.key}Straight" aria-label="${day.label} straight time hours" placeholder="0.0" disabled>
+            </label>
+            <label class="day-field">
+                <span>Overtime</span>
+                <input type="number" step="0.25" min="0" name="${day.key}Overtime" aria-label="${day.label} overtime hours" placeholder="0.0" disabled>
+            </label>
+            <label class="day-field reason-field">
+                <span>Reason for claim</span>
+                <textarea name="${day.key}Reason" aria-label="${day.label} reason for claim" placeholder="Reason for claim" disabled></textarea>
+            </label>
+        `;
+        dayGrid.appendChild(row);
+    }
+
+function syncClaimMode() {
+    const mode = form.querySelector('input[name="claimMode"]:checked')?.value || "general";
+    const useDays = mode === "days";
+    dayGrid.hidden = !useDays;
+    generalReasonPanel.hidden = useDays;
 }
+
+function syncDayRow(row) {
+    const enabled = row.querySelector('input[type="checkbox"]').checked;
+    row.classList.toggle("disabled", !enabled);
+    row.querySelectorAll(".day-field input, .day-field textarea").forEach((field) => {
+        field.disabled = !enabled;
+        if (!enabled) field.value = "";
+    });
+}
+
+form.querySelectorAll('input[name="claimMode"]').forEach((input) => {
+    input.addEventListener("change", syncClaimMode);
+});
+
+dayGrid.querySelectorAll(".day-row").forEach((row) => {
+    const checkbox = row.querySelector('input[type="checkbox"]');
+    checkbox.addEventListener("change", () => syncDayRow(row));
+    syncDayRow(row);
+});
+syncClaimMode();
 
 // Signature Canvas Setup
 const canvas = document.getElementById('signatureCanvas');
@@ -91,9 +125,10 @@ let hasSignature = false;
 
 function resizeCanvas() {
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.round(rect.width * ratio));
+    canvas.height = Math.max(1, Math.round(rect.height * ratio));
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 2;
@@ -173,10 +208,6 @@ document.getElementById('clearSignature').addEventListener('click', (e) => {
     hasSignature = false;
 });
 
-// Form handling
-const form = document.getElementById('wagesForm');
-const messageDiv = document.getElementById('formMessage');
-
 function showMessage(text, type = 'info') {
     messageDiv.textContent = text;
     messageDiv.className = `message ${type}`;
@@ -189,6 +220,9 @@ function showMessage(text, type = 'info') {
 
 function resetForm() {
     form.reset();
+    setCombinedName();
+    dayGrid.querySelectorAll(".day-row").forEach(syncDayRow);
+    syncClaimMode();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     hasSignature = false;
     const today = new Date().toISOString().split('T')[0];
@@ -202,12 +236,19 @@ document.getElementById('resetForm').addEventListener('click', (e) => {
 
 // Set today's date by default
 document.getElementById('signatureDate').valueAsDate = new Date();
+document.getElementById('firstName').addEventListener('input', setCombinedName);
+document.getElementById('lastName').addEventListener('input', setCombinedName);
 
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    setCombinedName();
 
     if (!hasSignature) {
         showMessage('Please provide a signature', 'error');
+        return;
+    }
+    if (!hasClaimDetails()) {
+        showMessage('Enter a general reason, or select at least one day and fill in details for that day.', 'error');
         return;
     }
 
@@ -306,7 +347,14 @@ async function makePdf() {
         sun: "SUN DIM"
     };
 
+    const claimMode = formData.get("claimMode") || "general";
+    if (claimMode === "general") {
+        const reason = formData.get("generalReason");
+        if (reason) setPdfText(pdfForm, `${REASON_PREFIX}MON LUN`, reason);
+    }
+
     for (const [key, suffix] of Object.entries(suffixes)) {
+        if (claimMode !== "days" || !formData.get(`${key}Enabled`)) continue;
         setPdfText(pdfForm, `DATE${suffix}`, formatDate(formData.get(`${key}Date`)));
         setPdfText(pdfForm, `FROMDE${suffix}`, formData.get(`${key}From`));
         setPdfText(pdfForm, `TOÀ${suffix}`, formData.get(`${key}To`));
@@ -341,6 +389,29 @@ async function makePdf() {
 
     pdfForm.flatten();
     return pdfDoc.save();
+}
+
+function setCombinedName() {
+    const first = document.getElementById('firstName')?.value.trim() || "";
+    const last = document.getElementById('lastName')?.value.trim() || "";
+    document.getElementById('memberName').value = [first, last].filter(Boolean).join(" ");
+}
+
+function hasClaimDetails() {
+    const formData = new FormData(form);
+    const claimMode = formData.get("claimMode") || "general";
+    if (claimMode === "general") return Boolean(String(formData.get("generalReason") || "").trim());
+    return DAYS.some((day) => {
+        if (!formData.get(`${day.key}Enabled`)) return false;
+        return [
+            `${day.key}Date`,
+            `${day.key}From`,
+            `${day.key}To`,
+            `${day.key}Straight`,
+            `${day.key}Overtime`,
+            `${day.key}Reason`
+        ].some((field) => Boolean(String(formData.get(field) || "").trim()));
+    });
 }
 
 function setPdfText(pdfForm, fieldName, value) {
