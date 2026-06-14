@@ -325,7 +325,7 @@ async function makePdf() {
     const signatureImage = await pdfDoc.embedPng(canvas.toDataURL("image/png"));
     pdfDoc.getPages()[0].drawImage(signatureImage, {
         x: 350,
-        y: 226,
+        y: 218,
         width: 170,
         height: 34
     });
