@@ -263,15 +263,6 @@ form.addEventListener('submit', async (e) => {
 
         showMessage('PDF generated and downloaded successfully!', 'success');
 
-        const email = document.getElementById('email').value.trim();
-        if (email) {
-            setTimeout(() => {
-                if (confirm(`Email a copy of this completed PDF to ${email}?`)) {
-                    sendConfirmationEmail(email, pdfBytes);
-                }
-            }, 500);
-        }
-
     } catch (error) {
         console.error('Form submission error:', error);
         showMessage(`Error: ${error.message}`, 'error');
@@ -279,45 +270,6 @@ form.addEventListener('submit', async (e) => {
         document.getElementById('submitForm').disabled = false;
     }
 });
-
-async function sendConfirmationEmail(email, pdfBytes) {
-    try {
-        showMessage('Emailing completed PDF...', 'info');
-
-        const response = await fetch('/api/email-wages-pdf', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                email: email,
-                memberName: document.getElementById('memberName').value,
-                fileName: `Wages-Claim-${new Date().toISOString().split('T')[0]}.pdf`,
-                pdfBase64: bytesToBase64(pdfBytes)
-            })
-        });
-
-        const result = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            throw new Error(result.error || 'Failed to send email');
-        }
-
-        showMessage(result.message || 'Email sent successfully!', 'success');
-    } catch (error) {
-        console.error('Email error:', error);
-        showMessage(`Email error: ${error.message}`, 'error');
-    }
-}
-
-function bytesToBase64(bytes) {
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
-}
 
 async function makePdf() {
     const pdfLib = await loadPdfTools();
@@ -343,7 +295,7 @@ async function makePdf() {
     setPdfText(
         pdfForm,
         "Payroll Period EndingPériode de paye terminé le",
-        formatDate(formData.get("payrollPeriodEnding") || formData.get("signatureDate"))
+        formatDate(formData.get("signatureDate"))
     );
 
     const suffixes = {
