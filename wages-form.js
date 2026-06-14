@@ -4,7 +4,9 @@ const portalSupabaseKey = portalConfig.supabaseAnonKey || "YOUR_SUPABASE_ANON_KE
 const portalIsConfigured = portalSupabaseUrl.startsWith("https://") && portalSupabaseKey.length > 30;
 const portalIsLocalPreview = ["localhost", "127.0.0.1", ""].includes(window.location.hostname) && new URLSearchParams(window.location.search).get("preview") === "1";
 const PDF_TEMPLATE_NAME = "Wages Lost Time and Expense_Bilingual_Fillable_Revised Mar 26.pdf";
+const PDF_LIB_MODULE_NAME = "./pdf-lib.esm.min.js";
 const REASON_PREFIX = "RAISONS DE LA RÉCLAMATION REASONS FOR CLAIM GIVE FULL DETAILS TERMS SUCH AS UNION BUSINESS ETC ARE NOT SUFFICIENT DONNER DES DÉTAILS PRÉCIS LES RAISONS COMME TRAVAIL DE SYNDICAT ETC NE SONT PAS SUFFISANTES";
+let pdfLibModulePromise;
 
 initWagesForm();
 
@@ -307,12 +309,12 @@ async function sendConfirmationEmail(email) {
 }
 
 async function makePdf() {
-    await waitForPdfTools();
+    const pdfLib = await loadPdfTools();
 
     const templateResponse = await fetch(encodeURI(PDF_TEMPLATE_NAME));
     if (!templateResponse.ok) throw new Error("Could not load the official PDF template.");
 
-    const pdfDoc = await window.PDFLib.PDFDocument.load(await templateResponse.arrayBuffer());
+    const pdfDoc = await pdfLib.PDFDocument.load(await templateResponse.arrayBuffer());
     const pdfForm = pdfDoc.getForm();
     const formData = new FormData(form);
 
@@ -367,46 +369,19 @@ async function makePdf() {
     return pdfDoc.save();
 }
 
-async function waitForPdfTools() {
-    if (window.PDFLib?.PDFDocument) return;
-
-    const sources = [
-        "pdf-lib.min.js",
-        "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"
-    ];
-
-    for (const source of sources) {
-        try {
-            await loadScriptOnce(source);
-            if (window.PDFLib?.PDFDocument) return;
-        } catch {
-            // Try the next source.
-        }
+async function loadPdfTools() {
+    if (!pdfLibModulePromise) {
+        pdfLibModulePromise = import(PDF_LIB_MODULE_NAME);
     }
 
-    throw new Error("PDF tools could not load. Refresh the page and try again.");
-}
-
-function loadScriptOnce(src) {
-    return new Promise((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${src}"]`);
-        if (existing?.dataset.loaded === "true") {
-            resolve();
-            return;
-        }
-        if (existing) {
-            existing.remove();
-        }
-
-        const script = document.createElement("script");
-        script.src = src;
-        script.onload = () => {
-            script.dataset.loaded = "true";
-            resolve();
-        };
-        script.onerror = () => reject(new Error(`Could not load ${src}`));
-        document.head.appendChild(script);
-    });
+    try {
+        const module = await pdfLibModulePromise;
+        if (!module?.PDFDocument) throw new Error("PDFDocument export missing.");
+        return module;
+    } catch (error) {
+        pdfLibModulePromise = null;
+        throw new Error(`PDF tools could not load. Refresh the page and try again. (${error.message})`);
+    }
 }
 
 function setCombinedName() {
