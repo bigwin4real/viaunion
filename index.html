@@ -152,8 +152,8 @@
     <template id="auth-template">
       <section class="auth-panel" aria-labelledby="auth-title">
         <div class="brand-mark">4005</div>
-        <h1 id="auth-title">Steward/Admin sign in</h1>
-        <p>Authorized access for Moncton shop stewards and administrators.</p>
+        <h1 id="auth-title">Authorized sign in</h1>
+        <p>Authorized access for Moncton shop stewards, administrators, and committee form users.</p>
         <form id="login-form" class="login-form">
           <label>
             Email
@@ -200,8 +200,8 @@
     <template id="register-template">
       <section class="auth-panel" aria-labelledby="register-title">
         <div class="brand-mark">4005</div>
-        <h1 id="register-title">Request steward access</h1>
-        <p>New steward and admin accounts are reviewed before they can use private tools.</p>
+        <h1 id="register-title">Request private access</h1>
+        <p>New steward, admin, and committee accounts are reviewed before they can use private tools.</p>
         <form id="register-form" class="login-form">
           <label>
             Full name
@@ -231,6 +231,7 @@
             Requested access
             <select id="register-role">
               <option value="steward">Steward</option>
+              <option value="committee">Committee - form access only</option>
               <option value="admin">Admin</option>
             </select>
           </label>

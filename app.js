@@ -605,14 +605,15 @@ function renderRegister() {
 }
 
 async function loadData() {
+  const committeeOnly = currentProfile.role === "committee";
   const [{ data: caseRows }, { data: resourceRows }, { data: pendingRows }, { data: internalRows }, { data: questionRows }] = await Promise.all([
-    supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
-    supabaseClient.from("resources").select("*").order("category"),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     currentProfile.role === "admin"
       ? supabaseClient.from("profiles").select("*").eq("active", false).eq("access_status", "pending").order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
-    supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
-    supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false })
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false })
   ]);
 
   cases = caseRows || [];
@@ -653,9 +654,24 @@ function renderPortal() {
   app.innerHTML = document.querySelector("#portal-template").innerHTML;
   wirePortalEvents();
   document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
+  applyRoleVisibility();
   selectedCaseId = selectedCaseId || cases[0]?.id || null;
   renderAll();
   renderApprovals();
+}
+
+function applyRoleVisibility() {
+  if (currentProfile.role !== "committee") return;
+  const title = document.querySelector(".topbar h1");
+  if (title) title.textContent = "Committee Forms";
+  [".stats-grid", ".approval-panel", ".qa-moderation", ".internal-files", ".workspace"].forEach((selector) => {
+    const element = document.querySelector(selector);
+    if (element) element.hidden = true;
+  });
+  const resourcesTitle = document.querySelector("#resources-title");
+  if (resourcesTitle) resourcesTitle.textContent = "Committee form access";
+  const resourcesSubtitle = document.querySelector(".resources .section-heading span");
+  if (resourcesSubtitle) resourcesSubtitle.textContent = "Lost time and expense claim form";
 }
 
 function wirePortalEvents() {
@@ -849,6 +865,7 @@ async function upsertApprovedDirectoryEntry(profileId) {
     .eq("id", profileId)
     .single();
   if (error || !profile) return;
+  if (profile.role === "committee") return;
 
   const contactParts = [];
   if (profile.share_email && profile.email) contactParts.push(profile.email);
@@ -938,7 +955,10 @@ function renderCaseForm() {
 function renderResources() {
   const term = document.querySelector("#search")?.value.trim().toLowerCase() || "";
   const contract = document.querySelector("#contract-filter")?.value || "all";
-  const rows = resources.filter((item) => {
+  const sourceRows = currentProfile.role === "committee"
+    ? resources.filter((item) => item.url === "wages-form.html")
+    : resources;
+  const rows = sourceRows.filter((item) => {
     const text = [item.title, item.category, item.description].join(" ").toLowerCase();
     return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
   });

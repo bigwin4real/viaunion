@@ -1,4 +1,4 @@
-create type public.portal_role as enum ('admin', 'steward');
+create type public.portal_role as enum ('admin', 'steward', 'committee');
 create type public.access_status as enum ('pending', 'approved', 'rejected');
 create type public.internal_file_kind as enum ('general', 'grievance_tracker');
 create type public.case_contract as enum ('Contract 1', 'Contract 2', 'Shared');
@@ -147,6 +147,7 @@ declare
 begin
   requested_role := case
     when new.raw_user_meta_data ->> 'requested_role' = 'admin' then 'admin'::public.portal_role
+    when new.raw_user_meta_data ->> 'requested_role' = 'committee' then 'committee'::public.portal_role
     else 'steward'::public.portal_role
   end;
 
@@ -220,6 +221,19 @@ as $$
   );
 $$;
 
+create or replace function public.is_admin_or_steward()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and active = true and role in ('admin', 'steward')
+  );
+$$;
+
 create or replace function public.is_public_profile(profile_id uuid)
 returns boolean
 language sql
@@ -272,7 +286,7 @@ using (public.can_access_case(id));
 
 create policy "cases_insert_active"
 on public.cases for insert
-with check (public.is_active_user() and created_by = auth.uid());
+with check (public.is_admin_or_steward() and created_by = auth.uid());
 
 create policy "cases_update_authorized"
 on public.cases for update
@@ -297,7 +311,13 @@ with check (public.can_access_case(case_id) and uploaded_by = auth.uid());
 
 create policy "resources_select_active"
 on public.resources for select
-using (public.is_active_user());
+using (
+  public.is_admin_or_steward()
+  or (
+    public.is_active_user()
+    and url = 'wages-form.html'
+  )
+);
 
 create policy "resources_admin_manage"
 on public.resources for all
@@ -314,8 +334,8 @@ with check (status = 'pending');
 
 create policy "questions_moderator_manage"
 on public.public_questions for all
-using (public.is_active_user())
-with check (public.is_active_user());
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
 
 create policy "public_directory_select_public"
 on public.public_directory_entries for select
@@ -329,14 +349,14 @@ with check (public.is_admin());
 create policy "internal_files_select_authorized"
 on public.internal_files for select
 using (
-  public.is_active_user()
+  public.is_admin_or_steward()
   and (kind = 'general' or public.is_steward())
 );
 
 create policy "internal_files_insert_authorized"
 on public.internal_files for insert
 with check (
-  public.is_active_user()
+  public.is_admin_or_steward()
   and uploaded_by = auth.uid()
   and (kind = 'general' or public.is_steward())
 );
@@ -367,7 +387,7 @@ create policy "storage_select_authorized_internal_files"
 on storage.objects for select
 using (
   bucket_id = 'internal-files'
-  and public.is_active_user()
+  and public.is_admin_or_steward()
   and ((storage.foldername(name))[1] = 'general' or public.is_steward())
 );
 
@@ -375,7 +395,7 @@ create policy "storage_insert_authorized_internal_files"
 on storage.objects for insert
 with check (
   bucket_id = 'internal-files'
-  and public.is_active_user()
+  and public.is_admin_or_steward()
   and ((storage.foldername(name))[1] = 'general' or public.is_steward())
 );
 

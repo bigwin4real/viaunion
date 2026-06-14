@@ -33,7 +33,7 @@ async function canAccessWagesForm() {
         .single();
 
     if (error || !profile?.active) return false;
-    return ["admin", "steward"].includes(profile.role);
+    return ["admin", "steward", "committee"].includes(profile.role);
 }
 
 function setupWagesForm() {
