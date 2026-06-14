@@ -11,6 +11,10 @@
         body.locked main {
             display: none;
         }
+        .wages-form-container,
+        .wages-form-container * {
+            box-sizing: border-box;
+        }
         .access-lock {
             display: none;
             max-width: 560px;
@@ -36,7 +40,8 @@
             text-decoration: none;
         }
         .wages-form-container {
-            max-width: 1000px;
+            width: min(100% - 32px, 1040px);
+            max-width: 1040px;
             margin: 2rem auto;
             padding: 2rem;
             background: white;
@@ -82,6 +87,8 @@
         .form-group input,
         .form-group textarea,
         .form-group select {
+            width: 100%;
+            min-width: 0;
             padding: 0.75rem;
             border: 1px solid #ccc;
             border-radius: 4px;
@@ -104,10 +111,12 @@
             border: 3px solid #003366;
             border-radius: 8px;
             background:
-                linear-gradient(transparent 58px, rgba(0, 63, 125, 0.12) 59px, transparent 60px),
+                linear-gradient(transparent 82px, rgba(0, 63, 125, 0.15) 83px, transparent 84px),
                 #fff;
             margin-top: 0.5rem;
-            min-height: 170px;
+            min-height: 190px;
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(0, 51, 102, 0.14);
         }
         .signature-box::before {
             content: "Sign here";
@@ -122,7 +131,7 @@
             display: block;
             cursor: crosshair;
             width: 100%;
-            height: 170px;
+            height: 190px;
             border-radius: 5px;
             touch-action: none;
         }
@@ -238,7 +247,7 @@
         /* Optional day entries */
         .day-row {
             display: grid;
-            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-columns: 1fr 1fr 1fr 2fr;
             gap: 0.75rem;
             margin-top: 0.85rem;
             padding: 1rem;
@@ -280,19 +289,20 @@
             font-size: 0.9rem;
             font-family: inherit;
             width: 100%;
+            min-width: 0;
         }
         .day-field textarea {
-            min-height: 38px;
+            min-height: 42px;
             resize: vertical;
         }
         .reason-field {
-            grid-column: span 2;
+            grid-column: auto;
         }
         @media (max-width: 800px) {
             .wages-form-container {
-                width: min(100% - 16px, 1000px);
-                margin: 8px auto;
-                padding: 14px;
+                width: min(100% - 24px, 1040px);
+                margin: 12px auto;
+                padding: 16px;
             }
             .form-row,
             .form-row.three {
@@ -301,6 +311,7 @@
             }
             .day-row {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+                padding: 0.9rem;
             }
             .day-enable {
                 grid-column: 1 / -1;
@@ -318,8 +329,20 @@
             }
         }
         @media (max-width: 520px) {
+            .wages-form-container {
+                width: min(100% - 20px, 1040px);
+                padding: 14px;
+            }
+            .day-row {
+                grid-template-columns: 1fr;
+            }
             .button-group {
                 flex-direction: column;
+            }
+            #signatureCanvas,
+            .signature-box {
+                min-height: 210px;
+                height: 210px;
             }
         }
     </style>
@@ -368,6 +391,10 @@
                         <label for="postalCode">Postal Code (Code postal)</label>
                         <input type="text" id="postalCode" name="postalCode">
                     </div>
+                    <div class="form-group">
+                        <label for="employeeNumber">Employee number</label>
+                        <input type="text" id="employeeNumber" name="employeeNumber">
+                    </div>
                 </div>
             </section>
 
@@ -375,6 +402,10 @@
                 <h3>Steward / Administration Details</h3>
                 <p class="helper-text">These fields are for steward or administration use. Complete them only when known.</p>
                 <div class="form-row three">
+                    <div class="form-group">
+                        <label for="submittedBy">Submitted by steward/admin</label>
+                        <input type="text" id="submittedBy" name="submittedBy" autocomplete="name">
+                    </div>
                     <div class="form-group">
                         <label for="workplace">Workplace</label>
                         <input type="text" id="workplace" name="workplace">
@@ -409,7 +440,7 @@
                 <h3>Claim Details</h3>
                 <p class="helper-text">
                     Use a general claim reason when the claim does not need day-by-day time entries.
-                    Select specific days only when dates or hours need to be shown on the official form.
+                    Select specific days only when dates and times need to be shown on the official form.
                 </p>
 
                 <div class="claim-mode">

@@ -72,14 +72,6 @@ function setupWagesForm() {
                 <span>To</span>
                 <input type="time" name="${day.key}To" aria-label="${day.label} to" disabled>
             </label>
-            <label class="day-field">
-                <span>Straight</span>
-                <input type="number" step="0.25" min="0" name="${day.key}Straight" aria-label="${day.label} straight time hours" placeholder="0.0" disabled>
-            </label>
-            <label class="day-field">
-                <span>Overtime</span>
-                <input type="number" step="0.25" min="0" name="${day.key}Overtime" aria-label="${day.label} overtime hours" placeholder="0.0" disabled>
-            </label>
             <label class="day-field reason-field">
                 <span>Reason for claim</span>
                 <textarea name="${day.key}Reason" aria-label="${day.label} reason for claim" placeholder="Reason for claim" disabled></textarea>
@@ -328,6 +320,8 @@ async function makePdf() {
     setPdfText(pdfForm, "Adresse 1", formData.get("address1"));
     setPdfText(pdfForm, "Adresse 2", formData.get("address2"));
     setPdfText(pdfForm, "Code postal", formData.get("postalCode"));
+    setPdfText(pdfForm, "Employee number", formData.get("employeeNumber"));
+    setPdfText(pdfForm, "Submitted by", formData.get("submittedBy"));
     setPdfText(pdfForm, "WORKPLACE", formData.get("workplace"));
     setPdfText(pdfForm, "CLASSIFICATION", formData.get("classification"));
     setPdfText(pdfForm, "NAS", formData.get("sin"));
@@ -335,8 +329,6 @@ async function makePdf() {
     setPdfText(pdfForm, "LOCAL UNIONSYNDICAT LOCAL", formData.get("localUnion"));
     setPdfText(pdfForm, "Payroll Period EndingPériode de paye terminé le", formatDate(formData.get("payrollPeriodEnding")));
 
-    let straightTotal = 0;
-    let overtimeTotal = 0;
     const suffixes = {
         mon: "MON LUN",
         tue: "TUES MAR",
@@ -358,23 +350,7 @@ async function makePdf() {
         setPdfText(pdfForm, `DATE${suffix}`, formatDate(formData.get(`${key}Date`)));
         setPdfText(pdfForm, `FROMDE${suffix}`, formData.get(`${key}From`));
         setPdfText(pdfForm, `TOÀ${suffix}`, formData.get(`${key}To`));
-        setPdfText(pdfForm, `STRAIGHT RÉGULIÉRES${suffix}`, formatHours(formData.get(`${key}Straight`)));
-        setPdfText(pdfForm, `OVERTIME SUPPLÉMENTAIRES${suffix}`, formatHours(formData.get(`${key}Overtime`)));
         setPdfText(pdfForm, `${REASON_PREFIX}${suffix}`, formData.get(`${key}Reason`));
-
-        const straight = parseFloat(formData.get(`${key}Straight`));
-        const overtime = parseFloat(formData.get(`${key}Overtime`));
-        if (!Number.isNaN(straight)) straightTotal += straight;
-        if (!Number.isNaN(overtime)) overtimeTotal += overtime;
-    }
-
-    if (straightTotal > 0) {
-        setPdfText(pdfForm, "STRAIGHT RÉGULIÉRESSUBTOTALSSOMMES PARTIELLES", formatHours(straightTotal));
-        setPdfText(pdfForm, "STRAIGHT RÉGULIÉRESTOTAL HOURSTOTAUX HORAIRE", formatHours(straightTotal));
-    }
-    if (overtimeTotal > 0) {
-        setPdfText(pdfForm, "OVERTIME SUPPLÉMENTAIRESSUBTOTALSSOMMES PARTIELLES", formatHours(overtimeTotal));
-        setPdfText(pdfForm, "OVERTIME SUPPLÉMENTAIRESTOTAL HOURSTOTAUX HORAIRE", formatHours(overtimeTotal));
     }
 
     setPdfText(pdfForm, "MUST BE SIGNED BY CLAIMANTDOIT ÉTRE SIGNÉ PAR LE DEMANDEUR", formatDate(formData.get("signatureDate")));
@@ -407,8 +383,6 @@ function hasClaimDetails() {
             `${day.key}Date`,
             `${day.key}From`,
             `${day.key}To`,
-            `${day.key}Straight`,
-            `${day.key}Overtime`,
             `${day.key}Reason`
         ].some((field) => Boolean(String(formData.get(field) || "").trim()));
     });
@@ -421,12 +395,6 @@ function setPdfText(pdfForm, fieldName, value) {
     } catch {
         // Some official PDF fields vary by template revision; skip missing fields.
     }
-}
-
-function formatHours(value) {
-    const numberValue = parseFloat(value);
-    if (Number.isNaN(numberValue)) return "";
-    return numberValue % 1 === 0 ? String(numberValue) : numberValue.toFixed(2);
 }
 
 function formatDate(value) {
