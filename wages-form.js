@@ -359,10 +359,10 @@ async function makePdf() {
 
     const signatureImage = await pdfDoc.embedPng(canvas.toDataURL("image/png"));
     pdfDoc.getPages()[0].drawImage(signatureImage, {
-        x: 405,
-        y: 83,
-        width: 178,
-        height: 42
+        x: 86,
+        y: 226,
+        width: 190,
+        height: 34
     });
 
     pdfForm.updateFieldAppearances();
