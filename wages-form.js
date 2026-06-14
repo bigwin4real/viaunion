@@ -328,8 +328,12 @@ async function makePdf() {
     setPdfText(pdfForm, "CLASSIFICATION", formData.get("classification"));
     setPdfText(pdfForm, "NAS", formData.get("sin"));
     setPdfText(pdfForm, "UNITUNITÉ", formData.get("unit"));
-    setPdfText(pdfForm, "LOCAL UNIONSYNDICAT LOCAL", formData.get("localUnion"));
-    setPdfText(pdfForm, "Payroll Period EndingPériode de paye terminé le", formatDate(formData.get("payrollPeriodEnding")));
+    setPdfText(pdfForm, "LOCAL UNIONSYNDICAT LOCAL", formData.get("localUnion"), 7);
+    setPdfText(
+        pdfForm,
+        "Payroll Period EndingPériode de paye terminé le",
+        formatDate(formData.get("payrollPeriodEnding") || formData.get("signatureDate"))
+    );
 
     const suffixes = {
         mon: "MON LUN",
@@ -354,8 +358,6 @@ async function makePdf() {
         setPdfText(pdfForm, `TOÀ${suffix}`, formData.get(`${key}To`));
         setPdfText(pdfForm, `${REASON_PREFIX}${suffix}`, formData.get(`${key}Reason`));
     }
-
-    setPdfText(pdfForm, "MUST BE SIGNED BY CLAIMANTDOIT ÉTRE SIGNÉ PAR LE DEMANDEUR", formatDate(formData.get("signatureDate")));
 
     const signatureImage = await pdfDoc.embedPng(canvas.toDataURL("image/png"));
     pdfDoc.getPages()[0].drawImage(signatureImage, {
@@ -405,10 +407,13 @@ function hasClaimDetails() {
     });
 }
 
-function setPdfText(pdfForm, fieldName, value) {
+function setPdfText(pdfForm, fieldName, value, fontSize) {
     try {
         const text = value ? String(value).trim() : "";
-        if (text) pdfForm.getTextField(fieldName).setText(text);
+        if (!text) return;
+        const field = pdfForm.getTextField(fieldName);
+        if (fontSize) field.setFontSize(fontSize);
+        field.setText(text);
     } catch {
         // Some official PDF fields vary by template revision; skip missing fields.
     }
