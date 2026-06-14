@@ -1,0 +1,388 @@
+:root {
+    color-scheme: light;
+    --form-bg: #f6f1ea;
+    --form-ink: #252a33;
+    --form-muted: #667385;
+    --form-line: #d9dfe8;
+    --form-red: #d71920;
+    --form-blue: #003f7d;
+    --form-gold: #ffc72c;
+}
+html {
+    background: var(--form-bg);
+}
+body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+        linear-gradient(180deg, rgba(215, 25, 32, 0.12), rgba(255, 199, 44, 0.08) 280px, transparent 560px),
+        var(--form-bg);
+    color: var(--form-ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+}
+body.locked main {
+    display: none;
+}
+.wages-form-container,
+.wages-form-container * {
+    box-sizing: border-box;
+}
+.wages-form-container button,
+.wages-form-container input,
+.wages-form-container select,
+.wages-form-container textarea {
+    font: inherit;
+}
+.access-lock {
+    display: none;
+    max-width: 560px;
+    margin: 3rem auto;
+    padding: 2rem;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+body.locked .access-lock {
+    display: block;
+}
+.access-lock a {
+    display: inline-grid;
+    place-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 6px;
+    background: #003366;
+    color: white;
+    font-weight: 700;
+    text-decoration: none;
+}
+.wages-form-container {
+    width: min(100% - 32px, 1040px);
+    max-width: 1040px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.form-subtitle {
+    color: #666;
+    margin-top: 0.5rem;
+}
+.form-section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #e0e0e0;
+}
+.form-section:last-child {
+    border-bottom: none;
+}
+.form-section h3 {
+    color: #333;
+    margin-top: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+.form-row.full {
+    grid-template-columns: 1fr;
+}
+.form-row.three {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #333;
+    font-size: 0.95rem;
+}
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    min-width: 0;
+    padding: 0.75rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    color: #252a33;
+    font-family: inherit;
+    font-size: 1rem;
+}
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 2px rgba(0,102,204,0.1);
+}
+.form-group textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+.signature-box {
+    position: relative;
+    border: 3px solid #003366;
+    border-radius: 8px;
+    background:
+        linear-gradient(transparent 82px, rgba(0, 63, 125, 0.15) 83px, transparent 84px),
+        #fff;
+    margin-top: 0.5rem;
+    min-height: 190px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0, 51, 102, 0.14);
+}
+.signature-box::before {
+    content: "Sign here";
+    position: absolute;
+    left: 14px;
+    top: 12px;
+    color: #8a96a3;
+    font-weight: 700;
+    pointer-events: none;
+}
+#signatureCanvas {
+    display: block;
+    cursor: crosshair;
+    width: 100%;
+    height: 190px;
+    border-radius: 5px;
+    touch-action: none;
+}
+.signature-controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+.signature-controls button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+.signature-meta-row {
+    margin-top: 1.5rem;
+}
+.authorization-row {
+    margin-top: 1rem;
+}
+.button-group {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+    justify-content: flex-end;
+}
+.btn-primary {
+    background: #0066cc;
+    color: white;
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+.btn-primary:hover {
+    background: #0052a3;
+}
+.btn-primary:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+.btn-secondary {
+    background: white;
+    color: #333;
+    padding: 0.75rem 2rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+.btn-secondary:hover {
+    background: #f5f5f5;
+}
+.message {
+    padding: 1rem;
+    margin-top: 1rem;
+    border-radius: 4px;
+    display: none;
+}
+.message.success {
+    display: block;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #4caf50;
+}
+.message.error {
+    display: block;
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #f44336;
+}
+.message.info {
+    display: block;
+    background: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #2196f3;
+}
+.required::after {
+    content: " *";
+    color: red;
+}
+.helper-text {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+.admin-only,
+.claim-mode {
+    border: 1px solid #d7dde6;
+    border-radius: 8px;
+    background: #f8fbff;
+    padding: 1rem;
+}
+.admin-only h4,
+.claim-mode h4 {
+    margin: 0 0 0.75rem;
+    color: #003366;
+}
+.option-row,
+.day-enable {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+    color: #333;
+    font-weight: 700;
+    margin: 0 0 0.65rem;
+}
+.option-row input,
+.day-enable input,
+#authorization {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    margin: 0;
+    padding: 0;
+    accent-color: #003f7d;
+}
+.general-reason-panel {
+    margin-top: 1rem;
+}
+.general-reason-panel textarea {
+    min-height: 110px;
+}
+
+/* Optional day entries */
+.day-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 2fr;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+    padding: 1rem;
+    border: 1px solid #d7dde6;
+    border-left: 5px solid #d71920;
+    border-radius: 8px;
+    background: #fff;
+    align-items: start;
+}
+.day-enable {
+    font-weight: 600;
+    color: #003366;
+    grid-column: 1 / -1;
+    margin-bottom: 0.1rem;
+}
+.day-row.disabled {
+    background: #f5f7fa;
+    border-left-color: #b7c0cc;
+}
+.day-row.disabled .day-field {
+    display: none;
+}
+.day-field {
+    display: grid;
+    gap: 0.25rem;
+}
+.day-field span {
+    display: block;
+    color: #555;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.day-field input,
+.day-field textarea {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    width: 100%;
+    min-width: 0;
+}
+.day-field textarea {
+    min-height: 42px;
+    resize: vertical;
+}
+.reason-field {
+    grid-column: auto;
+}
+@media (max-width: 800px) {
+    .wages-form-container {
+        width: min(100% - 24px, 1040px);
+        margin: 12px auto;
+        padding: 16px;
+    }
+    .form-row,
+    .form-row.three {
+        grid-template-columns: 1fr;
+        gap: 0.9rem;
+    }
+    .day-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 0.9rem;
+    }
+    .day-enable {
+        grid-column: 1 / -1;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid #e7ebf0;
+    }
+    .reason-field {
+        grid-column: 1 / -1;
+    }
+    .button-group {
+        justify-content: stretch;
+    }
+    .button-group button {
+        flex: 1 1 100%;
+    }
+}
+@media (max-width: 520px) {
+    .wages-form-container {
+        width: min(100% - 20px, 1040px);
+        padding: 14px;
+    }
+    .day-row {
+        grid-template-columns: 1fr;
+    }
+    .button-group {
+        flex-direction: column;
+    }
+    #signatureCanvas,
+    .signature-box {
+        min-height: 210px;
+        height: 210px;
+    }
+}
