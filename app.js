@@ -126,9 +126,9 @@ const publicDiscounts = [
 ];
 
 const publicResources = [
-  { title: "VIA Rail Agreement No. 1", category: "Agreements", contract: "Contract 1", description: "Council 4000 lists Agreement No. 1 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
-  { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
-  { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety and Health Agreement.", url: "https://www.unifor4000.com/collective-agreements" },
+  { title: "VIA Rail Agreement No. 1", category: "Agreements", contract: "Contract 1", description: "Council 4000 lists Agreement No. 1 - National as 2025-2027.", url: "https://www.unifor4000.com/agreements" },
+  { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/agreements" },
+  { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety agreement.", url: "https://www.unifor4000.com/agreements" },
   { title: "Council 4000 bylaws", category: "Bylaws", contract: "Shared", description: "Council 4000 bylaws and constitution resources.", url: "https://www.unifor4000.com/bylaws-constitution" },
   { title: "Employee discounts", category: "Discounts", contract: "Shared", description: "Discount guide details copied onto this site for all employees.", url: "discounts.html" },
   { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and general agenda information." },
@@ -660,18 +660,103 @@ function renderPortal() {
   renderApprovals();
 }
 
+function isAdmin() {
+  return currentProfile?.role === "admin";
+}
+
+function isSteward() {
+  return currentProfile?.role === "steward";
+}
+
+function isCommittee() {
+  return currentProfile?.role === "committee";
+}
+
+function isAdminOrSteward() {
+  return isAdmin() || isSteward();
+}
+
 function applyRoleVisibility() {
-  if (currentProfile.role !== "committee") return;
-  const title = document.querySelector(".topbar h1");
-  if (title) title.textContent = "Committee Forms";
-  [".stats-grid", ".approval-panel", ".qa-moderation", ".internal-files", ".workspace"].forEach((selector) => {
-    const element = document.querySelector(selector);
-    if (element) element.hidden = true;
-  });
-  const resourcesTitle = document.querySelector("#resources-title");
-  if (resourcesTitle) resourcesTitle.textContent = "Committee form access";
-  const resourcesSubtitle = document.querySelector(".resources .section-heading span");
-  if (resourcesSubtitle) resourcesSubtitle.textContent = "Lost time and expense claim form";
+  const role = currentProfile?.role;
+
+  // COMMITTEE VIEW - Highly restricted
+  if (isCommittee()) {
+    const title = document.querySelector(".topbar h1");
+    if (title) title.textContent = "Committee Forms";
+    [".stats-grid", ".approval-panel", ".qa-moderation", ".internal-files", ".workspace"].forEach((selector) => {
+      const element = document.querySelector(selector);
+      if (element) element.hidden = true;
+    });
+    const resourcesTitle = document.querySelector("#resources-title");
+    if (resourcesTitle) resourcesTitle.textContent = "Committee form access";
+    const resourcesSubtitle = document.querySelector(".resources .section-heading span");
+    if (resourcesSubtitle) resourcesSubtitle.textContent = "Lost time and expense claim form";
+    return;
+  }
+
+  // ADMIN VIEW
+  if (isAdmin()) {
+    const title = document.querySelector(".topbar h1");
+    if (title) title.textContent = "Admin Portal";
+    
+    // Show all admin panels
+    const approvalPanel = document.querySelector("#approval-panel");
+    if (approvalPanel) approvalPanel.hidden = false;
+
+    // Admin has access to all case management
+    const workspace = document.querySelector(".workspace");
+    if (workspace) workspace.hidden = false;
+
+    // Admin has full access to resources
+    const resources = document.querySelector(".resources");
+    if (resources) resources.hidden = false;
+
+    // Admin has full access to Q&A moderation
+    const qaModeration = document.querySelector(".qa-moderation");
+    if (qaModeration) qaModeration.hidden = false;
+
+    // Admin has full access to internal files
+    const internalFiles = document.querySelector(".internal-files");
+    if (internalFiles) internalFiles.hidden = false;
+
+    // Show stats
+    const statsGrid = document.querySelector(".stats-grid");
+    if (statsGrid) statsGrid.hidden = false;
+
+    return;
+  }
+
+  // STEWARD VIEW
+  if (isSteward()) {
+    const title = document.querySelector(".topbar h1");
+    if (title) title.textContent = "Steward Portal";
+
+    // Hide admin-only approval panel
+    const approvalPanel = document.querySelector("#approval-panel");
+    if (approvalPanel) approvalPanel.hidden = true;
+
+    // Stewards see case workspace
+    const workspace = document.querySelector(".workspace");
+    if (workspace) workspace.hidden = false;
+
+    // Stewards see resources
+    const resources = document.querySelector(".resources");
+    if (resources) resources.hidden = false;
+
+    // Stewards cannot moderate Q&A
+    const qaModeration = document.querySelector(".qa-moderation");
+    if (qaModeration) qaModeration.hidden = true;
+
+    // Stewards can see internal files (general only)
+    const internalFiles = document.querySelector(".internal-files");
+    if (internalFiles) internalFiles.hidden = false;
+
+    // Show stats
+    const statsGrid = document.querySelector(".stats-grid");
+    if (statsGrid) statsGrid.hidden = false;
+
+    return;
+  }
 }
 
 function wirePortalEvents() {
@@ -680,12 +765,12 @@ function wirePortalEvents() {
     window.location.href = window.location.pathname;
   });
   ["search", "contract-filter", "status-filter"].forEach((id) => {
-    document.querySelector(`#${id}`).addEventListener("input", renderAll);
+    document.querySelector(`#${id}`)?.addEventListener("input", renderAll);
   });
-  document.querySelector("#new-case").addEventListener("click", clearCaseForm);
-  document.querySelector("#save-case").addEventListener("click", saveCase);
-  document.querySelector("#document-upload").addEventListener("change", uploadDocument);
-  document.querySelector("#internal-file-upload").addEventListener("change", uploadInternalFile);
+  document.querySelector("#new-case")?.addEventListener("click", clearCaseForm);
+  document.querySelector("#save-case")?.addEventListener("click", saveCase);
+  document.querySelector("#document-upload")?.addEventListener("change", uploadDocument);
+  document.querySelector("#internal-file-upload")?.addEventListener("change", uploadInternalFile);
 }
 
 function renderAll() {
@@ -701,6 +786,10 @@ function renderAll() {
 function renderQuestionModeration() {
   const list = document.querySelector("#moderation-list");
   if (!list) return;
+
+  // Only admins can moderate
+  if (!isAdmin()) return;
+
   const total = document.querySelector("#moderation-total");
   if (total) total.textContent = `${publicQuestions.length} messages`;
   list.innerHTML = publicQuestions.map((item) => `
@@ -738,12 +827,15 @@ async function deletePublicQuestion(questionId) {
 function renderInternalFiles() {
   const list = document.querySelector("#internal-file-list");
   if (!list) return;
+
   const kindSelect = document.querySelector("#internal-file-kind");
-  const canUseGrievanceTracker = currentProfile.role === "steward";
+  const canUseGrievanceTracker = isSteward();
+  
   if (kindSelect) {
     kindSelect.querySelector('option[value="grievance_tracker"]').disabled = !canUseGrievanceTracker;
     if (!canUseGrievanceTracker && kindSelect.value === "grievance_tracker") kindSelect.value = "general";
   }
+  
   const rows = internalFiles.filter((file) => file.kind !== "grievance_tracker" || canUseGrievanceTracker);
   list.innerHTML = rows.map((file) => `
     <article class="file-card">
@@ -763,22 +855,26 @@ async function uploadInternalFile(event) {
   const file = event.target.files[0];
   if (!file) return;
   const kind = value("internal-file-kind");
-  if (kind === "grievance_tracker" && currentProfile.role !== "steward") {
+  
+  if (kind === "grievance_tracker" && !isSteward()) {
     alert("Only stewards can upload the locked grievance tracker.");
     event.target.value = "";
     return;
   }
+  
   if (kind === "grievance_tracker" && !/\.(xlsx|xls|xlsm)$/i.test(file.name)) {
     alert("Use an Excel workbook for the grievance tracker.");
     event.target.value = "";
     return;
   }
+  
   if (previewMode) {
     internalFiles.unshift({ id: crypto.randomUUID(), file_name: file.name, kind, storage_path: `${kind}/${file.name}`, uploaded_at: new Date().toISOString() });
     renderInternalFiles();
     event.target.value = "";
     return;
   }
+  
   const folder = kind === "grievance_tracker" ? "grievance-tracker" : "general";
   const storagePath = `${folder}/${Date.now()}-${file.name}`;
   const upload = await supabaseClient.storage.from(INTERNAL_BUCKET).upload(storagePath, file);
@@ -807,10 +903,13 @@ async function openInternalFile(path) {
 function renderApprovals() {
   const panel = document.querySelector("#approval-panel");
   if (!panel) return;
-  if (currentProfile.role !== "admin") {
+
+  // Only admins can approve/reject
+  if (!isAdmin()) {
     panel.hidden = true;
     return;
   }
+
   panel.hidden = false;
   document.querySelector("#approval-total").textContent = `${pendingProfiles.length} pending`;
   const list = document.querySelector("#approval-list");
@@ -955,13 +1054,24 @@ function renderCaseForm() {
 function renderResources() {
   const term = document.querySelector("#search")?.value.trim().toLowerCase() || "";
   const contract = document.querySelector("#contract-filter")?.value || "all";
-  const sourceRows = currentProfile.role === "committee"
-    ? resources.filter((item) => item.url === "wages-form.html")
-    : resources;
+  
+  let sourceRows = resources;
+  
+  // Committee only sees wages form
+  if (isCommittee()) {
+    sourceRows = resources.filter((item) => item.url === "wages-form.html");
+  }
+  // Stewards see most resources but not admin-only
+  else if (isSteward()) {
+    sourceRows = resources.filter((item) => !item.adminOnly);
+  }
+  // Admins see everything
+  
   const rows = sourceRows.filter((item) => {
     const text = [item.title, item.category, item.description].join(" ").toLowerCase();
     return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
   });
+  
   document.querySelector("#resource-list").innerHTML = rows.map((item) => `
     <article class="resource-item">
       <h3>${escapeHtml(item.title)}</h3>
