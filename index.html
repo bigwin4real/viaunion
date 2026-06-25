@@ -268,6 +268,14 @@
           </div>
         </header>
 
+        <!-- ADMIN NAVIGATION TABS -->
+        <nav class="admin-nav" id="admin-nav" hidden>
+          <button class="admin-nav-tab active" type="button" data-tab="cases">Cases</button>
+          <button class="admin-nav-tab" type="button" data-tab="users">Users</button>
+          <button class="admin-nav-tab" type="button" data-tab="content">Site Content</button>
+          <button class="admin-nav-tab" type="button" data-tab="moderation">Moderation</button>
+        </nav>
+
         <section class="stats-grid" aria-label="Case summary">
           <article>
             <span id="open-count">0</span>
@@ -287,6 +295,76 @@
           </article>
         </section>
 
+        <!-- ADMIN: USER MANAGEMENT -->
+        <section id="users-tab" class="admin-tab" hidden>
+          <div class="section-heading">
+            <h2>User management</h2>
+            <span id="users-total"></span>
+          </div>
+          <div class="user-tools">
+            <label>
+              Search users
+              <input id="user-search" type="search" placeholder="Name or email">
+            </label>
+            <label>
+              Filter by role
+              <select id="user-role-filter">
+                <option value="all">All roles</option>
+                <option value="admin">Admin</option>
+                <option value="steward">Steward</option>
+                <option value="committee">Committee</option>
+              </select>
+            </label>
+            <label>
+              Filter by status
+              <select id="user-status-filter">
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending approval</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+          <div id="users-list" class="users-list"></div>
+        </section>
+
+        <!-- ADMIN: SITE CONTENT MANAGEMENT -->
+        <section id="content-tab" class="admin-tab" hidden>
+          <div class="section-heading">
+            <h2>Site content</h2>
+          </div>
+          <div class="content-editor">
+            <div class="content-section">
+              <h3>Public announcements</h3>
+              <p class="helper-text">Manage public notices visible to all members</p>
+              <button id="add-announcement" type="button">+ Add announcement</button>
+              <div id="announcements-list" class="content-list"></div>
+            </div>
+            <div class="content-section">
+              <h3>Member resources</h3>
+              <p class="helper-text">Manage links and resources available to members</p>
+              <button id="add-resource" type="button">+ Add resource</button>
+              <div id="resources-list" class="content-list"></div>
+            </div>
+            <div class="content-section">
+              <h3>Meetings</h3>
+              <p class="helper-text">Update meeting dates, locations, and information</p>
+              <button id="add-meeting" type="button">+ Add meeting</button>
+              <div id="meetings-list" class="content-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ADMIN: MODERATION -->
+        <section id="moderation-tab" class="admin-tab" hidden>
+          <div class="section-heading">
+            <h2>Q&A moderation</h2>
+            <span id="moderation-total"></span>
+          </div>
+          <div id="moderation-list" class="moderation-list"></div>
+        </section>
+
+        <!-- APPROVAL PANEL (OLD) -->
         <section id="approval-panel" class="approval-panel" hidden>
           <div class="section-heading">
             <h2>Access approvals</h2>
@@ -295,14 +373,7 @@
           <div id="approval-list" class="approval-list"></div>
         </section>
 
-        <section class="qa-moderation" aria-labelledby="qa-moderation-title">
-          <div class="section-heading">
-            <h2 id="qa-moderation-title">Q&A moderation</h2>
-            <span id="moderation-total"></span>
-          </div>
-          <div id="moderation-list" class="moderation-list"></div>
-        </section>
-
+        <!-- INTERNAL FILES -->
         <section class="internal-files" aria-labelledby="internal-files-title">
           <div class="section-heading">
             <h2 id="internal-files-title">Internal file storage</h2>
@@ -325,7 +396,8 @@
           <div id="internal-file-list" class="internal-file-list"></div>
         </section>
 
-        <section class="workspace">
+        <!-- CASES WORKSPACE -->
+        <section class="workspace" id="cases-tab">
           <aside class="filters" aria-label="Filters">
             <label>
               Search
