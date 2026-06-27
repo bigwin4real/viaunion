@@ -443,7 +443,10 @@
           <section class="detail-column" aria-labelledby="detail-title">
             <div class="section-heading">
               <h2 id="detail-title">Case details</h2>
-              <button id="save-case" type="button">Save</button>
+              <div class="button-row">
+                <button id="delete-case" class="secondary" type="button" hidden>Delete</button>
+                <button id="save-case" type="button">Save</button>
+              </div>
             </div>
             <form id="case-form" class="case-form">
               <input id="case-id" type="hidden">

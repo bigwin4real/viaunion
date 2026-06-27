@@ -162,6 +162,7 @@ let internalFiles = [];
 let publicQuestions = [...sampleQuestions];
 let selectedCaseId = null;
 let activePortalRole = null;
+let activeAdminTab = "cases";
 
 const roleLabels = {
   admin: "Admin tools",
@@ -787,17 +788,28 @@ function wirePortalEvents() {
     if (supabaseClient) await supabaseClient.auth.signOut();
     window.location.href = window.location.pathname;
   });
+  document.querySelectorAll(".admin-nav-tab").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeAdminTab = button.dataset.tab || "cases";
+      renderAdminTabs();
+    });
+  });
   ["search", "contract-filter", "status-filter"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderAll);
   });
+  ["user-search", "user-role-filter", "user-status-filter"].forEach((id) => {
+    document.querySelector(`#${id}`)?.addEventListener("input", renderUsers);
+  });
   document.querySelector("#new-case")?.addEventListener("click", clearCaseForm);
   document.querySelector("#save-case")?.addEventListener("click", saveCase);
+  document.querySelector("#delete-case")?.addEventListener("click", deleteSelectedCase);
   document.querySelector("#document-upload")?.addEventListener("change", uploadDocument);
   document.querySelector("#internal-file-upload")?.addEventListener("change", uploadInternalFile);
 }
 
 function renderAll() {
   applyRoleVisibility();
+  renderAdminTabs();
   renderStats();
   renderCases();
   renderCaseForm();
@@ -805,6 +817,22 @@ function renderAll() {
   renderApprovals();
   renderQuestionModeration();
   renderInternalFiles();
+  renderUsers();
+}
+
+function renderAdminTabs() {
+  document.querySelectorAll(".admin-nav-tab").forEach((button) => {
+    button.classList.toggle("active", button.dataset.tab === activeAdminTab);
+  });
+  const isAdminView = isAdmin();
+  const casesTab = document.querySelector("#cases-tab");
+  const usersTab = document.querySelector("#users-tab");
+  const contentTab = document.querySelector("#content-tab");
+  const moderationTab = document.querySelector("#moderation-tab");
+  if (casesTab) casesTab.hidden = !isAdminView ? !isSteward() : activeAdminTab !== "cases";
+  if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "users";
+  if (contentTab) contentTab.hidden = !isAdminView || activeAdminTab !== "content";
+  if (moderationTab) moderationTab.hidden = !isAdminView || activeAdminTab !== "moderation";
 }
 
 function renderQuestionModeration() {
@@ -993,6 +1021,63 @@ function renderRoleCard(profile, { pending }) {
   `;
 }
 
+function filteredUsers() {
+  const term = document.querySelector("#user-search")?.value.trim().toLowerCase() || "";
+  const role = document.querySelector("#user-role-filter")?.value || "all";
+  const status = document.querySelector("#user-status-filter")?.value || "all";
+  return [...activeProfiles, ...pendingProfiles].filter((profile) => {
+    const matchesTerm = !term || [profile.full_name, profile.email].join(" ").toLowerCase().includes(term);
+    const roles = assignedRoles(profile);
+    const matchesRole = role === "all" || roles.includes(role) || profile.role === role;
+    const derivedStatus = profile.active ? "active" : profile.access_status === "pending" ? "pending" : "inactive";
+    const matchesStatus = status === "all" || derivedStatus === status;
+    return matchesTerm && matchesRole && matchesStatus;
+  });
+}
+
+function renderUsers() {
+  const list = document.querySelector("#users-list");
+  if (!list || !canManageUsers()) return;
+  const rows = filteredUsers();
+  const total = document.querySelector("#users-total");
+  if (total) total.textContent = `${rows.length} users`;
+  list.innerHTML = rows.map((profile) => `
+    <article class="approval-card">
+      <div>
+        <h3>${escapeHtml(profile.full_name || profile.email || "User")}</h3>
+        <p>${escapeHtml(profile.email || "")}</p>
+        <div class="meta-row">
+          <span class="pill">${profile.active ? "active" : escapeHtml(profile.access_status || "inactive")}</span>
+          <span class="pill">${assignedRoles(profile).join(", ")}</span>
+        </div>
+        <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
+          ${["admin", "steward", "committee"].map((role) => `
+            <label>
+              <input type="checkbox" value="${role}" ${assignedRoles(profile).includes(role) ? "checked" : ""}>
+              ${roleLabels[role] || role}
+            </label>
+          `).join("")}
+        </div>
+      </div>
+      <div class="button-row">
+        ${profile.access_status === "pending"
+          ? `<button type="button" data-approve-id="${escapeHtml(profile.id)}">Approve</button>
+             <button class="secondary" type="button" data-reject-id="${escapeHtml(profile.id)}">Reject</button>`
+          : `<button type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>`}
+      </div>
+    </article>
+  `).join("") || `<div class="empty">No users match the current filters.</div>`;
+  list.querySelectorAll("[data-approve-id]").forEach((button) => {
+    button.addEventListener("click", () => updateAccessRequest(button.dataset.approveId, true, selectedRolesForProfile(button.dataset.approveId)));
+  });
+  list.querySelectorAll("[data-reject-id]").forEach((button) => {
+    button.addEventListener("click", () => updateAccessRequest(button.dataset.rejectId, false));
+  });
+  list.querySelectorAll("[data-save-roles-id]").forEach((button) => {
+    button.addEventListener("click", () => updateProfileRoles(button.dataset.saveRolesId, selectedRolesForProfile(button.dataset.saveRolesId)));
+  });
+}
+
 function assignedRoles(profile) {
   return profileRoles(profile);
 }
@@ -1129,6 +1214,8 @@ function renderCases() {
 
 function renderCaseForm() {
   const item = cases.find((row) => row.id === selectedCaseId);
+  const deleteButton = document.querySelector("#delete-case");
+  if (deleteButton) deleteButton.hidden = !isAdmin() || !item;
   if (!item) {
     clearCaseForm();
     return;
@@ -1256,6 +1343,28 @@ async function saveCase() {
   }
   await loadData();
   await loadCaseChildren(selectedCaseId);
+  renderAll();
+}
+
+async function deleteSelectedCase() {
+  if (!isAdmin() || !selectedCaseId) return;
+  if (!confirm("Delete this case and its notes/documents?")) return;
+  if (previewMode) {
+    cases = cases.filter((item) => item.id !== selectedCaseId);
+    selectedCaseId = cases[0]?.id || null;
+    if (selectedCaseId) {
+      await loadCaseChildren(selectedCaseId);
+    } else {
+      documents = [];
+      notes = [];
+    }
+    renderAll();
+    return;
+  }
+  const { error } = await supabaseClient.from("cases").delete().eq("id", selectedCaseId);
+  if (error) return alert(error.message);
+  selectedCaseId = null;
+  await loadData();
   renderAll();
 }
 
