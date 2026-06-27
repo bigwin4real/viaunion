@@ -159,6 +159,20 @@ create table if not exists public.public_announcements (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.public_executive_team (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  role text not null,
+  area text,
+  contact text,
+  note text,
+  display_order integer not null default 100,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.invite_codes (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
@@ -169,11 +183,17 @@ create table if not exists public.invite_codes (
 );
 
 alter table public.public_announcements enable row level security;
+alter table public.public_executive_team enable row level security;
 alter table public.invite_codes enable row level security;
 
 drop trigger if exists public_announcements_touch_updated_at on public.public_announcements;
 create trigger public_announcements_touch_updated_at
 before update on public.public_announcements
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists public_executive_team_touch_updated_at on public.public_executive_team;
+create trigger public_executive_team_touch_updated_at
+before update on public.public_executive_team
 for each row execute function public.touch_updated_at();
 
 drop policy if exists "public_announcements_read" on public.public_announcements;
@@ -184,6 +204,17 @@ using (true);
 drop policy if exists "public_announcements_manage" on public.public_announcements;
 create policy "public_announcements_manage"
 on public.public_announcements for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
+
+drop policy if exists "public_executive_team_read" on public.public_executive_team;
+create policy "public_executive_team_read"
+on public.public_executive_team for select
+using (true);
+
+drop policy if exists "public_executive_team_manage" on public.public_executive_team;
+create policy "public_executive_team_manage"
+on public.public_executive_team for all
 using (public.is_admin_or_steward())
 with check (public.is_admin_or_steward());
 

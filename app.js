@@ -169,6 +169,7 @@ let inviteCodes = [...sampleInvites];
 let selectedMeetingId = defaultMeetings[0]?.id || null;
 let selectedAnnouncementId = announcementItems[0]?.id || null;
 let selectedPublicResourceId = null;
+let selectedExecutiveId = null;
 let meetingsStorageReady = previewMode || !isConfigured;
 let selectedCaseId = null;
 let activePortalRole = null;
@@ -270,6 +271,7 @@ function wirePublicBoard() {
   renderPublicDirectory();
   loadPublicAccountDirectory();
   loadOfficialContacts();
+  loadPublicExecutiveTeam();
   loadPublicQuestions();
   loadPublicAnnouncements();
   loadPublicMeetings();
@@ -280,6 +282,33 @@ function wirePublicBoard() {
   ["public-search", "public-contract"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
   });
+}
+
+async function loadPublicExecutiveTeam() {
+  if (!isConfigured) {
+    renderPublicDirectory();
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from("public_executive_team")
+      .select("*")
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error || !Array.isArray(data) || !data.length) return;
+    publicExecutiveTeam = data.map((item) => ({
+      id: item.id,
+      name: item.name,
+      role: item.role,
+      area: item.area || "",
+      contact: item.contact || "",
+      note: item.note || ""
+    }));
+    selectedExecutiveId = publicExecutiveTeam[0]?.id || null;
+    renderPublicDirectory();
+  } catch {
+    // Keep fallback executive contacts when the table is not configured yet.
+  }
 }
 
 async function loadPublicAnnouncements() {
@@ -360,6 +389,13 @@ async function loadPublicAccountDirectory() {
 
 async function loadOfficialContacts() {
   try {
+    if (isConfigured) {
+      const { data } = await supabaseClient
+        .from("public_executive_team")
+        .select("id")
+        .limit(1);
+      if (Array.isArray(data) && data.length) return;
+    }
     const response = await fetch("/api/local-4005-contacts");
     if (!response.ok) return;
     const data = await response.json();
@@ -727,7 +763,7 @@ function renderRegister() {
 async function loadData() {
   const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
   const canManageUsers = profileHasRole(currentProfile, "admin");
-  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult] = await Promise.all([
+  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult] = await Promise.all([
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     canManageUsers
@@ -742,7 +778,8 @@ async function loadData() {
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_announcements").select("*").order("display_order", { ascending: true }).order("date", { ascending: false }),
     canManageUsers || profileHasRole(currentProfile, "steward")
       ? supabaseClient.from("invite_codes").select("*").order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] })
+      : Promise.resolve({ data: [] }),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true })
   ]);
 
   cases = caseResult.data || [];
@@ -772,6 +809,16 @@ async function loadData() {
   }));
   if (!announcementItems.length) announcementItems = publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item }));
   inviteCodes = inviteResult.data || [];
+  if (Array.isArray(executiveResult.data) && executiveResult.data.length) {
+    publicExecutiveTeam = executiveResult.data.map((item) => ({
+      id: item.id,
+      name: item.name,
+      role: item.role,
+      area: item.area || "",
+      contact: item.contact || "",
+      note: item.note || ""
+    }));
+  }
   if (meetingResult.error) {
     meetingsStorageReady = false;
     meetingNotices = [...defaultMeetings];
@@ -783,6 +830,7 @@ async function loadData() {
   publicResourceItems = resources.filter((item) => !item.adminOnly);
   selectedAnnouncementId = announcementItems.find((item) => item.id === selectedAnnouncementId)?.id || announcementItems[0]?.id || null;
   selectedPublicResourceId = publicResourceItems.find((item) => item.id === selectedPublicResourceId)?.id || publicResourceItems[0]?.id || null;
+  selectedExecutiveId = publicExecutiveTeam.find((item) => item.id === selectedExecutiveId)?.id || publicExecutiveTeam[0]?.id || null;
   selectedCaseId = cases[0]?.id || null;
   if (selectedCaseId) await loadCaseChildren(selectedCaseId);
 }
@@ -925,6 +973,8 @@ function wirePortalEvents() {
   document.querySelector("#new-announcement")?.addEventListener("click", clearAnnouncementForm);
   document.querySelector("#save-resource")?.addEventListener("click", savePublicResource);
   document.querySelector("#new-resource")?.addEventListener("click", clearPublicResourceForm);
+  document.querySelector("#save-executive")?.addEventListener("click", saveExecutiveMember);
+  document.querySelector("#new-executive")?.addEventListener("click", clearExecutiveForm);
   document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
 }
 
@@ -943,6 +993,7 @@ function renderAll() {
   renderMeetingManager();
   renderAnnouncementManager();
   renderPublicResourceManager();
+  renderExecutiveManager();
   renderInviteManager();
 }
 
@@ -1895,6 +1946,105 @@ async function deletePublicResource(id) {
   await loadData();
   renderAll();
   renderPublicBoard();
+}
+
+function renderExecutiveManager() {
+  const list = document.querySelector("#executives-list");
+  if (!list || !isAdminOrSteward()) return;
+  list.innerHTML = publicExecutiveTeam.map((item) => `
+    <article class="resource-item ${item.id === selectedExecutiveId ? "meeting-item-active" : ""}">
+      <div class="meeting-item-header">
+        <div>
+          <h3>${escapeHtml(item.name)}</h3>
+          <p>${escapeHtml(item.role)} · ${escapeHtml(item.area || "Local 4005")}</p>
+        </div>
+        <div class="button-row">
+          <button type="button" data-edit-executive-id="${escapeHtml(item.id || "")}">Edit</button>
+          <button class="secondary" type="button" data-delete-executive-id="${escapeHtml(item.id || "")}">Delete</button>
+        </div>
+      </div>
+      ${item.contact ? `<p>${escapeHtml(item.contact)}</p>` : ""}
+      ${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}
+    </article>
+  `).join("") || `<div class="empty">No executive entries yet.</div>`;
+  list.querySelectorAll("[data-edit-executive-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedExecutiveId = button.dataset.editExecutiveId;
+      populateExecutiveForm(selectedExecutiveId);
+      renderExecutiveManager();
+    });
+  });
+  list.querySelectorAll("[data-delete-executive-id]").forEach((button) => {
+    button.addEventListener("click", () => deleteExecutiveMember(button.dataset.deleteExecutiveId));
+  });
+  populateExecutiveForm(selectedExecutiveId);
+}
+
+function populateExecutiveForm(id) {
+  const item = publicExecutiveTeam.find((row) => row.id === id);
+  if (!item) return clearExecutiveFormFields();
+  setValue("executive-id", item.id || "");
+  setValue("executive-name-input", item.name || "");
+  setValue("executive-role-input", item.role || "");
+  setValue("executive-area-input", item.area || "");
+  setValue("executive-contact-input", item.contact || "");
+  setValue("executive-note-input", item.note || "");
+}
+
+function clearExecutiveForm() {
+  selectedExecutiveId = null;
+  clearExecutiveFormFields();
+  renderExecutiveManager();
+}
+
+function clearExecutiveFormFields() {
+  ["executive-id", "executive-name-input", "executive-role-input", "executive-area-input", "executive-contact-input", "executive-note-input"].forEach((id) => setValue(id, ""));
+}
+
+async function saveExecutiveMember() {
+  if (!isAdminOrSteward()) return;
+  const payload = {
+    name: value("executive-name-input"),
+    role: value("executive-role-input"),
+    area: value("executive-area-input") || null,
+    contact: value("executive-contact-input") || null,
+    note: value("executive-note-input") || null
+  };
+  if (!payload.name || !payload.role) return alert("Name and role are required.");
+  if (previewMode || !isConfigured) {
+    const id = value("executive-id") || crypto.randomUUID();
+    const row = { id, ...payload };
+    const index = publicExecutiveTeam.findIndex((item) => item.id === id);
+    if (index >= 0) publicExecutiveTeam[index] = row; else publicExecutiveTeam.push(row);
+    selectedExecutiveId = id;
+    renderPublicDirectory();
+    renderExecutiveManager();
+    return;
+  }
+  const id = value("executive-id");
+  const result = id
+    ? await supabaseClient.from("public_executive_team").update({ ...payload, updated_by: currentUser.id }).eq("id", id).select().single()
+    : await supabaseClient.from("public_executive_team").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
+  if (result.error) return alert(result.error.message);
+  await loadData();
+  renderAll();
+  renderPublicDirectory();
+}
+
+async function deleteExecutiveMember(id) {
+  if (!isAdminOrSteward() || !confirm("Delete this executive entry?")) return;
+  if (previewMode || !isConfigured) {
+    publicExecutiveTeam = publicExecutiveTeam.filter((item) => item.id !== id);
+    selectedExecutiveId = publicExecutiveTeam[0]?.id || null;
+    renderPublicDirectory();
+    renderExecutiveManager();
+    return;
+  }
+  const { error } = await supabaseClient.from("public_executive_team").delete().eq("id", id);
+  if (error) return alert(error.message);
+  await loadData();
+  renderAll();
+  renderPublicDirectory();
 }
 
 function renderInviteManager() {

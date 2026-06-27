@@ -101,6 +101,20 @@ create table public.public_announcements (
   updated_at timestamptz not null default now()
 );
 
+create table public.public_executive_team (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  role text not null,
+  area text,
+  contact text,
+  note text,
+  display_order integer not null default 100,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.invite_codes (
   id uuid primary key default gen_random_uuid(),
   code text not null unique,
@@ -178,6 +192,10 @@ for each row execute function public.touch_updated_at();
 
 create trigger public_announcements_touch_updated_at
 before update on public.public_announcements
+for each row execute function public.touch_updated_at();
+
+create trigger public_executive_team_touch_updated_at
+before update on public.public_executive_team
 for each row execute function public.touch_updated_at();
 
 create trigger public_directory_entries_touch_updated_at
@@ -319,6 +337,7 @@ alter table public.case_documents enable row level security;
 alter table public.resources enable row level security;
 alter table public.meetings enable row level security;
 alter table public.public_announcements enable row level security;
+alter table public.public_executive_team enable row level security;
 alter table public.invite_codes enable row level security;
 alter table public.public_questions enable row level security;
 alter table public.public_directory_entries enable row level security;
@@ -396,6 +415,15 @@ using (true);
 
 create policy "public_announcements_manage"
 on public.public_announcements for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
+
+create policy "public_executive_team_read"
+on public.public_executive_team for select
+using (true);
+
+create policy "public_executive_team_manage"
+on public.public_executive_team for all
 using (public.is_admin_or_steward())
 with check (public.is_admin_or_steward());
 

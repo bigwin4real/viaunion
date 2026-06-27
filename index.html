@@ -481,6 +481,41 @@
             </div>
 
             <div class="content-section">
+              <h3>Executive team</h3>
+              <p class="helper-text">Public executive contacts shown on the front page</p>
+              <div class="meeting-editor">
+                <input id="executive-id" type="hidden">
+                <label>
+                  Name
+                  <input id="executive-name-input" type="text" placeholder="Executive name">
+                </label>
+                <div class="form-row">
+                  <label>
+                    Role
+                    <input id="executive-role-input" type="text" placeholder="President, Secretary, etc.">
+                  </label>
+                  <label>
+                    Area
+                    <input id="executive-area-input" type="text" placeholder="Local 4005">
+                  </label>
+                </div>
+                <label>
+                  Public contact
+                  <input id="executive-contact-input" type="text" placeholder="Public email or contact note">
+                </label>
+                <label>
+                  Note
+                  <textarea id="executive-note-input" rows="3" placeholder="Optional public note"></textarea>
+                </label>
+                <div class="button-row">
+                  <button id="save-executive" type="button">Save executive</button>
+                  <button id="new-executive" class="secondary" type="button">New executive</button>
+                </div>
+              </div>
+              <div id="executives-list" class="content-list"></div>
+            </div>
+
+            <div class="content-section">
               <h3>Invite codes</h3>
               <p class="helper-text">Create sign-up codes for stewards, admins, or committee users</p>
               <div class="meeting-editor">
