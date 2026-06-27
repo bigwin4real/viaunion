@@ -1217,7 +1217,7 @@ function renderCaseForm() {
   const deleteButton = document.querySelector("#delete-case");
   if (deleteButton) deleteButton.hidden = !isAdmin() || !item;
   if (!item) {
-    clearCaseForm();
+    resetCaseFormFields();
     return;
   }
   setValue("case-id", item.id);
@@ -1292,6 +1292,10 @@ function renderActivity() {
 
 function clearCaseForm() {
   selectedCaseId = null;
+  resetCaseFormFields();
+}
+
+function resetCaseFormFields() {
   ["case-id", "member-name", "member-contact", "next-deadline", "next-action", "summary", "new-note"].forEach((id) => setValue(id, ""));
   setValue("case-contract", "Contract 1");
   setValue("issue-type", "Grievance");
