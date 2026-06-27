@@ -165,24 +165,18 @@ let activePortalRole = null;
 let activeAdminTab = "cases";
 
 const roleLabels = {
-  admin: "Admin tools",
-  steward: "Shop steward tools",
-  committee: "Committee form"
+  admin: "Admin",
+  steward: "Shop Steward",
+  committee: "Committee Form"
 };
 
 function profileRoles(profile) {
   const assigned = Array.isArray(profile?.assigned_roles)
     ? profile.assigned_roles.filter(Boolean)
     : [];
-  if (profile?.role === "admin") {
-    const adminRoles = ["admin", "steward", "committee"];
-    return assigned.length ? Array.from(new Set([...adminRoles, ...assigned])) : adminRoles;
-  }
-  if (profile?.role === "steward") {
-    const stewardRoles = ["steward", "committee"];
-    return assigned.length ? Array.from(new Set([...stewardRoles, ...assigned])) : stewardRoles;
-  }
   if (assigned.length) return assigned;
+  if (profile?.role === "admin") return ["admin", "steward", "committee"];
+  if (profile?.role === "steward") return ["steward", "committee"];
   return [profile?.role || "committee"];
 }
 
