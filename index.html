@@ -236,6 +236,10 @@
             </select>
           </label>
           <label>
+            Invite code
+            <input id="register-invite-code" placeholder="Optional invite code">
+          </label>
+          <label>
             Reason
             <textarea id="register-note" rows="3" placeholder="Position, location, or who should approve this request"></textarea>
           </label>
@@ -272,11 +276,11 @@
           </div>
         </header>
 
-        <!-- ADMIN NAVIGATION TABS -->
+        <!-- ADMIN / STEWARD NAVIGATION TABS -->
         <nav class="admin-nav" id="admin-nav" hidden>
           <button class="admin-nav-tab active" type="button" data-tab="cases">Cases</button>
           <button class="admin-nav-tab" type="button" data-tab="users">Users</button>
-          <button class="admin-nav-tab" type="button" data-tab="content">Site Content</button>
+          <button class="admin-nav-tab" type="button" data-tab="content">Meeting board</button>
           <button class="admin-nav-tab" type="button" data-tab="moderation">Moderation</button>
         </nav>
 
@@ -332,29 +336,165 @@
           <div id="users-list" class="users-list"></div>
         </section>
 
-        <!-- ADMIN: SITE CONTENT MANAGEMENT -->
+        <!-- ADMIN / STEWARD: PUBLIC CONTENT MANAGEMENT -->
         <section id="content-tab" class="admin-tab" hidden>
           <div class="section-heading">
-            <h2>Site content</h2>
+            <h2>Public content</h2>
+            <span>Editable board content</span>
           </div>
           <div class="content-editor">
             <div class="content-section">
-              <h3>Public announcements</h3>
-              <p class="helper-text">Manage public notices visible to all members</p>
-              <button id="add-announcement" type="button">+ Add announcement</button>
+              <h3>Announcements</h3>
+              <p class="helper-text">Public notices shown on the front page</p>
+              <div class="meeting-editor">
+                <input id="announcement-id" type="hidden">
+                <label>
+                  Title
+                  <input id="announcement-title-input" type="text" placeholder="Board update">
+                </label>
+                <div class="form-row">
+                  <label>
+                    Date
+                    <input id="announcement-date-input" type="date">
+                  </label>
+                  <label>
+                    Contract
+                    <select id="announcement-contract-input">
+                      <option value="Shared">Shared</option>
+                      <option value="Contract 1">Contract 1</option>
+                      <option value="Contract 2">Contract 2</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="form-row">
+                  <label>
+                    Category
+                    <input id="announcement-category-input" type="text" placeholder="Featured">
+                  </label>
+                  <label>
+                    Priority
+                    <input id="announcement-priority-input" type="text" placeholder="Pinned">
+                  </label>
+                </div>
+                <label>
+                  Summary
+                  <textarea id="announcement-summary-input" rows="4" placeholder="Public announcement text"></textarea>
+                </label>
+                <div class="button-row">
+                  <button id="save-announcement" type="button">Save announcement</button>
+                  <button id="new-announcement" class="secondary" type="button">New announcement</button>
+                </div>
+              </div>
               <div id="announcements-list" class="content-list"></div>
             </div>
+
             <div class="content-section">
-              <h3>Member resources</h3>
-              <p class="helper-text">Manage links and resources available to members</p>
-              <button id="add-resource" type="button">+ Add resource</button>
+              <h3>Public resources</h3>
+              <p class="helper-text">Links and reference items shown publicly</p>
+              <div class="meeting-editor">
+                <input id="resource-id" type="hidden">
+                <label>
+                  Title
+                  <input id="resource-title-input" type="text" placeholder="VIA Rail Agreement No. 1">
+                </label>
+                <div class="form-row">
+                  <label>
+                    Category
+                    <input id="resource-category-input" type="text" placeholder="Agreements">
+                  </label>
+                  <label>
+                    Contract
+                    <select id="resource-contract-input">
+                      <option value="Shared">Shared</option>
+                      <option value="Contract 1">Contract 1</option>
+                      <option value="Contract 2">Contract 2</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Description
+                  <textarea id="resource-description-input" rows="3" placeholder="Public resource description"></textarea>
+                </label>
+                <label>
+                  URL
+                  <input id="resource-url-input" type="url" placeholder="https://... or local page">
+                </label>
+                <div class="button-row">
+                  <button id="save-resource" type="button">Save resource</button>
+                  <button id="new-resource" class="secondary" type="button">New resource</button>
+                </div>
+              </div>
               <div id="resources-list" class="content-list"></div>
             </div>
+
             <div class="content-section">
-              <h3>Meetings</h3>
+              <h3>Meeting board</h3>
               <p class="helper-text">Update meeting dates, locations, and information</p>
-              <button id="add-meeting" type="button">+ Add meeting</button>
+              <div class="meeting-editor">
+                <input id="meeting-id" type="hidden">
+                <label>
+                  Title
+                  <input id="meeting-title-input" type="text" placeholder="Regular membership meeting">
+                </label>
+                <div class="form-row">
+                  <label>
+                    Date
+                    <input id="meeting-date-input" type="text" placeholder="July 18, 2026 at 7:00 PM">
+                  </label>
+                  <label>
+                    Audience
+                    <select id="meeting-contract-input">
+                      <option value="Shared">Shared</option>
+                      <option value="Contract 1">Contract 1</option>
+                      <option value="Contract 2">Contract 2</option>
+                      <option value="Stewards">Stewards</option>
+                      <option value="Committee">Committee</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="form-row">
+                  <label>
+                    Location
+                    <input id="meeting-location-input" type="text" placeholder="Moncton station area">
+                  </label>
+                  <label>
+                    Room / access
+                    <input id="meeting-room-input" type="text" placeholder="Room notice will be posted here">
+                  </label>
+                </div>
+                <label>
+                  Note
+                  <textarea id="meeting-note-input" rows="4" placeholder="Agenda highlights, remote link, parking, or RSVP notes"></textarea>
+                </label>
+                <div class="button-row">
+                  <button id="save-meeting" type="button">Save meeting</button>
+                  <button id="new-meeting" class="secondary" type="button">New meeting</button>
+                </div>
+              </div>
               <div id="meetings-list" class="content-list"></div>
+            </div>
+
+            <div class="content-section">
+              <h3>Invite codes</h3>
+              <p class="helper-text">Create sign-up codes for stewards, admins, or committee users</p>
+              <div class="meeting-editor">
+                <label>
+                  Role
+                  <select id="invite-role-input">
+                    <option value="steward">Steward</option>
+                    <option value="committee">Committee</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </label>
+                <label>
+                  Note
+                  <input id="invite-note-input" type="text" placeholder="Who this code is for">
+                </label>
+                <div class="button-row">
+                  <button id="create-invite" type="button">Create invite</button>
+                </div>
+              </div>
+              <div id="invites-list" class="content-list"></div>
             </div>
           </div>
         </section>

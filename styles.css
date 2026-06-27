@@ -1196,6 +1196,76 @@ textarea {
   margin-top: 14px;
 }
 
+.admin-nav,
+.content-editor,
+.content-section,
+.meeting-editor {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.admin-nav,
+.content-editor {
+  margin-bottom: 14px;
+}
+
+.admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+}
+
+.admin-nav-tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-weight: 800;
+  padding: 10px 14px;
+}
+
+.admin-nav-tab.active {
+  background: var(--via-blue);
+  color: #fff;
+  border-color: var(--via-blue);
+}
+
+.content-editor {
+  padding: 14px;
+}
+
+.content-section {
+  padding: 14px;
+}
+
+.meeting-editor {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+  background: linear-gradient(180deg, #fff, #fff8f1);
+}
+
+.content-list {
+  display: grid;
+  gap: 10px;
+}
+
+.meeting-item-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.meeting-item-active {
+  border-color: var(--rail);
+  box-shadow: 0 0 0 3px rgba(185, 35, 47, 0.12);
+}
+
 .resource-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -1303,6 +1373,11 @@ textarea {
   .form-row,
   .resource-list {
     grid-template-columns: 1fr;
+  }
+
+  .meeting-item-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .hero-copy {

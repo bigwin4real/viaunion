@@ -111,6 +111,88 @@ using (
   )
 );
 
+create table if not exists public.meetings (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  meeting_date text not null,
+  location text not null,
+  room text,
+  contract text not null default 'Shared',
+  note text,
+  display_order integer not null default 100,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.meetings enable row level security;
+
+drop trigger if exists meetings_touch_updated_at on public.meetings;
+create trigger meetings_touch_updated_at
+before update on public.meetings
+for each row execute function public.touch_updated_at();
+
+drop policy if exists "meetings_public_read" on public.meetings;
+create policy "meetings_public_read"
+on public.meetings for select
+using (true);
+
+drop policy if exists "meetings_admin_steward_manage" on public.meetings;
+create policy "meetings_admin_steward_manage"
+on public.meetings for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
+
+create table if not exists public.public_announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  date date not null,
+  contract text not null default 'Shared',
+  category text,
+  priority text,
+  summary text not null,
+  display_order integer not null default 100,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.invite_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  requested_role public.portal_role not null default 'steward',
+  note text,
+  created_by uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+alter table public.public_announcements enable row level security;
+alter table public.invite_codes enable row level security;
+
+drop trigger if exists public_announcements_touch_updated_at on public.public_announcements;
+create trigger public_announcements_touch_updated_at
+before update on public.public_announcements
+for each row execute function public.touch_updated_at();
+
+drop policy if exists "public_announcements_read" on public.public_announcements;
+create policy "public_announcements_read"
+on public.public_announcements for select
+using (true);
+
+drop policy if exists "public_announcements_manage" on public.public_announcements;
+create policy "public_announcements_manage"
+on public.public_announcements for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
+
+drop policy if exists "invite_codes_manage" on public.invite_codes;
+create policy "invite_codes_manage"
+on public.invite_codes for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
+
 drop policy if exists "questions_moderator_manage" on public.public_questions;
 create policy "questions_moderator_manage"
 on public.public_questions for all

@@ -71,6 +71,45 @@ create table public.resources (
   updated_at timestamptz not null default now()
 );
 
+create table public.meetings (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  meeting_date text not null,
+  location text not null,
+  room text,
+  contract text not null default 'Shared',
+  note text,
+  display_order integer not null default 100,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.public_announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  date date not null,
+  contract text not null default 'Shared',
+  category text,
+  priority text,
+  summary text not null,
+  display_order integer not null default 100,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.invite_codes (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique,
+  requested_role public.portal_role not null default 'steward',
+  note text,
+  created_by uuid references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
 create unique index if not exists resources_title_category_contract_key
 on public.resources (title, category, contract);
 
@@ -131,6 +170,14 @@ for each row execute function public.touch_updated_at();
 
 create trigger resources_touch_updated_at
 before update on public.resources
+for each row execute function public.touch_updated_at();
+
+create trigger meetings_touch_updated_at
+before update on public.meetings
+for each row execute function public.touch_updated_at();
+
+create trigger public_announcements_touch_updated_at
+before update on public.public_announcements
 for each row execute function public.touch_updated_at();
 
 create trigger public_directory_entries_touch_updated_at
@@ -270,6 +317,9 @@ alter table public.cases enable row level security;
 alter table public.case_notes enable row level security;
 alter table public.case_documents enable row level security;
 alter table public.resources enable row level security;
+alter table public.meetings enable row level security;
+alter table public.public_announcements enable row level security;
+alter table public.invite_codes enable row level security;
 alter table public.public_questions enable row level security;
 alter table public.public_directory_entries enable row level security;
 alter table public.internal_files enable row level security;
@@ -330,6 +380,29 @@ create policy "resources_admin_manage"
 on public.resources for all
 using (public.is_admin())
 with check (public.is_admin());
+
+create policy "meetings_public_read"
+on public.meetings for select
+using (true);
+
+create policy "meetings_admin_steward_manage"
+on public.meetings for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
+
+create policy "public_announcements_read"
+on public.public_announcements for select
+using (true);
+
+create policy "public_announcements_manage"
+on public.public_announcements for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
+
+create policy "invite_codes_manage"
+on public.invite_codes for all
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
 
 create policy "questions_public_answered"
 on public.public_questions for select

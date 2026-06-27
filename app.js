@@ -75,7 +75,7 @@ const publicAnnouncements = [
   }
 ];
 
-const publicMeetings = [
+const defaultMeetings = [
   {
     id: "regular",
     title: "Regular membership meeting",
@@ -150,6 +150,8 @@ const sampleQuestions = [
   { id: "q2", name: "Anonymous", question: "Can a steward review this question?", answer: "", status: "pending", created_at: new Date().toISOString() }
 ];
 
+const sampleInvites = [];
+
 let currentUser = null;
 let currentProfile = null;
 let cases = [];
@@ -160,6 +162,14 @@ let pendingProfiles = [];
 let activeProfiles = [];
 let internalFiles = [];
 let publicQuestions = [...sampleQuestions];
+let announcementItems = publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item }));
+let publicResourceItems = [...publicResources];
+let meetingNotices = [...defaultMeetings];
+let inviteCodes = [...sampleInvites];
+let selectedMeetingId = defaultMeetings[0]?.id || null;
+let selectedAnnouncementId = announcementItems[0]?.id || null;
+let selectedPublicResourceId = null;
+let meetingsStorageReady = previewMode || !isConfigured;
 let selectedCaseId = null;
 let activePortalRole = null;
 let activeAdminTab = "cases";
@@ -174,7 +184,16 @@ function profileRoles(profile) {
   const assigned = Array.isArray(profile?.assigned_roles)
     ? profile.assigned_roles.filter(Boolean)
     : [];
-  if (assigned.length) return assigned;
+  if (assigned.length) {
+    const expanded = new Set(assigned);
+    if (expanded.has("admin")) {
+      expanded.add("steward");
+      expanded.add("committee");
+    } else if (expanded.has("steward")) {
+      expanded.add("committee");
+    }
+    return ["admin", "steward", "committee"].filter((role) => expanded.has(role));
+  }
   if (profile?.role === "admin") return ["admin", "steward", "committee"];
   if (profile?.role === "steward") return ["steward", "committee"];
   return [profile?.role || "committee"];
@@ -248,11 +267,13 @@ async function startAuthenticatedApp() {
 
 function wirePublicBoard() {
   renderPublicBoard();
-  renderMeetingBoard("regular");
+  renderMeetingBoard(selectedMeetingId);
   renderPublicDirectory();
   loadPublicAccountDirectory();
   loadOfficialContacts();
   loadPublicQuestions();
+  loadPublicAnnouncements();
+  loadPublicMeetings();
   renderDiscounts();
   document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
   document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
@@ -260,6 +281,60 @@ function wirePublicBoard() {
   ["public-search", "public-contract"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
   });
+}
+
+async function loadPublicAnnouncements() {
+  if (!isConfigured) {
+    renderPublicBoard();
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from("public_announcements")
+      .select("*")
+      .order("display_order", { ascending: true })
+      .order("date", { ascending: false });
+    if (error || !Array.isArray(data) || !data.length) return;
+    announcementItems = data.map((item) => ({
+      id: item.id,
+      title: item.title,
+      date: item.date,
+      contract: item.contract || "Shared",
+      category: item.category || "",
+      priority: item.priority || "",
+      summary: item.summary || ""
+    }));
+    selectedAnnouncementId = announcementItems[0]?.id || null;
+    renderPublicBoard();
+  } catch {
+    // Keep fallback announcement content when the table is not configured yet.
+  }
+}
+
+async function loadPublicMeetings() {
+  if (!isConfigured) {
+    renderMeetingBoard(selectedMeetingId);
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from("meetings")
+      .select("*")
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) {
+      meetingsStorageReady = false;
+      renderMeetingBoard(selectedMeetingId);
+      return;
+    }
+    meetingsStorageReady = true;
+    meetingNotices = normalizeMeetings(data);
+    selectedMeetingId = meetingNotices[0]?.id || null;
+    renderMeetingBoard(selectedMeetingId);
+  } catch {
+    meetingsStorageReady = false;
+    renderMeetingBoard(selectedMeetingId);
+  }
 }
 
 async function loadPublicAccountDirectory() {
@@ -363,7 +438,7 @@ function renderPublicBoard() {
     const text = [item.title, item.category, item.contract, item.summary, item.description].join(" ").toLowerCase();
     return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
   };
-  const announcements = publicAnnouncements.filter(matches);
+  const announcements = announcementItems.filter(matches);
   const announcementList = document.querySelector("#announcement-list");
   const announcementTotal = document.querySelector("#announcement-total");
   if (announcementTotal) announcementTotal.textContent = `${announcements.length} shown`;
@@ -383,7 +458,7 @@ function renderPublicBoard() {
   }
 
   const resourceList = document.querySelector("#public-resource-list");
-  const publicRows = publicResources.filter(matches);
+  const publicRows = publicResourceItems.filter(matches);
   if (resourceList) {
     resourceList.innerHTML = publicRows.map((item) => `
       ${item.url ? `
@@ -407,9 +482,17 @@ function renderMeetingBoard(activeId) {
   const detail = document.querySelector("#meeting-detail");
   const count = document.querySelector("#meeting-count");
   if (!tabs || !detail) return;
-  const active = publicMeetings.find((meeting) => meeting.id === activeId) || publicMeetings[0];
-  if (count) count.textContent = `${publicMeetings.length} notices`;
-  tabs.innerHTML = publicMeetings.map((meeting) => `
+  const rows = meetingNotices.length ? meetingNotices : [...defaultMeetings];
+  const active = rows.find((meeting) => meeting.id === activeId) || rows[0];
+  if (!active) {
+    tabs.innerHTML = "";
+    detail.innerHTML = `<div class="empty">No meeting notices posted yet.</div>`;
+    if (count) count.textContent = "0 notices";
+    return;
+  }
+  selectedMeetingId = active.id;
+  if (count) count.textContent = `${rows.length} notices`;
+  tabs.innerHTML = rows.map((meeting) => `
     <button class="meeting-tab ${meeting.id === active.id ? "active" : ""}" type="button" data-meeting-id="${escapeHtml(meeting.id)}">
       <span>${escapeHtml(meeting.title)}</span>
       <small>${escapeHtml(meeting.contract)}</small>
@@ -613,6 +696,7 @@ function renderRegister() {
     const phone = value("register-phone");
     const password = value("register-password");
     const role = value("register-role");
+    const inviteCode = value("register-invite-code");
     const requestNote = value("register-note");
     const shareEmail = document.querySelector("#register-share-email")?.checked || false;
     const sharePhone = document.querySelector("#register-share-phone")?.checked || false;
@@ -623,7 +707,8 @@ function renderRegister() {
         data: {
           full_name: fullName,
           requested_role: role,
-          request_note: requestNote,
+          invite_code: inviteCode,
+          request_note: requestNote ? `${requestNote}${inviteCode ? ` | Invite: ${inviteCode}` : ""}` : (inviteCode ? `Invite: ${inviteCode}` : ""),
           phone,
           share_email: shareEmail,
           share_phone: sharePhone
@@ -643,7 +728,7 @@ function renderRegister() {
 async function loadData() {
   const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
   const canManageUsers = profileHasRole(currentProfile, "admin");
-  const [{ data: caseRows }, { data: resourceRows }, { data: pendingRows }, { data: activeProfileRows }, { data: internalRows }, { data: questionRows }] = await Promise.all([
+  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult] = await Promise.all([
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     canManageUsers
@@ -653,11 +738,16 @@ async function loadData() {
       ? supabaseClient.from("profiles").select("*").eq("active", true).order("full_name", { ascending: true })
       : Promise.resolve({ data: [] }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false })
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false }),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("meetings").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_announcements").select("*").order("display_order", { ascending: true }).order("date", { ascending: false }),
+    canManageUsers || profileHasRole(currentProfile, "steward")
+      ? supabaseClient.from("invite_codes").select("*").order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] })
   ]);
 
-  cases = caseRows || [];
-  resources = resourceRows || [];
+  cases = caseResult.data || [];
+  resources = resourceResult.data || [];
   if (!resources.some((item) => item.url === "wages-form.html")) {
     resources.unshift({
       id: "builtin-wages-form",
@@ -668,10 +758,32 @@ async function loadData() {
       url: "wages-form.html"
     });
   }
-  pendingProfiles = pendingRows || [];
-  activeProfiles = activeProfileRows || [];
-  internalFiles = internalRows || [];
-  publicQuestions = questionRows || [];
+  pendingProfiles = pendingResult.data || [];
+  activeProfiles = activeProfileResult.data || [];
+  internalFiles = internalResult.data || [];
+  publicQuestions = questionResult.data || [];
+  announcementItems = (announcementResult.data || []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    date: item.date,
+    contract: item.contract || "Shared",
+    category: item.category || "",
+    priority: item.priority || "",
+    summary: item.summary || ""
+  }));
+  if (!announcementItems.length) announcementItems = publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item }));
+  inviteCodes = inviteResult.data || [];
+  if (meetingResult.error) {
+    meetingsStorageReady = false;
+    meetingNotices = [...defaultMeetings];
+  } else {
+    meetingsStorageReady = true;
+    meetingNotices = normalizeMeetings(meetingResult.data);
+  }
+  selectedMeetingId = meetingNotices.find((item) => item.id === selectedMeetingId)?.id || meetingNotices[0]?.id || null;
+  publicResourceItems = resources.filter((item) => !item.adminOnly);
+  selectedAnnouncementId = announcementItems.find((item) => item.id === selectedAnnouncementId)?.id || announcementItems[0]?.id || null;
+  selectedPublicResourceId = publicResourceItems.find((item) => item.id === selectedPublicResourceId)?.id || publicResourceItems[0]?.id || null;
   selectedCaseId = cases[0]?.id || null;
   if (selectedCaseId) await loadCaseChildren(selectedCaseId);
 }
@@ -756,13 +868,13 @@ function applyRoleVisibility() {
   }
 
   const visibility = {
-    ".stats-grid": role === "steward",
+    ".stats-grid": role === "steward" || role === "admin",
     ".approval-panel": role === "admin" && activeAdminTab === "users",
     ".qa-moderation": role === "admin" || role === "steward",
-    ".internal-files": role === "steward",
-    ".workspace": role === "steward",
+    ".internal-files": role === "steward" || role === "admin",
+    ".workspace": role === "steward" || role === "admin",
     ".resources": role === "steward" || role === "committee",
-    "#admin-nav": role === "admin",
+    "#admin-nav": role === "admin" || role === "steward",
     "#users-tab": role === "admin"
   };
 
@@ -799,6 +911,13 @@ function wirePortalEvents() {
   document.querySelector("#delete-case")?.addEventListener("click", deleteSelectedCase);
   document.querySelector("#document-upload")?.addEventListener("change", uploadDocument);
   document.querySelector("#internal-file-upload")?.addEventListener("change", uploadInternalFile);
+  document.querySelector("#save-meeting")?.addEventListener("click", saveMeetingNotice);
+  document.querySelector("#new-meeting")?.addEventListener("click", clearMeetingForm);
+  document.querySelector("#save-announcement")?.addEventListener("click", saveAnnouncement);
+  document.querySelector("#new-announcement")?.addEventListener("click", clearAnnouncementForm);
+  document.querySelector("#save-resource")?.addEventListener("click", savePublicResource);
+  document.querySelector("#new-resource")?.addEventListener("click", clearPublicResourceForm);
+  document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
 }
 
 function renderAll() {
@@ -812,21 +931,36 @@ function renderAll() {
   renderQuestionModeration();
   renderInternalFiles();
   renderUsers();
+  renderMeetingManager();
+  renderAnnouncementManager();
+  renderPublicResourceManager();
+  renderInviteManager();
 }
 
 function renderAdminTabs() {
+  const role = activeRole();
+  const isAdminView = role === "admin";
+  const isStewardView = role === "steward";
+  if (!["cases", "content", "moderation", "users"].includes(activeAdminTab)) activeAdminTab = "cases";
+  if (!isAdminView && activeAdminTab === "users") activeAdminTab = "cases";
+
   document.querySelectorAll(".admin-nav-tab").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === activeAdminTab);
+    const tab = button.dataset.tab;
+    const allowed = tab === "cases"
+      || tab === "content"
+      || tab === "moderation"
+      || (tab === "users" && isAdminView);
+    button.hidden = !(allowed && (isAdminView || isStewardView));
   });
-  const isAdminView = isAdmin();
   const casesTab = document.querySelector("#cases-tab");
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
   const moderationTab = document.querySelector("#moderation-tab");
-  if (casesTab) casesTab.hidden = isAdminView ? activeAdminTab !== "cases" : !isSteward();
+  if (casesTab) casesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "cases";
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "users";
-  if (contentTab) contentTab.hidden = !isAdminView || activeAdminTab !== "content";
-  if (moderationTab) moderationTab.hidden = !isAdminView || activeAdminTab !== "moderation";
+  if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "content";
+  if (moderationTab) moderationTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "moderation";
 }
 
 function renderQuestionModeration() {
@@ -1328,6 +1462,418 @@ function renderResources() {
       ${item.url ? `<a href="${escapeHtml(item.url)}" ${item.url.startsWith("http") ? `target="_blank" rel="noopener"` : ""}>Open</a>` : ""}
     </article>
   `).join("") || `<div class="empty">No resources match the current filters.</div>`;
+}
+
+function normalizeMeetings(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [...defaultMeetings];
+  return rows.map((meeting) => ({
+    id: meeting.id,
+    title: meeting.title,
+    date: meeting.meeting_date,
+    location: meeting.location,
+    room: meeting.room || "",
+    contract: meeting.contract || "Shared",
+    note: meeting.note || ""
+  }));
+}
+
+function renderMeetingManager() {
+  const list = document.querySelector("#meetings-list");
+  if (!list) return;
+  if (!isAdminOrSteward()) {
+    list.innerHTML = "";
+    return;
+  }
+  const rows = meetingNotices.length ? meetingNotices : [...defaultMeetings];
+  list.innerHTML = rows.map((meeting) => `
+    <article class="resource-item ${meeting.id === selectedMeetingId ? "meeting-item-active" : ""}">
+      <div class="meeting-item-header">
+        <div>
+          <h3>${escapeHtml(meeting.title)}</h3>
+          <p>${escapeHtml(meeting.date)} · ${escapeHtml(meeting.location)}</p>
+        </div>
+        <div class="button-row">
+          <button type="button" data-edit-meeting-id="${escapeHtml(meeting.id)}">Edit</button>
+          <button class="secondary" type="button" data-delete-meeting-id="${escapeHtml(meeting.id)}">Delete</button>
+        </div>
+      </div>
+      <div class="meta-row">
+        <span class="pill">${escapeHtml(meeting.contract || "Shared")}</span>
+        ${meeting.room ? `<span class="pill">${escapeHtml(meeting.room)}</span>` : ""}
+      </div>
+      ${meeting.note ? `<p>${escapeHtml(meeting.note)}</p>` : ""}
+    </article>
+  `).join("") || `<div class="empty">No meeting notices posted yet.</div>`;
+  list.querySelectorAll("[data-edit-meeting-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedMeetingId = button.dataset.editMeetingId;
+      populateMeetingForm(selectedMeetingId);
+      renderMeetingManager();
+    });
+  });
+  list.querySelectorAll("[data-delete-meeting-id]").forEach((button) => {
+    button.addEventListener("click", () => deleteMeetingNotice(button.dataset.deleteMeetingId));
+  });
+  populateMeetingForm(selectedMeetingId);
+}
+
+function populateMeetingForm(meetingId) {
+  const meeting = meetingNotices.find((item) => item.id === meetingId);
+  if (!meeting) {
+    clearMeetingFormFields();
+    return;
+  }
+  setValue("meeting-id", meeting.id);
+  setValue("meeting-title-input", meeting.title);
+  setValue("meeting-date-input", meeting.date);
+  setValue("meeting-location-input", meeting.location);
+  setValue("meeting-room-input", meeting.room);
+  setValue("meeting-contract-input", meeting.contract || "Shared");
+  setValue("meeting-note-input", meeting.note);
+}
+
+function clearMeetingForm() {
+  selectedMeetingId = null;
+  clearMeetingFormFields();
+  renderMeetingManager();
+}
+
+function clearMeetingFormFields() {
+  ["meeting-id", "meeting-title-input", "meeting-date-input", "meeting-location-input", "meeting-room-input", "meeting-note-input"].forEach((id) => setValue(id, ""));
+  setValue("meeting-contract-input", "Shared");
+}
+
+async function saveMeetingNotice() {
+  if (!isAdminOrSteward()) return;
+  const payload = {
+    title: value("meeting-title-input"),
+    meeting_date: value("meeting-date-input"),
+    location: value("meeting-location-input"),
+    room: value("meeting-room-input") || null,
+    contract: value("meeting-contract-input") || "Shared",
+    note: value("meeting-note-input") || null
+  };
+  if (!payload.title || !payload.meeting_date || !payload.location) {
+    alert("Title, date, and location are required.");
+    return;
+  }
+
+  if (previewMode || !isConfigured || !meetingsStorageReady) {
+    const id = value("meeting-id") || crypto.randomUUID();
+    const nextMeeting = {
+      id,
+      title: payload.title,
+      date: payload.meeting_date,
+      location: payload.location,
+      room: payload.room || "",
+      contract: payload.contract,
+      note: payload.note || ""
+    };
+    const index = meetingNotices.findIndex((item) => item.id === id);
+    if (index >= 0) meetingNotices[index] = nextMeeting;
+    else meetingNotices.push(nextMeeting);
+    selectedMeetingId = id;
+    renderMeetingBoard(selectedMeetingId);
+    renderMeetingManager();
+    return;
+  }
+
+  const meetingId = value("meeting-id");
+  const result = meetingId
+    ? await supabaseClient.from("meetings").update({ ...payload, updated_by: currentUser.id }).eq("id", meetingId).select().single()
+    : await supabaseClient.from("meetings").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
+  if (result.error) return alert(result.error.message);
+  await refreshMeetings(result.data.id);
+}
+
+async function deleteMeetingNotice(meetingId) {
+  if (!isAdminOrSteward()) return;
+  if (!confirm("Delete this meeting notice?")) return;
+  if (previewMode || !isConfigured || !meetingsStorageReady) {
+    meetingNotices = meetingNotices.filter((item) => item.id !== meetingId);
+    selectedMeetingId = meetingNotices[0]?.id || null;
+    renderMeetingBoard(selectedMeetingId);
+    renderMeetingManager();
+    return;
+  }
+  const { error } = await supabaseClient.from("meetings").delete().eq("id", meetingId);
+  if (error) return alert(error.message);
+  await refreshMeetings(selectedMeetingId === meetingId ? null : selectedMeetingId);
+}
+
+async function refreshMeetings(nextSelectedId = null) {
+  const { data, error } = await supabaseClient
+    .from("meetings")
+    .select("*")
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) return alert(error.message);
+  meetingsStorageReady = true;
+  meetingNotices = normalizeMeetings(data);
+  selectedMeetingId = meetingNotices.find((item) => item.id === nextSelectedId)?.id || meetingNotices[0]?.id || null;
+  renderMeetingBoard(selectedMeetingId);
+  renderMeetingManager();
+}
+
+function renderAnnouncementManager() {
+  const list = document.querySelector("#announcements-list");
+  if (!list || !isAdminOrSteward()) return;
+  list.innerHTML = announcementItems.map((item) => `
+    <article class="resource-item ${item.id === selectedAnnouncementId ? "meeting-item-active" : ""}">
+      <div class="meeting-item-header">
+        <div>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.date)} · ${escapeHtml(item.contract)}</p>
+        </div>
+        <div class="button-row">
+          <button type="button" data-edit-announcement-id="${escapeHtml(item.id)}">Edit</button>
+          <button class="secondary" type="button" data-delete-announcement-id="${escapeHtml(item.id)}">Delete</button>
+        </div>
+      </div>
+      <div class="meta-row">
+        ${item.priority ? `<span class="pill strong">${escapeHtml(item.priority)}</span>` : ""}
+        ${item.category ? `<span class="pill">${escapeHtml(item.category)}</span>` : ""}
+      </div>
+      <p>${escapeHtml(item.summary)}</p>
+    </article>
+  `).join("") || `<div class="empty">No public announcements yet.</div>`;
+  list.querySelectorAll("[data-edit-announcement-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedAnnouncementId = button.dataset.editAnnouncementId;
+      populateAnnouncementForm(selectedAnnouncementId);
+      renderAnnouncementManager();
+    });
+  });
+  list.querySelectorAll("[data-delete-announcement-id]").forEach((button) => {
+    button.addEventListener("click", () => deleteAnnouncement(button.dataset.deleteAnnouncementId));
+  });
+  populateAnnouncementForm(selectedAnnouncementId);
+}
+
+function populateAnnouncementForm(id) {
+  const item = announcementItems.find((row) => row.id === id);
+  if (!item) return clearAnnouncementFormFields();
+  setValue("announcement-id", item.id);
+  setValue("announcement-title-input", item.title);
+  setValue("announcement-date-input", item.date);
+  setValue("announcement-contract-input", item.contract || "Shared");
+  setValue("announcement-category-input", item.category || "");
+  setValue("announcement-priority-input", item.priority || "");
+  setValue("announcement-summary-input", item.summary || "");
+}
+
+function clearAnnouncementForm() {
+  selectedAnnouncementId = null;
+  clearAnnouncementFormFields();
+  renderAnnouncementManager();
+}
+
+function clearAnnouncementFormFields() {
+  ["announcement-id", "announcement-title-input", "announcement-date-input", "announcement-category-input", "announcement-priority-input", "announcement-summary-input"].forEach((id) => setValue(id, ""));
+  setValue("announcement-contract-input", "Shared");
+}
+
+async function saveAnnouncement() {
+  if (!isAdminOrSteward()) return;
+  const payload = {
+    title: value("announcement-title-input"),
+    date: value("announcement-date-input"),
+    contract: value("announcement-contract-input") || "Shared",
+    category: value("announcement-category-input") || null,
+    priority: value("announcement-priority-input") || null,
+    summary: value("announcement-summary-input"),
+    updated_by: currentUser?.id || null
+  };
+  if (!payload.title || !payload.date || !payload.summary) return alert("Title, date, and summary are required.");
+  if (previewMode || !isConfigured) {
+    const id = value("announcement-id") || crypto.randomUUID();
+    const row = { id, ...payload };
+    const index = announcementItems.findIndex((item) => item.id === id);
+    if (index >= 0) announcementItems[index] = row; else announcementItems.unshift(row);
+    selectedAnnouncementId = id;
+    renderPublicBoard();
+    renderAnnouncementManager();
+    return;
+  }
+  const id = value("announcement-id");
+  const result = id
+    ? await supabaseClient.from("public_announcements").update(payload).eq("id", id).select().single()
+    : await supabaseClient.from("public_announcements").insert({ ...payload, created_by: currentUser.id }).select().single();
+  if (result.error) return alert(result.error.message);
+  await loadData();
+  renderAll();
+  renderPublicBoard();
+}
+
+async function deleteAnnouncement(id) {
+  if (!isAdminOrSteward() || !confirm("Delete this announcement?")) return;
+  if (previewMode || !isConfigured) {
+    announcementItems = announcementItems.filter((item) => item.id !== id);
+    selectedAnnouncementId = announcementItems[0]?.id || null;
+    renderPublicBoard();
+    renderAnnouncementManager();
+    return;
+  }
+  const { error } = await supabaseClient.from("public_announcements").delete().eq("id", id);
+  if (error) return alert(error.message);
+  await loadData();
+  renderAll();
+  renderPublicBoard();
+}
+
+function renderPublicResourceManager() {
+  const list = document.querySelector("#resources-list");
+  if (!list || !isAdminOrSteward()) return;
+  list.innerHTML = publicResourceItems.map((item) => `
+    <article class="resource-item ${item.id === selectedPublicResourceId ? "meeting-item-active" : ""}">
+      <div class="meeting-item-header">
+        <div>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.category)} · ${escapeHtml(item.contract)}</p>
+        </div>
+        <div class="button-row">
+          <button type="button" data-edit-resource-id="${escapeHtml(item.id)}">Edit</button>
+          <button class="secondary" type="button" data-delete-resource-id="${escapeHtml(item.id)}">Delete</button>
+        </div>
+      </div>
+      <p>${escapeHtml(item.description || "")}</p>
+    </article>
+  `).join("") || `<div class="empty">No editable public resources yet.</div>`;
+  list.querySelectorAll("[data-edit-resource-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedPublicResourceId = button.dataset.editResourceId;
+      populatePublicResourceForm(selectedPublicResourceId);
+      renderPublicResourceManager();
+    });
+  });
+  list.querySelectorAll("[data-delete-resource-id]").forEach((button) => {
+    button.addEventListener("click", () => deletePublicResource(button.dataset.deleteResourceId));
+  });
+  populatePublicResourceForm(selectedPublicResourceId);
+}
+
+function populatePublicResourceForm(id) {
+  const item = publicResourceItems.find((row) => row.id === id) || resources.find((row) => row.id === id);
+  if (!item) return clearPublicResourceFormFields();
+  setValue("resource-id", item.id);
+  setValue("resource-title-input", item.title);
+  setValue("resource-category-input", item.category);
+  setValue("resource-contract-input", item.contract || "Shared");
+  setValue("resource-description-input", item.description || "");
+  setValue("resource-url-input", item.url || "");
+}
+
+function clearPublicResourceForm() {
+  selectedPublicResourceId = null;
+  clearPublicResourceFormFields();
+  renderPublicResourceManager();
+}
+
+function clearPublicResourceFormFields() {
+  ["resource-id", "resource-title-input", "resource-category-input", "resource-description-input", "resource-url-input"].forEach((id) => setValue(id, ""));
+  setValue("resource-contract-input", "Shared");
+}
+
+async function savePublicResource() {
+  if (!isAdminOrSteward()) return;
+  const payload = {
+    title: value("resource-title-input"),
+    category: value("resource-category-input"),
+    contract: value("resource-contract-input") || "Shared",
+    description: value("resource-description-input") || null,
+    url: value("resource-url-input") || null,
+    updated_by: currentUser?.id || null
+  };
+  if (!payload.title || !payload.category) return alert("Title and category are required.");
+  if (previewMode || !isConfigured) {
+    const id = value("resource-id") || crypto.randomUUID();
+    const row = { id, ...payload };
+    const index = publicResourceItems.findIndex((item) => item.id === id);
+    if (index >= 0) publicResourceItems[index] = row; else publicResourceItems.unshift(row);
+    selectedPublicResourceId = id;
+    renderPublicBoard();
+    renderPublicResourceManager();
+    return;
+  }
+  const id = value("resource-id");
+  const result = id
+    ? await supabaseClient.from("resources").update(payload).eq("id", id).select().single()
+    : await supabaseClient.from("resources").insert({ ...payload, created_by: currentUser.id }).select().single();
+  if (result.error) return alert(result.error.message);
+  await loadData();
+  renderAll();
+  renderPublicBoard();
+}
+
+async function deletePublicResource(id) {
+  if (!isAdminOrSteward() || !confirm("Delete this resource?")) return;
+  if (previewMode || !isConfigured) {
+    publicResourceItems = publicResourceItems.filter((item) => item.id !== id);
+    selectedPublicResourceId = publicResourceItems[0]?.id || null;
+    renderPublicBoard();
+    renderPublicResourceManager();
+    return;
+  }
+  const { error } = await supabaseClient.from("resources").delete().eq("id", id);
+  if (error) return alert(error.message);
+  await loadData();
+  renderAll();
+  renderPublicBoard();
+}
+
+function renderInviteManager() {
+  const list = document.querySelector("#invites-list");
+  if (!list || !isAdminOrSteward()) return;
+  list.innerHTML = inviteCodes.map((item) => `
+    <article class="resource-item">
+      <div class="meeting-item-header">
+        <div>
+          <h3>${escapeHtml(item.code)}</h3>
+          <p>${escapeHtml(item.requested_role)}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</p>
+        </div>
+        <div class="button-row">
+          <button class="secondary" type="button" data-delete-invite-id="${escapeHtml(item.id)}">Delete</button>
+        </div>
+      </div>
+    </article>
+  `).join("") || `<div class="empty">No invite codes created yet.</div>`;
+  list.querySelectorAll("[data-delete-invite-id]").forEach((button) => {
+    button.addEventListener("click", () => deleteInviteCode(button.dataset.deleteInviteId));
+  });
+}
+
+async function createInviteCode() {
+  if (!isAdminOrSteward()) return;
+  const payload = {
+    code: `L4005-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+    requested_role: value("invite-role-input") || "steward",
+    note: value("invite-note-input") || null,
+    created_by: currentUser?.id || null
+  };
+  if (previewMode || !isConfigured) {
+    inviteCodes.unshift({ id: crypto.randomUUID(), ...payload });
+    renderInviteManager();
+    setValue("invite-note-input", "");
+    return;
+  }
+  const { error } = await supabaseClient.from("invite_codes").insert(payload);
+  if (error) return alert(error.message);
+  await loadData();
+  renderInviteManager();
+  setValue("invite-note-input", "");
+}
+
+async function deleteInviteCode(id) {
+  if (!isAdminOrSteward() || !confirm("Delete this invite code?")) return;
+  if (previewMode || !isConfigured) {
+    inviteCodes = inviteCodes.filter((item) => item.id !== id);
+    renderInviteManager();
+    return;
+  }
+  const { error } = await supabaseClient.from("invite_codes").delete().eq("id", id);
+  if (error) return alert(error.message);
+  await loadData();
+  renderInviteManager();
 }
 
 function renderDocuments() {
