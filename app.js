@@ -184,19 +184,17 @@ function profileRoles(profile) {
   const assigned = Array.isArray(profile?.assigned_roles)
     ? profile.assigned_roles.filter(Boolean)
     : [];
-  if (assigned.length) {
-    const expanded = new Set(assigned);
-    if (expanded.has("admin")) {
-      expanded.add("steward");
-      expanded.add("committee");
-    } else if (expanded.has("steward")) {
-      expanded.add("committee");
-    }
-    return ["admin", "steward", "committee"].filter((role) => expanded.has(role));
+  const expanded = new Set(assigned);
+  if (profile?.role) expanded.add(profile.role);
+  if (expanded.has("admin")) {
+    expanded.add("steward");
+    expanded.add("committee");
+  } else if (expanded.has("steward")) {
+    expanded.add("committee");
+  } else if (!expanded.size) {
+    expanded.add("committee");
   }
-  if (profile?.role === "admin") return ["admin", "steward", "committee"];
-  if (profile?.role === "steward") return ["steward", "committee"];
-  return [profile?.role || "committee"];
+  return ["admin", "steward", "committee"].filter((role) => expanded.has(role));
 }
 
 function profileHasRole(profile, role) {
@@ -941,6 +939,24 @@ function renderAdminTabs() {
   const role = activeRole();
   const isAdminView = role === "admin";
   const isStewardView = role === "steward";
+  const isCommitteeView = role === "committee";
+  const casesTab = document.querySelector("#cases-tab");
+  const usersTab = document.querySelector("#users-tab");
+  const contentTab = document.querySelector("#content-tab");
+  const moderationTab = document.querySelector("#moderation-tab");
+
+  if (isCommitteeView) {
+    document.querySelectorAll(".admin-nav-tab").forEach((button) => {
+      button.hidden = true;
+      button.classList.remove("active");
+    });
+    if (casesTab) casesTab.hidden = true;
+    if (usersTab) usersTab.hidden = true;
+    if (contentTab) contentTab.hidden = true;
+    if (moderationTab) moderationTab.hidden = true;
+    return;
+  }
+
   if (!["cases", "content", "moderation", "users"].includes(activeAdminTab)) activeAdminTab = "cases";
   if (!isAdminView && activeAdminTab === "users") activeAdminTab = "cases";
 
@@ -953,10 +969,6 @@ function renderAdminTabs() {
       || (tab === "users" && isAdminView);
     button.hidden = !(allowed && (isAdminView || isStewardView));
   });
-  const casesTab = document.querySelector("#cases-tab");
-  const usersTab = document.querySelector("#users-tab");
-  const contentTab = document.querySelector("#content-tab");
-  const moderationTab = document.querySelector("#moderation-tab");
   if (casesTab) casesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "cases";
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "users";
   if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "content";
