@@ -859,6 +859,8 @@ function renderRoleSwitcher() {
 
 function applyRoleVisibility() {
   const role = activeRole();
+  const isCasesAdminTab = activeAdminTab === "cases" || role === "committee";
+  const isUsersAdminTab = activeAdminTab === "users";
   const title = document.querySelector(".topbar h1");
   if (title) {
     if (role === "admin") title.textContent = "Admin Tools";
@@ -867,12 +869,12 @@ function applyRoleVisibility() {
   }
 
   const visibility = {
-    ".stats-grid": role === "steward" || role === "admin",
-    ".approval-panel": role === "admin" && activeAdminTab === "users",
+    ".stats-grid": (role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "cases",
+    ".approval-panel": role === "admin" && isUsersAdminTab,
     ".qa-moderation": role === "admin" || role === "steward",
-    ".internal-files": role === "steward" || role === "admin",
-    ".workspace": role === "steward" || role === "admin",
-    ".resources": role === "steward" || role === "committee",
+    ".internal-files": (role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "files",
+    ".workspace": (role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "cases",
+    ".resources": role === "committee" || (((role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "resources")),
     "#admin-nav": role === "admin" || role === "steward",
     "#users-tab": role === "admin"
   };
