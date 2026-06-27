@@ -173,6 +173,7 @@ let meetingsStorageReady = previewMode || !isConfigured;
 let selectedCaseId = null;
 let activePortalRole = null;
 let activeAdminTab = "cases";
+let activeSectionTab = "cases";
 
 const roleLabels = {
   admin: "Admin",
@@ -885,6 +886,7 @@ function applyRoleVisibility() {
   if (resourcesTitle) resourcesTitle.textContent = role === "committee" ? "Committee form access" : "Protected resources";
   const resourcesSubtitle = document.querySelector(".resources .section-heading span");
   if (resourcesSubtitle) resourcesSubtitle.textContent = role === "committee" ? "Lost time and expense claim form" : "Protected references and templates";
+  renderSectionTabs();
 }
 
 function wirePortalEvents() {
@@ -896,6 +898,12 @@ function wirePortalEvents() {
     button.addEventListener("click", () => {
       activeAdminTab = button.dataset.tab || "cases";
       renderAdminTabs();
+    });
+  });
+  document.querySelectorAll(".section-nav-tab").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeSectionTab = button.dataset.section || "cases";
+      renderSectionTabs();
     });
   });
   ["search", "contract-filter", "status-filter"].forEach((id) => {
@@ -921,6 +929,7 @@ function wirePortalEvents() {
 function renderAll() {
   applyRoleVisibility();
   renderAdminTabs();
+  renderSectionTabs();
   renderStats();
   renderCases();
   renderCaseForm();
@@ -954,6 +963,8 @@ function renderAdminTabs() {
     if (usersTab) usersTab.hidden = true;
     if (contentTab) contentTab.hidden = true;
     if (moderationTab) moderationTab.hidden = true;
+    activeSectionTab = "resources";
+    renderSectionTabs();
     return;
   }
 
@@ -973,6 +984,51 @@ function renderAdminTabs() {
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "users";
   if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "content";
   if (moderationTab) moderationTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "moderation";
+  if (activeAdminTab !== "cases") {
+    const sectionNav = document.querySelector("#section-nav");
+    if (sectionNav) sectionNav.hidden = true;
+  }
+}
+
+function renderSectionTabs() {
+  const role = activeRole();
+  const sectionNav = document.querySelector("#section-nav");
+  const filesSection = document.querySelector("#files-section");
+  const casesSection = document.querySelector("#cases-tab");
+  const resourcesSection = document.querySelector("#resources-section");
+  const isCasesView = activeAdminTab === "cases" || role === "committee";
+
+  if (!sectionNav || !filesSection || !casesSection || !resourcesSection) return;
+
+  if (role === "committee") {
+    sectionNav.hidden = true;
+    filesSection.hidden = true;
+    casesSection.hidden = true;
+    resourcesSection.hidden = false;
+    return;
+  }
+
+  if (!isCasesView) {
+    sectionNav.hidden = true;
+    return;
+  }
+
+  const allowed = role === "admin" || role === "steward"
+    ? ["cases", "files", "resources"]
+    : ["resources"];
+  if (!allowed.includes(activeSectionTab)) activeSectionTab = allowed[0];
+
+  sectionNav.hidden = false;
+  document.querySelectorAll(".section-nav-tab").forEach((button) => {
+    const section = button.dataset.section;
+    const visible = allowed.includes(section);
+    button.hidden = !visible;
+    button.classList.toggle("active", visible && activeSectionTab === section);
+  });
+
+  filesSection.hidden = activeSectionTab !== "files";
+  casesSection.hidden = activeSectionTab !== "cases";
+  resourcesSection.hidden = activeSectionTab !== "resources";
 }
 
 function renderQuestionModeration() {

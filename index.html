@@ -303,6 +303,12 @@
           </article>
         </section>
 
+        <nav class="section-nav" id="section-nav" hidden>
+          <button class="section-nav-tab active" type="button" data-section="cases">Cases</button>
+          <button class="section-nav-tab" type="button" data-section="files">Files</button>
+          <button class="section-nav-tab" type="button" data-section="resources">Resources</button>
+        </nav>
+
         <!-- ADMIN: USER MANAGEMENT -->
         <section id="users-tab" class="admin-tab" hidden>
           <div class="section-heading">
@@ -518,7 +524,7 @@
         </section>
 
         <!-- INTERNAL FILES -->
-        <section class="internal-files" aria-labelledby="internal-files-title">
+        <section class="internal-files" id="files-section" aria-labelledby="internal-files-title">
           <div class="section-heading">
             <h2 id="internal-files-title">Internal file storage</h2>
             <span>Authorized users only</span>
@@ -669,7 +675,7 @@
           </section>
         </section>
 
-        <section class="resources" aria-labelledby="resources-title">
+        <section class="resources" id="resources-section" aria-labelledby="resources-title">
           <div class="section-heading">
             <h2 id="resources-title">Steward resources</h2>
             <span>Protected references and templates</span>

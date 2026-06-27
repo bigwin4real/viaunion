@@ -1199,7 +1199,8 @@ textarea {
 .admin-nav,
 .content-editor,
 .content-section,
-.meeting-editor {
+.meeting-editor,
+.section-nav {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -1207,18 +1208,21 @@ textarea {
 }
 
 .admin-nav,
-.content-editor {
+.content-editor,
+.section-nav {
   margin-bottom: 14px;
 }
 
-.admin-nav {
+.admin-nav,
+.section-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   padding: 12px;
 }
 
-.admin-nav-tab {
+.admin-nav-tab,
+.section-nav-tab {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: #fff;
@@ -1227,7 +1231,8 @@ textarea {
   padding: 10px 14px;
 }
 
-.admin-nav-tab.active {
+.admin-nav-tab.active,
+.section-nav-tab.active {
   background: var(--via-blue);
   color: #fff;
   border-color: var(--via-blue);
