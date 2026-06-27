@@ -13,6 +13,7 @@ create table public.profiles (
   share_email boolean not null default false,
   share_phone boolean not null default false,
   role public.portal_role not null default 'steward',
+  assigned_roles public.portal_role[] not null default array['steward']::public.portal_role[],
   active boolean not null default false,
   access_status public.access_status not null default 'pending',
   request_note text,
@@ -151,7 +152,7 @@ begin
     else 'steward'::public.portal_role
   end;
 
-  insert into public.profiles (id, email, full_name, phone, share_email, share_phone, role, active, access_status, request_note)
+  insert into public.profiles (id, email, full_name, phone, share_email, share_phone, role, assigned_roles, active, access_status, request_note)
   values (
     new.id,
     new.email,
@@ -160,6 +161,7 @@ begin
     coalesce((new.raw_user_meta_data ->> 'share_email')::boolean, false),
     coalesce((new.raw_user_meta_data ->> 'share_phone')::boolean, false),
     requested_role,
+    array[requested_role],
     false,
     'pending',
     nullif(new.raw_user_meta_data ->> 'request_note', '')
@@ -171,6 +173,7 @@ begin
         share_email = excluded.share_email,
         share_phone = excluded.share_phone,
         role = excluded.role,
+        assigned_roles = excluded.assigned_roles,
         request_note = excluded.request_note,
         updated_at = now();
 
@@ -204,7 +207,7 @@ stable
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and active = true and role = 'admin'
+    where id = auth.uid() and active = true and 'admin' = any(assigned_roles)
   );
 $$;
 
@@ -217,7 +220,7 @@ stable
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and active = true and role = 'steward'
+    where id = auth.uid() and active = true and 'steward' = any(assigned_roles)
   );
 $$;
 
@@ -230,7 +233,7 @@ stable
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and active = true and role in ('admin', 'steward')
+    where id = auth.uid() and active = true and (assigned_roles && array['admin', 'steward']::public.portal_role[])
   );
 $$;
 

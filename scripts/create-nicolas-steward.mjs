@@ -87,6 +87,7 @@ async function patchProfile(userId) {
       share_email: false,
       share_phone: false,
       role: "steward",
+      assigned_roles: ["steward"],
       active: true,
       access_status: "approved",
       approved_at: new Date().toISOString()

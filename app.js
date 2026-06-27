@@ -157,22 +157,53 @@ let resources = [];
 let notes = [];
 let documents = [];
 let pendingProfiles = [];
+let activeProfiles = [];
 let internalFiles = [];
 let publicQuestions = [...sampleQuestions];
 let selectedCaseId = null;
+let activePortalRole = null;
+
+const roleLabels = {
+  admin: "Admin tools",
+  steward: "Shop steward tools",
+  committee: "Committee form"
+};
+
+function profileRoles(profile) {
+  if (Array.isArray(profile?.assigned_roles) && profile.assigned_roles.length) return profile.assigned_roles;
+  if (profile?.role === "admin") return ["admin", "steward", "committee"];
+  return [profile?.role || "committee"];
+}
+
+function profileHasRole(profile, role) {
+  return profileRoles(profile).includes(role);
+}
+
+function availablePortalRoles() {
+  return ["admin", "steward", "committee"].filter((role) => profileHasRole(currentProfile, role));
+}
+
+function activeRole() {
+  const allowed = availablePortalRoles();
+  if (!allowed.includes(activePortalRole)) activePortalRole = allowed[0] || currentProfile?.role || "committee";
+  return activePortalRole;
+}
 
 const app = document.querySelector("#app");
 
 if (previewMode) {
   currentUser = { id: "preview-user", email: "preview@local4005.test" };
-  currentProfile = { id: "preview-user", full_name: "Preview Admin", role: "admin" };
+  currentProfile = { id: "preview-user", full_name: "Preview Admin", role: "admin", assigned_roles: ["admin", "steward", "committee"] };
   cases = [...sampleCases];
   resources = [...sampleResources];
   internalFiles = [
     { id: "file-1", file_name: "Locked-Grievance-Tracker.xlsx", kind: "grievance_tracker", storage_path: "grievance-tracker/Locked-Grievance-Tracker.xlsx", uploaded_at: new Date().toISOString() }
   ];
   pendingProfiles = [
-    { id: "pending-1", full_name: "New Steward", email: "new.steward@example.ca", role: "steward", request_note: "Moncton steward access request", share_email: false, share_phone: false, created_at: new Date().toISOString() }
+    { id: "pending-1", full_name: "New Steward", email: "new.steward@example.ca", role: "steward", assigned_roles: ["steward"], request_note: "Moncton steward access request", share_email: false, share_phone: false, created_at: new Date().toISOString() }
+  ];
+  activeProfiles = [
+    { id: "preview-user", full_name: "Preview Admin", email: "preview@local4005.test", role: "admin", assigned_roles: ["admin", "steward", "committee"], share_email: false, share_phone: false, created_at: new Date().toISOString() }
   ];
   publicStewards = [
     { name: "Nicolas Hachey", role: "Shop Steward", area: "Moncton VCC", contract: "Contract 1", contact: "Contact through Local 4005" }
@@ -605,12 +636,16 @@ function renderRegister() {
 }
 
 async function loadData() {
-  const committeeOnly = currentProfile.role === "committee";
-  const [{ data: caseRows }, { data: resourceRows }, { data: pendingRows }, { data: internalRows }, { data: questionRows }] = await Promise.all([
+  const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
+  const canManageUsers = profileHasRole(currentProfile, "admin");
+  const [{ data: caseRows }, { data: resourceRows }, { data: pendingRows }, { data: activeProfileRows }, { data: internalRows }, { data: questionRows }] = await Promise.all([
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
-    currentProfile.role === "admin"
+    canManageUsers
       ? supabaseClient.from("profiles").select("*").eq("active", false).eq("access_status", "pending").order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    canManageUsers
+      ? supabaseClient.from("profiles").select("*").eq("active", true).order("full_name", { ascending: true })
       : Promise.resolve({ data: [] }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false })
@@ -629,6 +664,7 @@ async function loadData() {
     });
   }
   pendingProfiles = pendingRows || [];
+  activeProfiles = activeProfileRows || [];
   internalFiles = internalRows || [];
   publicQuestions = questionRows || [];
   selectedCaseId = cases[0]?.id || null;
@@ -652,7 +688,9 @@ async function loadCaseChildren(caseId) {
 
 function renderPortal() {
   app.innerHTML = document.querySelector("#portal-template").innerHTML;
+  activePortalRole = activeRole();
   wirePortalEvents();
+  renderRoleSwitcher();
   document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
   applyRoleVisibility();
   selectedCaseId = selectedCaseId || cases[0]?.id || null;
@@ -661,102 +699,73 @@ function renderPortal() {
 }
 
 function isAdmin() {
-  return currentProfile?.role === "admin";
+  return activeRole() === "admin";
 }
 
 function isSteward() {
-  return currentProfile?.role === "steward";
+  return activeRole() === "steward";
 }
 
 function isCommittee() {
-  return currentProfile?.role === "committee";
+  return activeRole() === "committee";
 }
 
 function isAdminOrSteward() {
   return isAdmin() || isSteward();
 }
 
+function canManageUsers() {
+  return profileHasRole(currentProfile, "admin");
+}
+
+function renderRoleSwitcher() {
+  const roles = availablePortalRoles();
+  const wrapper = document.querySelector("#role-switcher-wrap");
+  const select = document.querySelector("#role-switcher");
+  if (!wrapper || !select) return;
+  if (roles.length <= 1) {
+    wrapper.hidden = true;
+    return;
+  }
+  wrapper.hidden = false;
+  select.innerHTML = roles.map((role) => `<option value="${role}">${roleLabels[role] || role}</option>`).join("");
+  select.value = activeRole();
+  select.addEventListener("change", () => {
+    activePortalRole = select.value;
+    applyRoleVisibility();
+    renderAll();
+  });
+}
+
 function applyRoleVisibility() {
-  const role = currentProfile?.role;
-
-  // COMMITTEE VIEW - Highly restricted
-  if (isCommittee()) {
-    const title = document.querySelector(".topbar h1");
-    if (title) title.textContent = "Committee Forms";
-    [".stats-grid", ".approval-panel", ".qa-moderation", ".internal-files", ".workspace"].forEach((selector) => {
-      const element = document.querySelector(selector);
-      if (element) element.hidden = true;
-    });
-    const resourcesTitle = document.querySelector("#resources-title");
-    if (resourcesTitle) resourcesTitle.textContent = "Committee form access";
-    const resourcesSubtitle = document.querySelector(".resources .section-heading span");
-    if (resourcesSubtitle) resourcesSubtitle.textContent = "Lost time and expense claim form";
-    return;
+  const role = activeRole();
+  const title = document.querySelector(".topbar h1");
+  if (title) {
+    if (role === "admin") title.textContent = "Admin Tools";
+    else if (role === "steward") title.textContent = "Shop Steward Portal";
+    else title.textContent = "Committee Forms";
   }
 
-  // ADMIN VIEW
-  if (isAdmin()) {
-    const title = document.querySelector(".topbar h1");
-    if (title) title.textContent = "Admin Portal";
-    
-    // Show all admin panels
-    const approvalPanel = document.querySelector("#approval-panel");
-    if (approvalPanel) approvalPanel.hidden = false;
+  const visibility = {
+    ".stats-grid": role === "steward",
+    ".approval-panel": role === "admin",
+    ".qa-moderation": role === "admin" || role === "steward",
+    ".internal-files": role === "steward",
+    ".workspace": role === "steward",
+    ".resources": role === "steward" || role === "committee",
+    "#admin-nav": role === "admin",
+    "#users-tab": role === "admin"
+  };
 
-    // Admin has access to all case management
-    const workspace = document.querySelector(".workspace");
-    if (workspace) workspace.hidden = false;
+  Object.entries(visibility).forEach(([selector, visible]) => {
+    const element = document.querySelector(selector);
+    if (element) element.hidden = !visible;
+  });
 
-    // Admin has full access to resources
-    const resources = document.querySelector(".resources");
-    if (resources) resources.hidden = false;
-
-    // Admin has full access to Q&A moderation
-    const qaModeration = document.querySelector(".qa-moderation");
-    if (qaModeration) qaModeration.hidden = false;
-
-    // Admin has full access to internal files
-    const internalFiles = document.querySelector(".internal-files");
-    if (internalFiles) internalFiles.hidden = false;
-
-    // Show stats
-    const statsGrid = document.querySelector(".stats-grid");
-    if (statsGrid) statsGrid.hidden = false;
-
-    return;
-  }
-
-  // STEWARD VIEW
-  if (isSteward()) {
-    const title = document.querySelector(".topbar h1");
-    if (title) title.textContent = "Steward Portal";
-
-    // Hide admin-only approval panel
-    const approvalPanel = document.querySelector("#approval-panel");
-    if (approvalPanel) approvalPanel.hidden = true;
-
-    // Stewards see case workspace
-    const workspace = document.querySelector(".workspace");
-    if (workspace) workspace.hidden = false;
-
-    // Stewards see resources
-    const resources = document.querySelector(".resources");
-    if (resources) resources.hidden = false;
-
-    // Stewards cannot moderate Q&A
-    const qaModeration = document.querySelector(".qa-moderation");
-    if (qaModeration) qaModeration.hidden = true;
-
-    // Stewards can see internal files (general only)
-    const internalFiles = document.querySelector(".internal-files");
-    if (internalFiles) internalFiles.hidden = false;
-
-    // Show stats
-    const statsGrid = document.querySelector(".stats-grid");
-    if (statsGrid) statsGrid.hidden = false;
-
-    return;
-  }
+  const resourcesTitle = document.querySelector("#resources-title");
+  if (resourcesTitle) resourcesTitle.textContent = role === "committee" ? "Committee form access" : "Protected resources";
+  const resourcesSubtitle = document.querySelector(".resources .section-heading span");
+  if (resourcesSubtitle) resourcesSubtitle.textContent = role === "committee" ? "Lost time and expense claim form" : "Protected references and templates";
 }
 
 function wirePortalEvents() {
@@ -774,6 +783,7 @@ function wirePortalEvents() {
 }
 
 function renderAll() {
+  applyRoleVisibility();
   renderStats();
   renderCases();
   renderCaseForm();
@@ -787,8 +797,7 @@ function renderQuestionModeration() {
   const list = document.querySelector("#moderation-list");
   if (!list) return;
 
-  // Only admins can moderate
-  if (!isAdmin()) return;
+  if (!isAdminOrSteward()) return;
 
   const total = document.querySelector("#moderation-total");
   if (total) total.textContent = `${publicQuestions.length} messages`;
@@ -904,8 +913,7 @@ function renderApprovals() {
   const panel = document.querySelector("#approval-panel");
   if (!panel) return;
 
-  // Only admins can approve/reject
-  if (!isAdmin()) {
+  if (!canManageUsers()) {
     panel.hidden = true;
     return;
   }
@@ -913,42 +921,87 @@ function renderApprovals() {
   panel.hidden = false;
   document.querySelector("#approval-total").textContent = `${pendingProfiles.length} pending`;
   const list = document.querySelector("#approval-list");
-  list.innerHTML = pendingProfiles.map((profile) => `
+  const pendingHtml = pendingProfiles.map((profile) => renderRoleCard(profile, { pending: true })).join("")
+    || `<div class="empty">No access requests are waiting for approval.</div>`;
+  const activeHtml = activeProfiles.map((profile) => renderRoleCard(profile, { pending: false })).join("")
+    || `<div class="empty">No active private users yet.</div>`;
+  list.innerHTML = `
+    <div class="role-management-group">
+      <h3>Pending access requests</h3>
+      ${pendingHtml}
+    </div>
+    <div class="role-management-group">
+      <h3>Approved private users</h3>
+      ${activeHtml}
+    </div>
+  `;
+  list.querySelectorAll("[data-approve-id]").forEach((button) => {
+    button.addEventListener("click", () => updateAccessRequest(button.dataset.approveId, true, selectedRolesForProfile(button.dataset.approveId)));
+  });
+  list.querySelectorAll("[data-reject-id]").forEach((button) => {
+    button.addEventListener("click", () => updateAccessRequest(button.dataset.rejectId, false));
+  });
+  list.querySelectorAll("[data-save-roles-id]").forEach((button) => {
+    button.addEventListener("click", () => updateProfileRoles(button.dataset.saveRolesId, selectedRolesForProfile(button.dataset.saveRolesId)));
+  });
+}
+
+function renderRoleCard(profile, { pending }) {
+  const roles = assignedRoles(profile);
+  return `
     <article class="approval-card">
       <div>
         <h3>${escapeHtml(profile.full_name)}</h3>
         <p>${escapeHtml(profile.email || "")}</p>
-        <p>${escapeHtml(profile.request_note || "No reason provided.")}</p>
+        ${pending ? `<p>${escapeHtml(profile.request_note || "No reason provided.")}</p>` : ""}
         <div class="meta-row">
           <span class="pill">${escapeHtml(profile.role)}</span>
           <span class="pill">${profile.share_email ? "Email public" : "Email private"}</span>
           <span class="pill">${profile.share_phone ? "Phone public" : "Phone private"}</span>
           <span class="pill">${new Date(profile.created_at).toLocaleDateString()}</span>
         </div>
+        <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
+          ${["admin", "steward", "committee"].map((role) => `
+            <label>
+              <input type="checkbox" value="${role}" ${roles.includes(role) ? "checked" : ""}>
+              ${roleLabels[role] || role}
+            </label>
+          `).join("")}
+        </div>
       </div>
       <div class="button-row">
-        <button type="button" data-approve-id="${escapeHtml(profile.id)}">Approve</button>
-        <button class="secondary" type="button" data-reject-id="${escapeHtml(profile.id)}">Reject</button>
+        ${pending
+          ? `<button type="button" data-approve-id="${escapeHtml(profile.id)}">Approve</button>
+             <button class="secondary" type="button" data-reject-id="${escapeHtml(profile.id)}">Reject</button>`
+          : `<button type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>`}
       </div>
     </article>
-  `).join("") || `<div class="empty">No access requests are waiting for approval.</div>`;
-  list.querySelectorAll("[data-approve-id]").forEach((button) => {
-    button.addEventListener("click", () => updateAccessRequest(button.dataset.approveId, true));
-  });
-  list.querySelectorAll("[data-reject-id]").forEach((button) => {
-    button.addEventListener("click", () => updateAccessRequest(button.dataset.rejectId, false));
-  });
+  `;
 }
 
-async function updateAccessRequest(profileId, approved) {
+function assignedRoles(profile) {
+  return profileRoles(profile);
+}
+
+function selectedRolesForProfile(profileId) {
+  const container = Array.from(document.querySelectorAll("[data-role-checks]"))
+    .find((element) => element.dataset.roleChecks === profileId);
+  const checks = Array.from(container?.querySelectorAll("input:checked") || []).map((input) => input.value);
+  return checks.length ? checks : ["committee"];
+}
+
+async function updateAccessRequest(profileId, approved, assignedRoles = []) {
   if (previewMode) {
     pendingProfiles = pendingProfiles.filter((profile) => profile.id !== profileId);
+    if (approved) {
+      activeProfiles.push({ id: profileId, full_name: "Approved preview user", email: "preview@example.ca", role: assignedRoles[0] || "committee", assigned_roles: assignedRoles, share_email: false, share_phone: false, created_at: new Date().toISOString() });
+    }
     renderApprovals();
     return;
   }
 
   const payload = approved
-    ? { active: true, access_status: "approved", approved_by: currentUser.id, approved_at: new Date().toISOString() }
+    ? { active: true, access_status: "approved", role: assignedRoles[0] || "committee", assigned_roles: assignedRoles, approved_by: currentUser.id, approved_at: new Date().toISOString() }
     : { active: false, access_status: "rejected", approved_by: currentUser.id, approved_at: new Date().toISOString() };
   const { error } = await supabaseClient.from("profiles").update(payload).eq("id", profileId);
   if (error) return alert(error.message);
@@ -957,29 +1010,58 @@ async function updateAccessRequest(profileId, approved) {
   renderApprovals();
 }
 
+async function updateProfileRoles(profileId, assignedRoles) {
+  if (!assignedRoles.length) return alert("Select at least one role.");
+  if (previewMode) {
+    const profile = activeProfiles.find((item) => item.id === profileId);
+    if (profile) {
+      profile.role = assignedRoles[0];
+      profile.assigned_roles = assignedRoles;
+      if (profile.id === currentProfile.id) currentProfile = { ...currentProfile, role: profile.role, assigned_roles: assignedRoles };
+    }
+    renderRoleSwitcher();
+    renderApprovals();
+    return;
+  }
+  const { error } = await supabaseClient
+    .from("profiles")
+    .update({ role: assignedRoles[0], assigned_roles: assignedRoles })
+    .eq("id", profileId);
+  if (error) return alert(error.message);
+  await upsertApprovedDirectoryEntry(profileId);
+  if (profileId === currentProfile.id) {
+    const { data } = await supabaseClient.from("profiles").select("*").eq("id", profileId).single();
+    if (data) currentProfile = data;
+  }
+  await loadData();
+  renderPortal();
+}
+
 async function upsertApprovedDirectoryEntry(profileId) {
   const { data: profile, error } = await supabaseClient
     .from("profiles")
-    .select("id,email,full_name,role,phone,share_email,share_phone")
+    .select("id,email,full_name,role,assigned_roles,phone,share_email,share_phone")
     .eq("id", profileId)
     .single();
   if (error || !profile) return;
-  if (profile.role === "committee") return;
+  const directoryRoles = profileRoles(profile).filter((role) => role === "admin" || role === "steward");
+  await supabaseClient.from("public_directory_entries").delete().eq("profile_id", profile.id);
+  if (!directoryRoles.length) return;
 
   const contactParts = [];
   if (profile.share_email && profile.email) contactParts.push(profile.email);
   if (profile.share_phone && profile.phone) contactParts.push(profile.phone);
 
-  await supabaseClient.from("public_directory_entries").upsert({
+  await supabaseClient.from("public_directory_entries").upsert(directoryRoles.map((role) => ({
     profile_id: profile.id,
-    directory_role: profile.role,
+    directory_role: role,
     display_name: profile.full_name,
-    public_title: profile.role === "admin" ? "Admin contact" : "Shop Steward",
+    public_title: role === "admin" ? "Admin contact" : "Shop Steward",
     location: "Local 4005",
     contract: "Shared",
     public_contact: contactParts.join(" / ") || null,
     is_public: true
-  }, { onConflict: "profile_id,directory_role" });
+  })), { onConflict: "profile_id,directory_role" });
 }
 
 function filteredCases() {

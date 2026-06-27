@@ -1,5 +1,12 @@
 alter type public.portal_role add value if not exists 'committee';
 
+alter table public.profiles
+add column if not exists assigned_roles public.portal_role[] not null default array['steward']::public.portal_role[];
+
+update public.profiles
+set assigned_roles = array[role]::public.portal_role[]
+where assigned_roles is null or array_length(assigned_roles, 1) is null;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -15,7 +22,7 @@ begin
     else 'steward'::public.portal_role
   end;
 
-  insert into public.profiles (id, email, full_name, phone, share_email, share_phone, role, active, access_status, request_note)
+  insert into public.profiles (id, email, full_name, phone, share_email, share_phone, role, assigned_roles, active, access_status, request_note)
   values (
     new.id,
     new.email,
@@ -24,6 +31,7 @@ begin
     coalesce((new.raw_user_meta_data ->> 'share_email')::boolean, false),
     coalesce((new.raw_user_meta_data ->> 'share_phone')::boolean, false),
     requested_role,
+    array[requested_role],
     false,
     'pending',
     nullif(new.raw_user_meta_data ->> 'request_note', '')
@@ -35,6 +43,7 @@ begin
         share_email = excluded.share_email,
         share_phone = excluded.share_phone,
         role = excluded.role,
+        assigned_roles = excluded.assigned_roles,
         request_note = excluded.request_note,
         updated_at = now();
 
@@ -51,7 +60,33 @@ stable
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and active = true and role in ('admin', 'steward')
+    where id = auth.uid() and active = true and (assigned_roles && array['admin', 'steward']::public.portal_role[])
+  );
+$$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and active = true and 'admin' = any(assigned_roles)
+  );
+$$;
+
+create or replace function public.is_steward()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid() and active = true and 'steward' = any(assigned_roles)
   );
 $$;
 
