@@ -965,7 +965,8 @@ textarea {
 .filters,
 .case-column,
 .detail-column,
-.resources {
+.resources,
+.dashboard-card {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -993,6 +994,29 @@ textarea {
 .stats-grid p {
   margin: 4px 0 0;
   color: var(--muted);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin: 0 0 14px;
+}
+
+.dashboard-card {
+  padding: 16px;
+  border-top: 4px solid var(--navy);
+}
+
+.dashboard-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.dashboard-card p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .workspace {

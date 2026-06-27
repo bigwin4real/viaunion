@@ -173,7 +173,7 @@ let selectedExecutiveId = null;
 let meetingsStorageReady = previewMode || !isConfigured;
 let selectedCaseId = null;
 let activePortalRole = null;
-let activeAdminTab = "cases";
+let activeAdminTab = "dashboard";
 let activeSectionTab = "cases";
 
 const roleLabels = {
@@ -907,8 +907,10 @@ function renderRoleSwitcher() {
 
 function applyRoleVisibility() {
   const role = activeRole();
-  const isCasesAdminTab = activeAdminTab === "cases" || role === "committee";
-  const isUsersAdminTab = activeAdminTab === "users";
+  const isDashboardTab = activeAdminTab === "dashboard";
+  const isWorkspaceTab = activeAdminTab === "workspace" || role === "committee";
+  const isPublicTab = activeAdminTab === "public";
+  const isAdminTab = activeAdminTab === "admin";
   const title = document.querySelector(".topbar h1");
   if (title) {
     if (role === "admin") title.textContent = "Admin Tools";
@@ -917,14 +919,15 @@ function applyRoleVisibility() {
   }
 
   const visibility = {
-    ".stats-grid": (role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "cases",
-    ".approval-panel": role === "admin" && isUsersAdminTab,
-    ".qa-moderation": role === "admin" || role === "steward",
-    ".internal-files": (role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "files",
-    ".workspace": (role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "cases",
-    ".resources": role === "committee" || (((role === "steward" || role === "admin") && isCasesAdminTab && activeSectionTab === "resources")),
+    ".stats-grid": (role === "steward" || role === "admin") && isDashboardTab,
+    ".approval-panel": role === "admin" && isAdminTab,
+    ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
+    ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
+    ".workspace": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
+    ".resources": role === "committee" || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
     "#admin-nav": role === "admin" || role === "steward",
-    "#users-tab": role === "admin"
+    "#users-tab": role === "admin" && isAdminTab,
+    "#content-tab": (role === "admin" || role === "steward") && isPublicTab
   };
 
   Object.entries(visibility).forEach(([selector, visible]) => {
@@ -954,6 +957,13 @@ function wirePortalEvents() {
     button.addEventListener("click", () => {
       activeSectionTab = button.dataset.section || "cases";
       renderSectionTabs();
+    });
+  });
+  document.querySelectorAll(".dashboard-jump").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeAdminTab = button.dataset.jumpTab || "dashboard";
+      if (button.dataset.jumpSection) activeSectionTab = button.dataset.jumpSection;
+      renderAll();
     });
   });
   ["search", "contract-filter", "status-filter"].forEach((id) => {
@@ -1006,38 +1016,44 @@ function renderAdminTabs() {
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
   const moderationTab = document.querySelector("#moderation-tab");
+  const statsGrid = document.querySelector(".stats-grid");
+  const approvalPanel = document.querySelector("#approval-panel");
 
   if (isCommitteeView) {
     document.querySelectorAll(".admin-nav-tab").forEach((button) => {
       button.hidden = true;
       button.classList.remove("active");
     });
+    if (statsGrid) statsGrid.hidden = true;
     if (casesTab) casesTab.hidden = true;
     if (usersTab) usersTab.hidden = true;
     if (contentTab) contentTab.hidden = true;
     if (moderationTab) moderationTab.hidden = true;
+    if (approvalPanel) approvalPanel.hidden = true;
     activeSectionTab = "resources";
     renderSectionTabs();
     return;
   }
 
-  if (!["cases", "content", "moderation", "users"].includes(activeAdminTab)) activeAdminTab = "cases";
-  if (!isAdminView && activeAdminTab === "users") activeAdminTab = "cases";
+  if (!["dashboard", "workspace", "public", "admin"].includes(activeAdminTab)) activeAdminTab = "dashboard";
+  if (!isAdminView && activeAdminTab === "admin") activeAdminTab = "dashboard";
 
   document.querySelectorAll(".admin-nav-tab").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === activeAdminTab);
     const tab = button.dataset.tab;
-    const allowed = tab === "cases"
-      || tab === "content"
-      || tab === "moderation"
-      || (tab === "users" && isAdminView);
+    const allowed = tab === "dashboard"
+      || tab === "workspace"
+      || tab === "public"
+      || (tab === "admin" && isAdminView);
     button.hidden = !(allowed && (isAdminView || isStewardView));
   });
-  if (casesTab) casesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "cases";
-  if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "users";
-  if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "content";
-  if (moderationTab) moderationTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "moderation";
-  if (activeAdminTab !== "cases") {
+  if (statsGrid) statsGrid.hidden = activeAdminTab !== "dashboard";
+  if (casesTab) casesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "workspace";
+  if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "admin";
+  if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
+  if (moderationTab) moderationTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
+  if (approvalPanel) approvalPanel.hidden = !isAdminView || activeAdminTab !== "admin";
+  if (activeAdminTab !== "workspace") {
     const sectionNav = document.querySelector("#section-nav");
     if (sectionNav) sectionNav.hidden = true;
   }
@@ -1049,7 +1065,7 @@ function renderSectionTabs() {
   const filesSection = document.querySelector("#files-section");
   const casesSection = document.querySelector("#cases-tab");
   const resourcesSection = document.querySelector("#resources-section");
-  const isCasesView = activeAdminTab === "cases" || role === "committee";
+  const isWorkspaceView = activeAdminTab === "workspace" || role === "committee";
 
   if (!sectionNav || !filesSection || !casesSection || !resourcesSection) return;
 
@@ -1061,7 +1077,7 @@ function renderSectionTabs() {
     return;
   }
 
-  if (!isCasesView) {
+  if (!isWorkspaceView) {
     sectionNav.hidden = true;
     return;
   }

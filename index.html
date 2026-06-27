@@ -276,12 +276,12 @@
           </div>
         </header>
 
-        <!-- ADMIN / STEWARD NAVIGATION TABS -->
+        <!-- PRIVATE WORK AREAS -->
         <nav class="admin-nav" id="admin-nav" hidden>
-          <button class="admin-nav-tab active" type="button" data-tab="cases">Cases</button>
-          <button class="admin-nav-tab" type="button" data-tab="users">Users</button>
-          <button class="admin-nav-tab" type="button" data-tab="content">Meeting board</button>
-          <button class="admin-nav-tab" type="button" data-tab="moderation">Moderation</button>
+          <button class="admin-nav-tab active" type="button" data-tab="dashboard">Dashboard</button>
+          <button class="admin-nav-tab" type="button" data-tab="workspace">Workspace</button>
+          <button class="admin-nav-tab" type="button" data-tab="public">Public Site</button>
+          <button class="admin-nav-tab" type="button" data-tab="admin">Administration</button>
         </nav>
 
         <section class="stats-grid" aria-label="Case summary">
@@ -300,6 +300,24 @@
           <article>
             <span id="resolved-count">0</span>
             <p>Resolved</p>
+          </article>
+        </section>
+
+        <section class="dashboard-grid" id="dashboard-grid">
+          <article class="dashboard-card">
+            <h2>Steward workspace</h2>
+            <p>Cases, internal files, and protected references.</p>
+            <button class="secondary dashboard-jump" type="button" data-jump-tab="workspace" data-jump-section="cases">Open workspace</button>
+          </article>
+          <article class="dashboard-card">
+            <h2>Public site manager</h2>
+            <p>Announcements, resources, meetings, executive team, and Q&amp;A moderation.</p>
+            <button class="secondary dashboard-jump" type="button" data-jump-tab="public">Open public site tools</button>
+          </article>
+          <article class="dashboard-card">
+            <h2>Administration</h2>
+            <p>Users, approvals, roles, and access control.</p>
+            <button class="secondary dashboard-jump" type="button" data-jump-tab="admin">Open administration</button>
           </article>
         </section>
 
