@@ -1097,8 +1097,10 @@ textarea {
 }
 
 .case-card.active {
+  border-color: var(--rail);
   border-left-color: var(--rail);
-  box-shadow: 0 0 0 2px rgba(185, 35, 47, 0.12);
+  background: linear-gradient(180deg, #fff, #fff5ef);
+  box-shadow: 0 0 0 3px rgba(185, 35, 47, 0.18);
 }
 
 .case-card h3 {

@@ -1365,8 +1365,9 @@ async function deleteSelectedCase() {
     renderAll();
     return;
   }
-  const { error } = await supabaseClient.from("cases").delete().eq("id", selectedCaseId);
+  const { data, error } = await supabaseClient.from("cases").delete().eq("id", selectedCaseId).select("id");
   if (error) return alert(error.message);
+  if (!data?.length) return alert("Case was not deleted. Refresh and confirm your account still has admin access.");
   selectedCaseId = null;
   await loadData();
   renderAll();

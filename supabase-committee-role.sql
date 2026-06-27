@@ -60,7 +60,7 @@ stable
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and active = true and (assigned_roles && array['admin', 'steward']::public.portal_role[])
+    where id = auth.uid() and active = true and ((assigned_roles && array['admin', 'steward']::public.portal_role[]) or role in ('admin', 'steward'))
   );
 $$;
 
@@ -73,7 +73,7 @@ stable
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and active = true and 'admin' = any(assigned_roles)
+    where id = auth.uid() and active = true and ('admin' = any(assigned_roles) or role = 'admin')
   );
 $$;
 
@@ -86,7 +86,7 @@ stable
 as $$
   select exists (
     select 1 from public.profiles
-    where id = auth.uid() and active = true and 'steward' = any(assigned_roles)
+    where id = auth.uid() and active = true and ('steward' = any(assigned_roles) or role = 'steward')
   );
 $$;
 
