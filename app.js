@@ -1153,7 +1153,7 @@ function renderApprovals() {
   const panel = document.querySelector("#approval-panel");
   if (!panel) return;
 
-  if (!canManageUsers()) {
+  if (!isAdmin() || activeAdminTab !== "users") {
     panel.hidden = true;
     return;
   }
@@ -1235,7 +1235,7 @@ function filteredUsers() {
 
 function renderUsers() {
   const list = document.querySelector("#users-list");
-  if (!list || !canManageUsers()) return;
+  if (!list || !isAdmin()) return;
   const rows = filteredUsers();
   const total = document.querySelector("#users-total");
   if (total) total.textContent = `${rows.length} users`;
@@ -1442,6 +1442,12 @@ function filteredCases() {
 }
 
 function renderStats() {
+  const grid = document.querySelector(".stats-grid");
+  if (!isAdminOrSteward() || activeAdminTab !== "cases" || activeSectionTab !== "cases") {
+    if (grid) grid.hidden = true;
+    return;
+  }
+  if (grid) grid.hidden = false;
   const open = cases.filter((item) => !["Resolved", "Withdrawn"].includes(item.status));
   const due = open.filter((item) => item.next_deadline && daysUntil(item.next_deadline) <= 7 && daysUntil(item.next_deadline) >= 0);
   document.querySelector("#open-count").textContent = open.length;
