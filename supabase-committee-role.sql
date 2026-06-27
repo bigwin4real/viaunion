@@ -95,6 +95,11 @@ create policy "cases_insert_active"
 on public.cases for insert
 with check (public.is_admin_or_steward() and created_by = auth.uid());
 
+drop policy if exists "cases_delete_authorized" on public.cases;
+create policy "cases_delete_authorized"
+on public.cases for delete
+using (public.is_admin());
+
 drop policy if exists "resources_select_active" on public.resources;
 create policy "resources_select_active"
 on public.resources for select

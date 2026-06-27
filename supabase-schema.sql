@@ -296,6 +296,10 @@ on public.cases for update
 using (public.can_access_case(id))
 with check (public.can_access_case(id));
 
+create policy "cases_delete_authorized"
+on public.cases for delete
+using (public.is_admin());
+
 create policy "notes_select_authorized"
 on public.case_notes for select
 using (public.can_access_case(case_id));
