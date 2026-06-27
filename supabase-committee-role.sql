@@ -1,4 +1,5 @@
 alter type public.portal_role add value if not exists 'committee';
+alter type public.portal_role add value if not exists 'election_committee';
 
 alter table public.profiles
 add column if not exists assigned_roles public.portal_role[] not null default array['steward']::public.portal_role[];
@@ -19,6 +20,7 @@ begin
   requested_role := case
     when new.raw_user_meta_data ->> 'requested_role' = 'admin' then 'admin'::public.portal_role
     when new.raw_user_meta_data ->> 'requested_role' = 'committee' then 'committee'::public.portal_role
+    when new.raw_user_meta_data ->> 'requested_role' = 'election_committee' then 'election_committee'::public.portal_role
     else 'steward'::public.portal_role
   end;
 
@@ -182,9 +184,24 @@ create table if not exists public.invite_codes (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.election_contacts (
+  id uuid primary key default gen_random_uuid(),
+  company text not null,
+  group_name text,
+  election_date date,
+  member_name text not null,
+  email text,
+  note text,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.public_announcements enable row level security;
 alter table public.public_executive_team enable row level security;
 alter table public.invite_codes enable row level security;
+alter table public.election_contacts enable row level security;
 
 drop trigger if exists public_announcements_touch_updated_at on public.public_announcements;
 create trigger public_announcements_touch_updated_at
@@ -194,6 +211,11 @@ for each row execute function public.touch_updated_at();
 drop trigger if exists public_executive_team_touch_updated_at on public.public_executive_team;
 create trigger public_executive_team_touch_updated_at
 before update on public.public_executive_team
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists election_contacts_touch_updated_at on public.election_contacts;
+create trigger election_contacts_touch_updated_at
+before update on public.election_contacts
 for each row execute function public.touch_updated_at();
 
 drop policy if exists "public_announcements_read" on public.public_announcements;
@@ -223,6 +245,30 @@ create policy "invite_codes_manage"
 on public.invite_codes for all
 using (public.is_admin_or_steward())
 with check (public.is_admin_or_steward());
+
+drop policy if exists "election_contacts_authorized" on public.election_contacts;
+create policy "election_contacts_authorized"
+on public.election_contacts for all
+using (
+  public.is_admin()
+  or public.is_steward()
+  or exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and active = true
+      and ('election_committee' = any(assigned_roles) or role = 'election_committee')
+  )
+)
+with check (
+  public.is_admin()
+  or public.is_steward()
+  or exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and active = true
+      and ('election_committee' = any(assigned_roles) or role = 'election_committee')
+  )
+);
 
 drop policy if exists "questions_moderator_manage" on public.public_questions;
 create policy "questions_moderator_manage"

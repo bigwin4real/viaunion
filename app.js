@@ -166,10 +166,12 @@ let announcementItems = publicAnnouncements.map((item, index) => ({ id: `announc
 let publicResourceItems = [...publicResources];
 let meetingNotices = [...defaultMeetings];
 let inviteCodes = [...sampleInvites];
+let electionContacts = [];
 let selectedMeetingId = defaultMeetings[0]?.id || null;
 let selectedAnnouncementId = announcementItems[0]?.id || null;
 let selectedPublicResourceId = null;
 let selectedExecutiveId = null;
+let selectedElectionId = null;
 let meetingsStorageReady = previewMode || !isConfigured;
 let selectedCaseId = null;
 let activePortalRole = null;
@@ -179,7 +181,8 @@ let activeSectionTab = "cases";
 const roleLabels = {
   admin: "Admin",
   steward: "Shop Steward",
-  committee: "Committee Form"
+  committee: "Committee Form",
+  election_committee: "Election Committee"
 };
 
 function profileRoles(profile) {
@@ -191,12 +194,14 @@ function profileRoles(profile) {
   if (expanded.has("admin")) {
     expanded.add("steward");
     expanded.add("committee");
+    expanded.add("election_committee");
   } else if (expanded.has("steward")) {
     expanded.add("committee");
+    expanded.add("election_committee");
   } else if (!expanded.size) {
     expanded.add("committee");
   }
-  return ["admin", "steward", "committee"].filter((role) => expanded.has(role));
+  return ["admin", "steward", "committee", "election_committee"].filter((role) => expanded.has(role));
 }
 
 function profileHasRole(profile, role) {
@@ -204,7 +209,7 @@ function profileHasRole(profile, role) {
 }
 
 function availablePortalRoles() {
-  return ["admin", "steward", "committee"].filter((role) => profileHasRole(currentProfile, role));
+  return ["admin", "steward", "committee", "election_committee"].filter((role) => profileHasRole(currentProfile, role));
 }
 
 function activeRole() {
@@ -763,7 +768,7 @@ function renderRegister() {
 async function loadData() {
   const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
   const canManageUsers = profileHasRole(currentProfile, "admin");
-  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult] = await Promise.all([
+  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult] = await Promise.all([
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     canManageUsers
@@ -779,7 +784,8 @@ async function loadData() {
     canManageUsers || profileHasRole(currentProfile, "steward")
       ? supabaseClient.from("invite_codes").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true })
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true })
   ]);
 
   cases = caseResult.data || [];
@@ -819,6 +825,7 @@ async function loadData() {
       note: item.note || ""
     }));
   }
+  electionContacts = electionResult.data || [];
   if (meetingResult.error) {
     meetingsStorageReady = false;
     meetingNotices = [...defaultMeetings];
@@ -831,6 +838,7 @@ async function loadData() {
   selectedAnnouncementId = announcementItems.find((item) => item.id === selectedAnnouncementId)?.id || announcementItems[0]?.id || null;
   selectedPublicResourceId = publicResourceItems.find((item) => item.id === selectedPublicResourceId)?.id || publicResourceItems[0]?.id || null;
   selectedExecutiveId = publicExecutiveTeam.find((item) => item.id === selectedExecutiveId)?.id || publicExecutiveTeam[0]?.id || null;
+  selectedElectionId = electionContacts.find((item) => item.id === selectedElectionId)?.id || electionContacts[0]?.id || null;
   selectedCaseId = cases[0]?.id || null;
   if (selectedCaseId) await loadCaseChildren(selectedCaseId);
 }
@@ -874,6 +882,10 @@ function isCommittee() {
   return activeRole() === "committee";
 }
 
+function isElectionCommittee() {
+  return activeRole() === "election_committee";
+}
+
 function isAdminOrSteward() {
   return isAdmin() || isSteward();
 }
@@ -915,6 +927,7 @@ function applyRoleVisibility() {
   if (title) {
     if (role === "admin") title.textContent = "Admin Tools";
     else if (role === "steward") title.textContent = "Shop Steward Portal";
+    else if (role === "election_committee") title.textContent = "Election Committee";
     else title.textContent = "Committee Forms";
   }
 
@@ -924,7 +937,7 @@ function applyRoleVisibility() {
     ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
     ".workspace": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
-    ".resources": role === "committee" || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
+    ".resources": role === "committee" || role === "election_committee" || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
     "#admin-nav": role === "admin" || role === "steward",
     "#users-tab": role === "admin" && isAdminTab,
     "#content-tab": (role === "admin" || role === "steward") && isPublicTab
@@ -936,9 +949,9 @@ function applyRoleVisibility() {
   });
 
   const resourcesTitle = document.querySelector("#resources-title");
-  if (resourcesTitle) resourcesTitle.textContent = role === "committee" ? "Committee form access" : "Protected resources";
+  if (resourcesTitle) resourcesTitle.textContent = role === "committee" ? "Committee form access" : role === "election_committee" ? "Election committee tools" : "Protected resources";
   const resourcesSubtitle = document.querySelector(".resources .section-heading span");
-  if (resourcesSubtitle) resourcesSubtitle.textContent = role === "committee" ? "Lost time and expense claim form" : "Protected references and templates";
+  if (resourcesSubtitle) resourcesSubtitle.textContent = role === "committee" ? "Lost time and expense claim form" : role === "election_committee" ? "Company-based member contact lists" : "Protected references and templates";
   renderSectionTabs();
 }
 
@@ -985,6 +998,8 @@ function wirePortalEvents() {
   document.querySelector("#new-resource")?.addEventListener("click", clearPublicResourceForm);
   document.querySelector("#save-executive")?.addEventListener("click", saveExecutiveMember);
   document.querySelector("#new-executive")?.addEventListener("click", clearExecutiveForm);
+  document.querySelector("#save-election")?.addEventListener("click", saveElectionContact);
+  document.querySelector("#new-election")?.addEventListener("click", clearElectionForm);
   document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
 }
 
@@ -1004,6 +1019,7 @@ function renderAll() {
   renderAnnouncementManager();
   renderPublicResourceManager();
   renderExecutiveManager();
+  renderElectionManager();
   renderInviteManager();
 }
 
@@ -1012,6 +1028,7 @@ function renderAdminTabs() {
   const isAdminView = role === "admin";
   const isStewardView = role === "steward";
   const isCommitteeView = role === "committee";
+  const isElectionCommitteeView = role === "election_committee";
   const casesTab = document.querySelector("#cases-tab");
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
@@ -1019,7 +1036,7 @@ function renderAdminTabs() {
   const statsGrid = document.querySelector(".stats-grid");
   const approvalPanel = document.querySelector("#approval-panel");
 
-  if (isCommitteeView) {
+  if (isCommitteeView || isElectionCommitteeView) {
     document.querySelectorAll(".admin-nav-tab").forEach((button) => {
       button.hidden = true;
       button.classList.remove("active");
@@ -1065,11 +1082,19 @@ function renderSectionTabs() {
   const filesSection = document.querySelector("#files-section");
   const casesSection = document.querySelector("#cases-tab");
   const resourcesSection = document.querySelector("#resources-section");
-  const isWorkspaceView = activeAdminTab === "workspace" || role === "committee";
+  const isWorkspaceView = activeAdminTab === "workspace" || role === "committee" || role === "election_committee";
 
   if (!sectionNav || !filesSection || !casesSection || !resourcesSection) return;
 
   if (role === "committee") {
+    sectionNav.hidden = true;
+    filesSection.hidden = true;
+    casesSection.hidden = true;
+    resourcesSection.hidden = false;
+    return;
+  }
+
+  if (role === "election_committee") {
     sectionNav.hidden = true;
     filesSection.hidden = true;
     casesSection.hidden = true;
@@ -1268,7 +1293,7 @@ function renderRoleCard(profile, { pending }) {
           <span class="pill">${new Date(profile.created_at).toLocaleDateString()}</span>
         </div>
         <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
-          ${["admin", "steward", "committee"].map((role) => `
+          ${["admin", "steward", "committee", "election_committee"].map((role) => `
             <label>
               <input type="checkbox" value="${role}" ${roles.includes(role) ? "checked" : ""}>
               ${roleLabels[role] || role}
@@ -1331,7 +1356,7 @@ function renderUsers() {
           <span class="pill">${profile.share_phone ? "phone public" : "phone private"}</span>
         </div>
         <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
-          ${["admin", "steward", "committee"].map((role) => `
+          ${["admin", "steward", "committee", "election_committee"].map((role) => `
             <label>
               <input type="checkbox" value="${role}" ${assignedRoles(profile).includes(role) ? "checked" : ""}>
               ${roleLabels[role] || role}
@@ -1583,6 +1608,9 @@ function renderResources() {
   if (isCommittee()) {
     sourceRows = resources.filter((item) => item.url === "wages-form.html");
   }
+  else if (isElectionCommittee()) {
+    sourceRows = resources.filter((item) => item.category === "Elections" || item.url === "wages-form.html");
+  }
   // Stewards see most resources but not admin-only
   else if (isSteward()) {
     sourceRows = resources.filter((item) => !item.adminOnly);
@@ -1605,6 +1633,9 @@ function renderResources() {
       ${item.url ? `<a href="${escapeHtml(item.url)}" ${item.url.startsWith("http") ? `target="_blank" rel="noopener"` : ""}>Open</a>` : ""}
     </article>
   `).join("") || `<div class="empty">No resources match the current filters.</div>`;
+
+  const electionSection = document.querySelector("#elections-section");
+  if (electionSection) electionSection.hidden = !(isAdmin() || isSteward() || isElectionCommittee());
 }
 
 function normalizeMeetings(rows) {
@@ -2061,6 +2092,121 @@ async function deleteExecutiveMember(id) {
   await loadData();
   renderAll();
   renderPublicDirectory();
+}
+
+function renderElectionManager() {
+  const list = document.querySelector("#elections-list");
+  if (!list) return;
+  if (!(isAdmin() || isSteward() || isElectionCommittee())) {
+    list.innerHTML = "";
+    return;
+  }
+  const grouped = electionContacts.reduce((map, item) => {
+    const company = item.company || "Unassigned";
+    if (!map[company]) map[company] = [];
+    map[company].push(item);
+    return map;
+  }, {});
+  const companies = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+  list.innerHTML = companies.map((company) => `
+    <section class="resource-item">
+      <h3>${escapeHtml(company)}</h3>
+      <div class="content-list">
+        ${grouped[company].map((item) => `
+          <article class="resource-item ${item.id === selectedElectionId ? "meeting-item-active" : ""}">
+            <div class="meeting-item-header">
+              <div>
+                <h3>${escapeHtml(item.member_name)}</h3>
+                <p>${escapeHtml(item.group_name || "")}${item.election_date ? ` · ${escapeHtml(item.election_date)}` : ""}</p>
+              </div>
+              <div class="button-row">
+                <button type="button" data-edit-election-id="${escapeHtml(item.id)}">Edit</button>
+                <button class="secondary" type="button" data-delete-election-id="${escapeHtml(item.id)}">Delete</button>
+              </div>
+            </div>
+            <p>${escapeHtml(item.email || "")}</p>
+            ${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `).join("") || `<div class="empty">No election company contacts yet.</div>`;
+  list.querySelectorAll("[data-edit-election-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedElectionId = button.dataset.editElectionId;
+      populateElectionForm(selectedElectionId);
+      renderElectionManager();
+    });
+  });
+  list.querySelectorAll("[data-delete-election-id]").forEach((button) => {
+    button.addEventListener("click", () => deleteElectionContact(button.dataset.deleteElectionId));
+  });
+  populateElectionForm(selectedElectionId);
+}
+
+function populateElectionForm(id) {
+  const item = electionContacts.find((row) => row.id === id);
+  if (!item) return clearElectionFormFields();
+  setValue("election-id", item.id);
+  setValue("election-company-input", item.company || "");
+  setValue("election-group-input", item.group_name || "");
+  setValue("election-date-input", item.election_date || "");
+  setValue("election-member-input", item.member_name || "");
+  setValue("election-email-input", item.email || "");
+  setValue("election-note-input", item.note || "");
+}
+
+function clearElectionForm() {
+  selectedElectionId = null;
+  clearElectionFormFields();
+  renderElectionManager();
+}
+
+function clearElectionFormFields() {
+  ["election-id", "election-company-input", "election-group-input", "election-date-input", "election-member-input", "election-email-input", "election-note-input"].forEach((id) => setValue(id, ""));
+}
+
+async function saveElectionContact() {
+  if (!(isAdmin() || isSteward() || isElectionCommittee())) return;
+  const payload = {
+    company: value("election-company-input"),
+    group_name: value("election-group-input") || null,
+    election_date: value("election-date-input") || null,
+    member_name: value("election-member-input"),
+    email: value("election-email-input") || null,
+    note: value("election-note-input") || null
+  };
+  if (!payload.company || !payload.member_name) return alert("Company and member name are required.");
+  if (previewMode || !isConfigured) {
+    const id = value("election-id") || crypto.randomUUID();
+    const row = { id, ...payload };
+    const index = electionContacts.findIndex((item) => item.id === id);
+    if (index >= 0) electionContacts[index] = row; else electionContacts.push(row);
+    selectedElectionId = id;
+    renderElectionManager();
+    return;
+  }
+  const id = value("election-id");
+  const result = id
+    ? await supabaseClient.from("election_contacts").update({ ...payload, updated_by: currentUser.id }).eq("id", id).select().single()
+    : await supabaseClient.from("election_contacts").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
+  if (result.error) return alert(result.error.message);
+  await loadData();
+  renderAll();
+}
+
+async function deleteElectionContact(id) {
+  if (!(isAdmin() || isSteward() || isElectionCommittee()) || !confirm("Delete this election contact?")) return;
+  if (previewMode || !isConfigured) {
+    electionContacts = electionContacts.filter((item) => item.id !== id);
+    selectedElectionId = electionContacts[0]?.id || null;
+    renderElectionManager();
+    return;
+  }
+  const { error } = await supabaseClient.from("election_contacts").delete().eq("id", id);
+  if (error) return alert(error.message);
+  await loadData();
+  renderAll();
 }
 
 function renderInviteManager() {

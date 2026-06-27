@@ -232,6 +232,7 @@
             <select id="register-role">
               <option value="steward">Steward</option>
               <option value="committee">Committee - form access only</option>
+              <option value="election_committee">Election committee</option>
               <option value="admin">Admin</option>
             </select>
           </label>
@@ -345,6 +346,7 @@
                 <option value="admin">Admin</option>
                 <option value="steward">Steward</option>
                 <option value="committee">Committee</option>
+                <option value="election_committee">Election committee</option>
               </select>
             </label>
             <label>
@@ -542,6 +544,7 @@
                   <select id="invite-role-input">
                     <option value="steward">Steward</option>
                     <option value="committee">Committee</option>
+                    <option value="election_committee">Election committee</option>
                     <option value="admin">Admin</option>
                   </select>
                 </label>
@@ -733,6 +736,48 @@
             <h2 id="resources-title">Steward resources</h2>
             <span>Protected references and templates</span>
           </div>
+          <section class="content-section election-section" id="elections-section">
+            <h3>Election dates and member contacts</h3>
+            <p class="helper-text">Internal admin/steward tracking grouped by company.</p>
+            <div class="meeting-editor">
+              <input id="election-id" type="hidden">
+              <div class="form-row">
+                <label>
+                  Company
+                  <input id="election-company-input" type="text" placeholder="VIA Rail">
+                </label>
+                <label>
+                  Group
+                  <input id="election-group-input" type="text" placeholder="Moncton VCC">
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Election date
+                  <input id="election-date-input" type="date">
+                </label>
+                <label>
+                  Member name
+                  <input id="election-member-input" type="text" placeholder="Member name">
+                </label>
+              </div>
+              <div class="form-row">
+                <label>
+                  Email
+                  <input id="election-email-input" type="email" placeholder="member@example.com">
+                </label>
+                <label>
+                  Note
+                  <input id="election-note-input" type="text" placeholder="Optional note">
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="save-election" type="button">Save contact</button>
+                <button id="new-election" class="secondary" type="button">New contact</button>
+              </div>
+            </div>
+            <div id="elections-list" class="content-list"></div>
+          </section>
           <div id="resource-list" class="resource-list"></div>
         </section>
       </div>

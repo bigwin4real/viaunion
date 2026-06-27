@@ -1,4 +1,4 @@
-create type public.portal_role as enum ('admin', 'steward', 'committee');
+create type public.portal_role as enum ('admin', 'steward', 'committee', 'election_committee');
 create type public.access_status as enum ('pending', 'approved', 'rejected');
 create type public.internal_file_kind as enum ('general', 'grievance_tracker');
 create type public.case_contract as enum ('Contract 1', 'Contract 2', 'Shared');
@@ -124,6 +124,20 @@ create table public.invite_codes (
   created_at timestamptz not null default now()
 );
 
+create table public.election_contacts (
+  id uuid primary key default gen_random_uuid(),
+  company text not null,
+  group_name text,
+  election_date date,
+  member_name text not null,
+  email text,
+  note text,
+  created_by uuid references public.profiles(id),
+  updated_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create unique index if not exists resources_title_category_contract_key
 on public.resources (title, category, contract);
 
@@ -198,6 +212,10 @@ create trigger public_executive_team_touch_updated_at
 before update on public.public_executive_team
 for each row execute function public.touch_updated_at();
 
+create trigger election_contacts_touch_updated_at
+before update on public.election_contacts
+for each row execute function public.touch_updated_at();
+
 create trigger public_directory_entries_touch_updated_at
 before update on public.public_directory_entries
 for each row execute function public.touch_updated_at();
@@ -214,6 +232,7 @@ begin
   requested_role := case
     when new.raw_user_meta_data ->> 'requested_role' = 'admin' then 'admin'::public.portal_role
     when new.raw_user_meta_data ->> 'requested_role' = 'committee' then 'committee'::public.portal_role
+    when new.raw_user_meta_data ->> 'requested_role' = 'election_committee' then 'election_committee'::public.portal_role
     else 'steward'::public.portal_role
   end;
 
@@ -339,6 +358,7 @@ alter table public.meetings enable row level security;
 alter table public.public_announcements enable row level security;
 alter table public.public_executive_team enable row level security;
 alter table public.invite_codes enable row level security;
+alter table public.election_contacts enable row level security;
 alter table public.public_questions enable row level security;
 alter table public.public_directory_entries enable row level security;
 alter table public.internal_files enable row level security;
@@ -431,6 +451,29 @@ create policy "invite_codes_manage"
 on public.invite_codes for all
 using (public.is_admin_or_steward())
 with check (public.is_admin_or_steward());
+
+create policy "election_contacts_authorized"
+on public.election_contacts for all
+using (
+  public.is_admin()
+  or public.is_steward()
+  or exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and active = true
+      and ('election_committee' = any(assigned_roles) or role = 'election_committee')
+  )
+)
+with check (
+  public.is_admin()
+  or public.is_steward()
+  or exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and active = true
+      and ('election_committee' = any(assigned_roles) or role = 'election_committee')
+  )
+);
 
 create policy "questions_public_answered"
 on public.public_questions for select
