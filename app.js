@@ -729,7 +729,11 @@ function renderRoleSwitcher() {
   }
   wrapper.hidden = false;
   select.innerHTML = roles.map((role) => `<option value="${role}">${roleLabels[role] || role}</option>`).join("");
+  select.selectedIndex = -1;
   select.value = activeRole();
+  if (select.value !== activeRole()) {
+    select.selectedIndex = roles.indexOf(activeRole());
+  }
   select.addEventListener("change", () => {
     activePortalRole = select.value;
     applyRoleVisibility();

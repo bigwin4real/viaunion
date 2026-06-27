@@ -900,12 +900,20 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0 36px 0 14px;
-  color: var(--ink);
+  color: #1f2937;
   background: #fff;
   font: inherit;
+  font-weight: 800;
   line-height: 1.2;
   appearance: auto;
   -webkit-appearance: menulist;
+  opacity: 1;
+  text-shadow: none;
+}
+
+.role-switcher select option {
+  color: #1f2937;
+  background: #fff;
 }
 
 .role-management-group {
