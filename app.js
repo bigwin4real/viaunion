@@ -757,7 +757,7 @@ function applyRoleVisibility() {
 
   const visibility = {
     ".stats-grid": role === "steward",
-    ".approval-panel": role === "admin",
+    ".approval-panel": role === "admin" && activeAdminTab === "users",
     ".qa-moderation": role === "admin" || role === "steward",
     ".internal-files": role === "steward",
     ".workspace": role === "steward",
@@ -823,7 +823,7 @@ function renderAdminTabs() {
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
   const moderationTab = document.querySelector("#moderation-tab");
-  if (casesTab) casesTab.hidden = !isAdminView ? !isSteward() : activeAdminTab !== "cases";
+  if (casesTab) casesTab.hidden = isAdminView ? activeAdminTab !== "cases" : !isSteward();
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "users";
   if (contentTab) contentTab.hidden = !isAdminView || activeAdminTab !== "content";
   if (moderationTab) moderationTab.hidden = !isAdminView || activeAdminTab !== "moderation";
