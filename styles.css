@@ -891,16 +891,21 @@ textarea {
   gap: 8px;
   font-size: 0.85rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .role-switcher select {
   min-height: 40px;
+  min-width: 180px;
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0 36px 0 14px;
   color: var(--ink);
   background: #fff;
   font: inherit;
+  line-height: 1.2;
+  appearance: auto;
+  -webkit-appearance: menulist;
 }
 
 .role-management-group {
