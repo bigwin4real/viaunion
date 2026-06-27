@@ -170,8 +170,18 @@ const roleLabels = {
 };
 
 function profileRoles(profile) {
-  if (Array.isArray(profile?.assigned_roles) && profile.assigned_roles.length) return profile.assigned_roles;
-  if (profile?.role === "admin") return ["admin", "steward", "committee"];
+  const assigned = Array.isArray(profile?.assigned_roles)
+    ? profile.assigned_roles.filter(Boolean)
+    : [];
+  if (profile?.role === "admin") {
+    const adminRoles = ["admin", "steward", "committee"];
+    return assigned.length ? Array.from(new Set([...adminRoles, ...assigned])) : adminRoles;
+  }
+  if (profile?.role === "steward") {
+    const stewardRoles = ["steward", "committee"];
+    return assigned.length ? Array.from(new Set([...stewardRoles, ...assigned])) : stewardRoles;
+  }
+  if (assigned.length) return assigned;
   return [profile?.role || "committee"];
 }
 
