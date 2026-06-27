@@ -1039,10 +1039,25 @@ function renderUsers() {
     <article class="approval-card">
       <div>
         <h3>${escapeHtml(profile.full_name || profile.email || "User")}</h3>
-        <p>${escapeHtml(profile.email || "")}</p>
+        <div class="user-profile-grid">
+          <label>
+            Name
+            <input type="text" value="${escapeHtml(profile.full_name || "")}" data-profile-name="${escapeHtml(profile.id)}">
+          </label>
+          <label>
+            Email
+            <input type="email" value="${escapeHtml(profile.email || "")}" data-profile-email="${escapeHtml(profile.id)}">
+          </label>
+          <label>
+            Phone
+            <input type="text" value="${escapeHtml(profile.phone || "")}" data-profile-phone="${escapeHtml(profile.id)}">
+          </label>
+        </div>
         <div class="meta-row">
           <span class="pill">${profile.active ? "active" : escapeHtml(profile.access_status || "inactive")}</span>
           <span class="pill">${assignedRoles(profile).join(", ")}</span>
+          <span class="pill">${profile.share_email ? "email public" : "email private"}</span>
+          <span class="pill">${profile.share_phone ? "phone public" : "phone private"}</span>
         </div>
         <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
           ${["admin", "steward", "committee"].map((role) => `
@@ -1057,7 +1072,9 @@ function renderUsers() {
         ${profile.access_status === "pending"
           ? `<button type="button" data-approve-id="${escapeHtml(profile.id)}">Approve</button>
              <button class="secondary" type="button" data-reject-id="${escapeHtml(profile.id)}">Reject</button>`
-          : `<button type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>`}
+          : `<button type="button" data-save-profile-id="${escapeHtml(profile.id)}">Save profile</button>
+             <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
+             <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>`}
       </div>
     </article>
   `).join("") || `<div class="empty">No users match the current filters.</div>`;
@@ -1069,6 +1086,12 @@ function renderUsers() {
   });
   list.querySelectorAll("[data-save-roles-id]").forEach((button) => {
     button.addEventListener("click", () => updateProfileRoles(button.dataset.saveRolesId, selectedRolesForProfile(button.dataset.saveRolesId)));
+  });
+  list.querySelectorAll("[data-save-profile-id]").forEach((button) => {
+    button.addEventListener("click", () => updateProfileDetails(button.dataset.saveProfileId));
+  });
+  list.querySelectorAll("[data-reset-password-id]").forEach((button) => {
+    button.addEventListener("click", () => sendUserResetPassword(button.dataset.resetPasswordId));
   });
 }
 
@@ -1128,6 +1151,51 @@ async function updateProfileRoles(profileId, assignedRoles) {
   }
   await loadData();
   renderPortal();
+}
+
+function userFieldValue(profileId, field) {
+  const selector = `[data-profile-${field}="${profileId}"]`;
+  return document.querySelector(selector)?.value.trim() || "";
+}
+
+async function updateProfileDetails(profileId) {
+  const fullName = userFieldValue(profileId, "name");
+  const email = userFieldValue(profileId, "email");
+  const phone = userFieldValue(profileId, "phone");
+  if (!fullName) return alert("Name is required.");
+  if (!email) return alert("Email is required.");
+  if (previewMode) {
+    const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
+    if (profile) {
+      profile.full_name = fullName;
+      profile.email = email;
+      profile.phone = phone || null;
+    }
+    renderUsers();
+    return;
+  }
+  const { error } = await supabaseClient
+    .from("profiles")
+    .update({ full_name: fullName, email, phone: phone || null })
+    .eq("id", profileId);
+  if (error) return alert(error.message);
+  if (profileId === currentProfile.id) {
+    currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null };
+  }
+  await loadData();
+  renderPortal();
+}
+
+async function sendUserResetPassword(profileId) {
+  const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
+  const email = userFieldValue(profileId, "email") || profile?.email;
+  if (!email) return alert("User email is required before sending a reset.");
+  if (!isConfigured) return alert("Supabase is not configured.");
+  const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}${window.location.pathname}?type=recovery`
+  });
+  if (error) return alert(error.message);
+  alert(`Password reset sent to ${email}.`);
 }
 
 async function upsertApprovedDirectoryEntry(profileId) {
