@@ -1003,6 +1003,23 @@ textarea {
   margin: 0 0 14px;
 }
 
+.portal[data-role="committee"] .stats-grid,
+.portal[data-role="committee"] #dashboard-grid,
+.portal[data-role="committee"] #admin-nav,
+.portal[data-role="committee"] #users-tab,
+.portal[data-role="committee"] #content-tab,
+.portal[data-role="committee"] #moderation-tab,
+.portal[data-role="committee"] #approval-panel,
+.portal[data-role="committee"] #files-section,
+.portal[data-role="committee"] #cases-tab,
+.portal[data-role="committee"] #section-nav {
+  display: none !important;
+}
+
+.portal[data-role="committee"] #resources-section {
+  display: block !important;
+}
+
 .dashboard-card {
   padding: 16px;
   border-top: 4px solid var(--navy);

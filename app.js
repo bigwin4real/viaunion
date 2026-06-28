@@ -862,6 +862,10 @@ async function loadCaseChildren(caseId) {
 function renderPortal() {
   app.innerHTML = document.querySelector("#portal-template").innerHTML;
   activePortalRole = activeRole();
+  if (activePortalRole === "committee") {
+    activeAdminTab = "workspace";
+    activeSectionTab = "resources";
+  }
   wirePortalEvents();
   renderRoleSwitcher();
   document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
@@ -925,6 +929,12 @@ function applyRoleVisibility() {
   if (role === "committee") {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
+  }
+  const portal = document.querySelector(".portal");
+  if (portal) {
+    portal.dataset.role = role;
+    portal.dataset.adminTab = activeAdminTab;
+    portal.dataset.section = activeSectionTab;
   }
   const isDashboardTab = activeAdminTab === "dashboard";
   const isWorkspaceTab = activeAdminTab === "workspace" || role === "committee";
