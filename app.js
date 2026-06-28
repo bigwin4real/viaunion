@@ -181,27 +181,28 @@ let activeSectionTab = "cases";
 const roleLabels = {
   admin: "Admin",
   steward: "Shop Steward",
-  committee: "Committee Form",
-  election_committee: "Election Committee"
+  committee: "Committee"
 };
+
+function normalizeRoleName(role) {
+  return role === "election_committee" ? "committee" : role;
+}
 
 function profileRoles(profile) {
   const assigned = Array.isArray(profile?.assigned_roles)
-    ? profile.assigned_roles.filter(Boolean)
+    ? profile.assigned_roles.map(normalizeRoleName).filter(Boolean)
     : [];
   const expanded = new Set(assigned);
-  if (profile?.role) expanded.add(profile.role);
+  if (profile?.role) expanded.add(normalizeRoleName(profile.role));
   if (expanded.has("admin")) {
     expanded.add("steward");
     expanded.add("committee");
-    expanded.add("election_committee");
   } else if (expanded.has("steward")) {
     expanded.add("committee");
-    expanded.add("election_committee");
   } else if (!expanded.size) {
     expanded.add("committee");
   }
-  return ["admin", "steward", "committee", "election_committee"].filter((role) => expanded.has(role));
+  return ["admin", "steward", "committee"].filter((role) => expanded.has(role));
 }
 
 function profileHasRole(profile, role) {
@@ -209,7 +210,7 @@ function profileHasRole(profile, role) {
 }
 
 function availablePortalRoles() {
-  return ["admin", "steward", "committee", "election_committee"].filter((role) => profileHasRole(currentProfile, role));
+  return ["admin", "steward", "committee"].filter((role) => profileHasRole(currentProfile, role));
 }
 
 function activeRole() {
@@ -882,10 +883,6 @@ function isCommittee() {
   return activeRole() === "committee";
 }
 
-function isElectionCommittee() {
-  return activeRole() === "election_committee";
-}
-
 function isAdminOrSteward() {
   return isAdmin() || isSteward();
 }
@@ -927,7 +924,6 @@ function applyRoleVisibility() {
   if (title) {
     if (role === "admin") title.textContent = "Admin Tools";
     else if (role === "steward") title.textContent = "Shop Steward Portal";
-    else if (role === "election_committee") title.textContent = "Election Committee";
     else title.textContent = "Committee Forms";
   }
 
@@ -937,7 +933,7 @@ function applyRoleVisibility() {
     ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
     ".workspace": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
-    ".resources": role === "committee" || role === "election_committee" || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
+    ".resources": role === "committee" || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
     "#admin-nav": role === "admin" || role === "steward",
     "#users-tab": role === "admin" && isAdminTab,
     "#content-tab": (role === "admin" || role === "steward") && isPublicTab
@@ -949,9 +945,9 @@ function applyRoleVisibility() {
   });
 
   const resourcesTitle = document.querySelector("#resources-title");
-  if (resourcesTitle) resourcesTitle.textContent = role === "committee" ? "Committee form access" : role === "election_committee" ? "Election committee tools" : "Protected resources";
+  if (resourcesTitle) resourcesTitle.textContent = role === "committee" ? "Committee tools" : "Protected resources";
   const resourcesSubtitle = document.querySelector(".resources .section-heading span");
-  if (resourcesSubtitle) resourcesSubtitle.textContent = role === "committee" ? "Lost time and expense claim form" : role === "election_committee" ? "Company-based member contact lists" : "Protected references and templates";
+  if (resourcesSubtitle) resourcesSubtitle.textContent = role === "committee" ? "Lost time form and committee resources" : "Protected references and templates";
   renderSectionTabs();
 }
 
@@ -1028,7 +1024,6 @@ function renderAdminTabs() {
   const isAdminView = role === "admin";
   const isStewardView = role === "steward";
   const isCommitteeView = role === "committee";
-  const isElectionCommitteeView = role === "election_committee";
   const casesTab = document.querySelector("#cases-tab");
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
@@ -1036,7 +1031,7 @@ function renderAdminTabs() {
   const statsGrid = document.querySelector(".stats-grid");
   const approvalPanel = document.querySelector("#approval-panel");
 
-  if (isCommitteeView || isElectionCommitteeView) {
+  if (isCommitteeView) {
     document.querySelectorAll(".admin-nav-tab").forEach((button) => {
       button.hidden = true;
       button.classList.remove("active");
@@ -1082,19 +1077,11 @@ function renderSectionTabs() {
   const filesSection = document.querySelector("#files-section");
   const casesSection = document.querySelector("#cases-tab");
   const resourcesSection = document.querySelector("#resources-section");
-  const isWorkspaceView = activeAdminTab === "workspace" || role === "committee" || role === "election_committee";
+  const isWorkspaceView = activeAdminTab === "workspace" || role === "committee";
 
   if (!sectionNav || !filesSection || !casesSection || !resourcesSection) return;
 
   if (role === "committee") {
-    sectionNav.hidden = true;
-    filesSection.hidden = true;
-    casesSection.hidden = true;
-    resourcesSection.hidden = false;
-    return;
-  }
-
-  if (role === "election_committee") {
     sectionNav.hidden = true;
     filesSection.hidden = true;
     casesSection.hidden = true;
@@ -1293,7 +1280,7 @@ function renderRoleCard(profile, { pending }) {
           <span class="pill">${new Date(profile.created_at).toLocaleDateString()}</span>
         </div>
         <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
-          ${["admin", "steward", "committee", "election_committee"].map((role) => `
+          ${["admin", "steward", "committee"].map((role) => `
             <label>
               <input type="checkbox" value="${role}" ${roles.includes(role) ? "checked" : ""}>
               ${roleLabels[role] || role}
@@ -1356,7 +1343,7 @@ function renderUsers() {
           <span class="pill">${profile.share_phone ? "phone public" : "phone private"}</span>
         </div>
         <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
-          ${["admin", "steward", "committee", "election_committee"].map((role) => `
+          ${["admin", "steward", "committee"].map((role) => `
             <label>
               <input type="checkbox" value="${role}" ${assignedRoles(profile).includes(role) ? "checked" : ""}>
               ${roleLabels[role] || role}
@@ -1398,7 +1385,7 @@ function assignedRoles(profile) {
 function selectedRolesForProfile(profileId) {
   const container = Array.from(document.querySelectorAll("[data-role-checks]"))
     .find((element) => element.dataset.roleChecks === profileId);
-  const checks = Array.from(container?.querySelectorAll("input:checked") || []).map((input) => input.value);
+  const checks = Array.from(container?.querySelectorAll("input:checked") || []).map((input) => normalizeRoleName(input.value));
   return checks.length ? checks : ["committee"];
 }
 
@@ -1608,9 +1595,6 @@ function renderResources() {
   if (isCommittee()) {
     sourceRows = resources.filter((item) => item.url === "wages-form.html");
   }
-  else if (isElectionCommittee()) {
-    sourceRows = resources.filter((item) => item.category === "Elections" || item.url === "wages-form.html");
-  }
   // Stewards see most resources but not admin-only
   else if (isSteward()) {
     sourceRows = resources.filter((item) => !item.adminOnly);
@@ -1635,7 +1619,7 @@ function renderResources() {
   `).join("") || `<div class="empty">No resources match the current filters.</div>`;
 
   const electionSection = document.querySelector("#elections-section");
-  if (electionSection) electionSection.hidden = !(isAdmin() || isSteward() || isElectionCommittee());
+  if (electionSection) electionSection.hidden = !(isAdmin() || isSteward() || isCommittee());
 }
 
 function normalizeMeetings(rows) {
@@ -2097,7 +2081,7 @@ async function deleteExecutiveMember(id) {
 function renderElectionManager() {
   const list = document.querySelector("#elections-list");
   if (!list) return;
-  if (!(isAdmin() || isSteward() || isElectionCommittee())) {
+  if (!(isAdmin() || isSteward() || isCommittee())) {
     list.innerHTML = "";
     return;
   }
@@ -2167,7 +2151,7 @@ function clearElectionFormFields() {
 }
 
 async function saveElectionContact() {
-  if (!(isAdmin() || isSteward() || isElectionCommittee())) return;
+  if (!(isAdmin() || isSteward() || isCommittee())) return;
   const payload = {
     company: value("election-company-input"),
     group_name: value("election-group-input") || null,
@@ -2196,7 +2180,7 @@ async function saveElectionContact() {
 }
 
 async function deleteElectionContact(id) {
-  if (!(isAdmin() || isSteward() || isElectionCommittee()) || !confirm("Delete this election contact?")) return;
+  if (!(isAdmin() || isSteward() || isCommittee()) || !confirm("Delete this election contact?")) return;
   if (previewMode || !isConfigured) {
     electionContacts = electionContacts.filter((item) => item.id !== id);
     selectedElectionId = electionContacts[0]?.id || null;
