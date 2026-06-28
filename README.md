@@ -21,13 +21,14 @@ Preview mode only works on localhost and is not a security model.
 ## Configure Supabase
 
 1. Create a Supabase project.
-2. In Supabase, open **SQL Editor** and run the full contents of `supabase-schema.sql`.
-3. In **Authentication > Providers**, enable Email.
-4. In **Project Settings > API**, copy:
+2. In Supabase, open **SQL Editor** and run the full contents of `supabase-schema.sql` for a brand new database.
+3. If your project already exists and you need the current app features added or repaired, run `supabase-current-setup.sql` after that. This patch adds the committee and election committee roles, meeting/public content tables, executive team table, invite codes, election contacts, and refreshes the schema cache.
+4. In **Authentication > Providers**, enable Email.
+5. In **Project Settings > API**, copy:
    - Project URL
    - anon public key
    - service_role key
-5. Write the site config:
+6. Write the site config:
 
 ```bash
 SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co" \
@@ -35,7 +36,7 @@ SUPABASE_ANON_KEY="YOUR_ANON_KEY" \
 npm run supabase:config
 ```
 
-6. Create the first approved admin account:
+7. Create the first approved admin account:
 
 ```bash
 SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co" \
@@ -46,7 +47,7 @@ ADMIN_NAME="Your Name" \
 npm run supabase:create-admin
 ```
 
-7. Create Nicolas Hachey's approved steward account:
+8. Create Nicolas Hachey's approved steward account:
 
 ```bash
 SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co" \
