@@ -734,14 +734,14 @@
             <span>Protected references and templates</span>
           </div>
           <section class="content-section election-section" id="elections-section">
-            <h3>Election dates and member contacts</h3>
-            <p class="helper-text">Internal admin/steward tracking grouped by company. Election date is optional.</p>
+            <h3>Distribution lists</h3>
+            <p class="helper-text">Committee distribution lists grouped by Local 4005 company. Election date is optional metadata only.</p>
             <div class="meeting-editor">
               <input id="election-id" type="hidden">
               <div class="form-row">
                 <label>
                   Company
-                  <input id="election-company-input" type="text" placeholder="VIA Rail">
+                  <select id="election-company-input"></select>
                 </label>
                 <label>
                   Group
@@ -783,6 +783,7 @@
               <p class="helper-text">Accepted headers: <code>company</code>, <code>group</code> or <code>group_name</code>, <code>election_date</code>, <code>member_name</code>, <code>email</code>, <code>note</code>.</p>
               <div class="button-row">
                 <button id="import-election-csv" type="button">Import CSV</button>
+                <button id="export-election-csv" class="secondary" type="button">Export CSV</button>
               </div>
             </div>
             <div id="elections-list" class="content-list"></div>

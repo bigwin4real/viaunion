@@ -138,6 +138,23 @@ const publicResources = [
   { title: "Contact a steward", category: "Support", contract: "Shared", description: "Use this area for approved contact instructions." }
 ];
 
+const local4005Companies = [
+  "VIA Rail Canada",
+  "Atlantic Wholesalers (DC24)",
+  "Atlantic Wholesalers (DC06)",
+  "Atlantic Wholesalers (DC14)",
+  "Bay Ferries",
+  "CHEP Canada",
+  "Cummins",
+  "DHL Express",
+  "Discovery Centre",
+  "Loomis Express (TransForce)",
+  "Nova Scotia Federation of Labour",
+  "Securitas AB / Twin Rivers Paper",
+  "Wajax Equipment",
+  "World Trade and Convention Centre"
+];
+
 const publicKnowledge = [
   { title: "VIA Rail Agreement No. 1", category: "Agreement No. 1", text: "Council 4000 lists VIA Rail Agreement No. 1 - National as 2025-2027 on its Collective Agreements page." },
   { title: "VIA Rail Agreement No. 2", category: "Agreement No. 2", text: "Council 4000 lists VIA Rail Agreement No. 2 - National as 2025-2027 on its Collective Agreements page." },
@@ -1018,6 +1035,7 @@ function wirePortalEvents() {
   document.querySelector("#save-election")?.addEventListener("click", saveElectionContact);
   document.querySelector("#new-election")?.addEventListener("click", clearElectionForm);
   document.querySelector("#import-election-csv")?.addEventListener("click", importElectionCsv);
+  document.querySelector("#export-election-csv")?.addEventListener("click", exportElectionCsv);
   document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
 }
 
@@ -2111,6 +2129,7 @@ function renderElectionManager() {
     list.innerHTML = "";
     return;
   }
+  renderElectionCompanyOptions();
   const grouped = electionContacts.reduce((map, item) => {
     const company = item.company || "Unassigned";
     if (!map[company]) map[company] = [];
@@ -2140,7 +2159,7 @@ function renderElectionManager() {
         `).join("")}
       </div>
     </section>
-  `).join("") || `<div class="empty">No election company contacts yet.</div>`;
+  `).join("") || `<div class="empty">No distribution list contacts yet.</div>`;
   list.querySelectorAll("[data-edit-election-id]").forEach((button) => {
     button.addEventListener("click", () => {
       selectedElectionId = button.dataset.editElectionId;
@@ -2152,6 +2171,18 @@ function renderElectionManager() {
     button.addEventListener("click", () => deleteElectionContact(button.dataset.deleteElectionId));
   });
   populateElectionForm(selectedElectionId);
+}
+
+function renderElectionCompanyOptions() {
+  const select = document.querySelector("#election-company-input");
+  if (!select) return;
+  const currentValue = select.value;
+  const companies = Array.from(new Set([...local4005Companies, ...electionContacts.map((item) => item.company).filter(Boolean)])).sort((a, b) => a.localeCompare(b));
+  select.innerHTML = `
+    <option value="">Select company</option>
+    ${companies.map((company) => `<option value="${escapeHtml(company)}">${escapeHtml(company)}</option>`).join("")}
+  `;
+  if (companies.includes(currentValue)) select.value = currentValue;
 }
 
 function populateElectionForm(id) {
@@ -2259,6 +2290,31 @@ async function importElectionCsv() {
   renderAll();
   input.value = "";
   alert(`${rows.length} contact${rows.length === 1 ? "" : "s"} imported.`);
+}
+
+function exportElectionCsv() {
+  if (!(isAdmin() || isSteward() || isCommittee())) return;
+  if (!electionContacts.length) return alert("No contacts to export.");
+  const lines = [
+    ["company", "group_name", "election_date", "member_name", "email", "note"].join(","),
+    ...electionContacts.map((item) => [
+      item.company || "",
+      item.group_name || "",
+      item.election_date || "",
+      item.member_name || "",
+      item.email || "",
+      item.note || ""
+    ].map((value) => `"${String(value).replace(/"/g, "\"\"")}"`).join(","))
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "local-4005-distribution-lists.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function saveElectionContact() {
