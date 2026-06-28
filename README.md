@@ -91,6 +91,8 @@ Private steward/admin tools include:
 - secure case documents
 - internal file storage
 - steward-only locked Excel grievance tracker area
+- company-based election/member contact tracking with optional election dates
+- CSV import for election/member contact lists
 
 ## Grievance form status
 

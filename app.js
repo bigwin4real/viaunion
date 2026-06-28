@@ -1017,6 +1017,7 @@ function wirePortalEvents() {
   document.querySelector("#new-executive")?.addEventListener("click", clearExecutiveForm);
   document.querySelector("#save-election")?.addEventListener("click", saveElectionContact);
   document.querySelector("#new-election")?.addEventListener("click", clearElectionForm);
+  document.querySelector("#import-election-csv")?.addEventListener("click", importElectionCsv);
   document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
 }
 
@@ -2173,6 +2174,91 @@ function clearElectionForm() {
 
 function clearElectionFormFields() {
   ["election-id", "election-company-input", "election-group-input", "election-date-input", "election-member-input", "election-email-input", "election-note-input"].forEach((id) => setValue(id, ""));
+}
+
+function parseCsvRow(line) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+    if (char === "\"") {
+      if (inQuotes && next === "\"") {
+        current += "\"";
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      cells.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  cells.push(current.trim());
+  return cells.map((cell) => cell.replace(/^"(.*)"$/, "$1").trim());
+}
+
+function normalizeElectionImportHeaders(headers) {
+  return headers.map((header) => header.trim().toLowerCase().replace(/\s+/g, "_"));
+}
+
+function normalizeElectionImportRecord(headers, values) {
+  const row = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
+  const company = row.company || row.employer || row.organization || "";
+  const groupName = row.group_name || row.group || row.department || row.location || "";
+  const memberName = row.member_name || row.name || row.employee_name || "";
+  const email = row.email || row.member_email || "";
+  const note = row.note || row.notes || row.comment || "";
+  const electionDate = row.election_date || row.date || "";
+  return {
+    company: company.trim(),
+    group_name: groupName.trim() || null,
+    election_date: electionDate.trim() || null,
+    member_name: memberName.trim(),
+    email: email.trim() || null,
+    note: note.trim() || null
+  };
+}
+
+async function importElectionCsv() {
+  if (!(isAdmin() || isSteward() || isCommittee())) return;
+  const input = document.querySelector("#election-csv-input");
+  const file = input?.files?.[0];
+  if (!file) return alert("Choose a CSV file first.");
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 2) return alert("CSV must include a header row and at least one data row.");
+  const headers = normalizeElectionImportHeaders(parseCsvRow(lines[0]));
+  const rows = lines.slice(1)
+    .map((line) => normalizeElectionImportRecord(headers, parseCsvRow(line)))
+    .filter((row) => row.company && row.member_name);
+  if (!rows.length) return alert("No valid rows found. CSV needs at least company and member_name.");
+
+  if (previewMode || !isConfigured) {
+    rows.forEach((row) => {
+      electionContacts.push({ id: crypto.randomUUID(), ...row });
+    });
+    selectedElectionId = electionContacts[0]?.id || null;
+    renderElectionManager();
+    input.value = "";
+    alert(`${rows.length} contact${rows.length === 1 ? "" : "s"} imported.`);
+    return;
+  }
+
+  const payload = rows.map((row) => ({
+    ...row,
+    created_by: currentUser.id,
+    updated_by: currentUser.id
+  }));
+  const { error } = await supabaseClient.from("election_contacts").insert(payload);
+  if (error) return alert(error.message);
+  await loadData();
+  renderAll();
+  input.value = "";
+  alert(`${rows.length} contact${rows.length === 1 ? "" : "s"} imported.`);
 }
 
 async function saveElectionContact() {

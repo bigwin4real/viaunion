@@ -735,7 +735,7 @@
           </div>
           <section class="content-section election-section" id="elections-section">
             <h3>Election dates and member contacts</h3>
-            <p class="helper-text">Internal admin/steward tracking grouped by company.</p>
+            <p class="helper-text">Internal admin/steward tracking grouped by company. Election date is optional.</p>
             <div class="meeting-editor">
               <input id="election-id" type="hidden">
               <div class="form-row">
@@ -771,6 +771,18 @@
               <div class="button-row">
                 <button id="save-election" type="button">Save contact</button>
                 <button id="new-election" class="secondary" type="button">New contact</button>
+              </div>
+            </div>
+            <div class="meeting-editor">
+              <div class="form-row">
+                <label>
+                  Import CSV
+                  <input id="election-csv-input" type="file" accept=".csv,text/csv">
+                </label>
+              </div>
+              <p class="helper-text">Accepted headers: <code>company</code>, <code>group</code> or <code>group_name</code>, <code>election_date</code>, <code>member_name</code>, <code>email</code>, <code>note</code>.</p>
+              <div class="button-row">
+                <button id="import-election-csv" type="button">Import CSV</button>
               </div>
             </div>
             <div id="elections-list" class="content-list"></div>
