@@ -909,6 +909,12 @@ function renderRoleSwitcher() {
   }
   select.addEventListener("change", () => {
     activePortalRole = select.value;
+    if (activePortalRole === "committee") {
+      activeAdminTab = "workspace";
+      activeSectionTab = "resources";
+    } else if (activeAdminTab === "workspace" && activeSectionTab === "resources") {
+      activeSectionTab = "cases";
+    }
     applyRoleVisibility();
     renderAll();
   });
@@ -916,6 +922,10 @@ function renderRoleSwitcher() {
 
 function applyRoleVisibility() {
   const role = activeRole();
+  if (role === "committee") {
+    activeAdminTab = "workspace";
+    activeSectionTab = "resources";
+  }
   const isDashboardTab = activeAdminTab === "dashboard";
   const isWorkspaceTab = activeAdminTab === "workspace" || role === "committee";
   const isPublicTab = activeAdminTab === "public";
@@ -929,6 +939,7 @@ function applyRoleVisibility() {
 
   const visibility = {
     ".stats-grid": (role === "steward" || role === "admin") && isDashboardTab,
+    "#dashboard-grid": (role === "steward" || role === "admin") && isDashboardTab,
     ".approval-panel": role === "admin" && isAdminTab,
     ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
@@ -1000,6 +1011,10 @@ function wirePortalEvents() {
 }
 
 function renderAll() {
+  if (activeRole() === "committee") {
+    activeAdminTab = "workspace";
+    activeSectionTab = "resources";
+  }
   applyRoleVisibility();
   renderAdminTabs();
   renderSectionTabs();
@@ -1522,7 +1537,7 @@ function filteredCases() {
 
 function renderStats() {
   const grid = document.querySelector(".stats-grid");
-  if (!isAdminOrSteward() || activeAdminTab !== "cases" || activeSectionTab !== "cases") {
+  if (!isAdminOrSteward() || activeAdminTab !== "workspace" || activeSectionTab !== "cases") {
     if (grid) grid.hidden = true;
     return;
   }
