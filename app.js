@@ -238,6 +238,18 @@ function activeRole() {
   return activePortalRole;
 }
 
+function hasAdminAccount() {
+  return profileHasRole(currentProfile, "admin");
+}
+
+function hasStewardAccount() {
+  return profileHasRole(currentProfile, "steward");
+}
+
+function hasCommitteeAccount() {
+  return profileHasRole(currentProfile, "committee");
+}
+
 const app = document.querySelector("#app");
 
 if (previewMode) {
@@ -930,15 +942,15 @@ function renderPortal() {
 }
 
 function isAdmin() {
-  return activeRole() === "admin";
+  return hasAdminAccount();
 }
 
 function isSteward() {
-  return activeRole() === "steward";
+  return hasAdminAccount() || hasStewardAccount();
 }
 
 function isCommittee() {
-  return activeRole() === "committee";
+  return hasAdminAccount() || hasStewardAccount() || hasCommitteeAccount();
 }
 
 function isAdminOrSteward() {
@@ -946,7 +958,7 @@ function isAdminOrSteward() {
 }
 
 function canManageUsers() {
-  return profileHasRole(currentProfile, "admin");
+  return hasAdminAccount();
 }
 
 function renderRoleSwitcher() {
@@ -980,7 +992,8 @@ function renderRoleSwitcher() {
 
 function applyRoleVisibility() {
   const role = activeRole();
-  if (role === "committee") {
+  const committeeOnlyView = role === "committee" && !hasAdminAccount();
+  if (committeeOnlyView) {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
   }
@@ -991,7 +1004,7 @@ function applyRoleVisibility() {
     portal.dataset.section = activeSectionTab;
   }
   const isDashboardTab = activeAdminTab === "dashboard";
-  const isWorkspaceTab = activeAdminTab === "workspace" || role === "committee";
+  const isWorkspaceTab = activeAdminTab === "workspace" || committeeOnlyView;
   const isPublicTab = activeAdminTab === "public";
   const isAdminTab = activeAdminTab === "admin";
   const title = document.querySelector(".topbar h1");
@@ -1008,10 +1021,10 @@ function applyRoleVisibility() {
     ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
     ".workspace": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
-    ".resources": role === "committee" || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
-    "#admin-nav": role === "admin" || role === "steward",
-    "#users-tab": role === "admin" && isAdminTab,
-    "#content-tab": (role === "admin" || role === "steward") && isPublicTab
+    ".resources": committeeOnlyView || (((isSteward() || isAdmin()) && isWorkspaceTab && activeSectionTab === "resources")),
+    "#admin-nav": isAdmin() || isSteward(),
+    "#users-tab": isAdmin() && isAdminTab,
+    "#content-tab": (isAdmin() || isSteward()) && isPublicTab
   };
 
   Object.entries(visibility).forEach(([selector, visible]) => {
@@ -1080,7 +1093,7 @@ function wirePortalEvents() {
 }
 
 function renderAll() {
-  if (activeRole() === "committee") {
+  if (activeRole() === "committee" && !hasAdminAccount()) {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
   }
@@ -1105,9 +1118,9 @@ function renderAll() {
 
 function renderAdminTabs() {
   const role = activeRole();
-  const isAdminView = role === "admin";
-  const isStewardView = role === "steward";
-  const isCommitteeView = role === "committee";
+  const isAdminView = hasAdminAccount();
+  const isStewardView = hasStewardAccount() || isAdminView;
+  const isCommitteeView = role === "committee" && !isAdminView;
   const casesTab = document.querySelector("#cases-tab");
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
@@ -1165,11 +1178,11 @@ function renderSectionTabs() {
   const filesSection = document.querySelector("#files-section");
   const casesSection = document.querySelector("#cases-tab");
   const resourcesSection = document.querySelector("#resources-section");
-  const isWorkspaceView = activeAdminTab === "workspace" || role === "committee";
+  const isWorkspaceView = activeAdminTab === "workspace" || (role === "committee" && !hasAdminAccount());
 
   if (!sectionNav || !filesSection || !casesSection || !resourcesSection) return;
 
-  if (role === "committee") {
+  if (role === "committee" && !hasAdminAccount()) {
     sectionNav.hidden = true;
     filesSection.hidden = true;
     casesSection.hidden = true;
