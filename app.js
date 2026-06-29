@@ -229,6 +229,7 @@ function profileHasRole(profile, role) {
 }
 
 function availablePortalRoles() {
+  if (hasAdminAccount()) return ["admin", "steward", "committee"];
   return ["admin", "steward", "committee"].filter((role) => profileHasRole(currentProfile, role));
 }
 
