@@ -282,6 +282,7 @@
           <button class="admin-nav-tab active" type="button" data-tab="dashboard">Dashboard</button>
           <button class="admin-nav-tab" type="button" data-tab="workspace">Workspace</button>
           <button class="admin-nav-tab" type="button" data-tab="public">Public Site</button>
+          <button class="admin-nav-tab" type="button" data-tab="invites">Invites</button>
           <button class="admin-nav-tab" type="button" data-tab="admin">Administration</button>
         </nav>
 
@@ -319,6 +320,11 @@
             <h2>Administration</h2>
             <p>Users, approvals, roles, and access control.</p>
             <button class="secondary dashboard-jump" type="button" data-jump-tab="admin">Open administration</button>
+          </article>
+          <article class="dashboard-card">
+            <h2>Invites</h2>
+            <p>Create and copy sign-up links for admins, stewards, and committee users.</p>
+            <button class="secondary dashboard-jump" type="button" data-jump-tab="invites">Open invites</button>
           </article>
         </section>
 
@@ -534,28 +540,34 @@
               <div id="executives-list" class="content-list"></div>
             </div>
 
-            <div class="content-section">
-              <h3>Invite codes</h3>
-              <p class="helper-text">Create sign-up codes for stewards, admins, or committee users</p>
-              <div class="meeting-editor">
-                <label>
-                  Role
-                  <select id="invite-role-input">
-                    <option value="steward">Steward</option>
-                    <option value="committee">Committee</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </label>
-                <label>
-                  Note
-                  <input id="invite-note-input" type="text" placeholder="Who this code is for">
-                </label>
-                <div class="button-row">
-                  <button id="create-invite" type="button">Create invite</button>
-                </div>
+          </div>
+        </section>
+
+        <section id="invites-tab" class="admin-tab" hidden>
+          <div class="section-heading">
+            <h2>Invite codes</h2>
+            <span>Shareable sign-up links</span>
+          </div>
+          <div class="content-section">
+            <p class="helper-text">Create sign-up codes for stewards, admins, or committee users.</p>
+            <div class="meeting-editor">
+              <label>
+                Role
+                <select id="invite-role-input">
+                  <option value="steward">Steward</option>
+                  <option value="committee">Committee</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <label>
+                Note
+                <input id="invite-note-input" type="text" placeholder="Who this code is for">
+              </label>
+              <div class="button-row">
+                <button id="create-invite" type="button">Create invite</button>
               </div>
-              <div id="invites-list" class="content-list"></div>
             </div>
+            <div id="invites-list" class="content-list"></div>
           </div>
         </section>
 

@@ -1108,6 +1108,7 @@ function renderAdminTabs() {
   const casesTab = document.querySelector("#cases-tab");
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
+  const invitesTab = document.querySelector("#invites-tab");
   const moderationTab = document.querySelector("#moderation-tab");
   const statsGrid = document.querySelector(".stats-grid");
   const approvalPanel = document.querySelector("#approval-panel");
@@ -1121,6 +1122,7 @@ function renderAdminTabs() {
     if (casesTab) casesTab.hidden = true;
     if (usersTab) usersTab.hidden = true;
     if (contentTab) contentTab.hidden = true;
+    if (invitesTab) invitesTab.hidden = true;
     if (moderationTab) moderationTab.hidden = true;
     if (approvalPanel) approvalPanel.hidden = true;
     activeSectionTab = "resources";
@@ -1128,7 +1130,7 @@ function renderAdminTabs() {
     return;
   }
 
-  if (!["dashboard", "workspace", "public", "admin"].includes(activeAdminTab)) activeAdminTab = "dashboard";
+  if (!["dashboard", "workspace", "public", "invites", "admin"].includes(activeAdminTab)) activeAdminTab = "dashboard";
   if (!isAdminView && activeAdminTab === "admin") activeAdminTab = "dashboard";
 
   document.querySelectorAll(".admin-nav-tab").forEach((button) => {
@@ -1137,6 +1139,7 @@ function renderAdminTabs() {
     const allowed = tab === "dashboard"
       || tab === "workspace"
       || tab === "public"
+      || tab === "invites"
       || (tab === "admin" && isAdminView);
     button.hidden = !(allowed && (isAdminView || isStewardView));
   });
@@ -1144,6 +1147,7 @@ function renderAdminTabs() {
   if (casesTab) casesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "workspace";
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "admin";
   if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
+  if (invitesTab) invitesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "invites";
   if (moderationTab) moderationTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
   if (approvalPanel) approvalPanel.hidden = !isAdminView || activeAdminTab !== "admin";
   if (activeAdminTab !== "workspace") {
