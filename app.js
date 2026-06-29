@@ -1864,7 +1864,7 @@ async function saveMeetingNotice() {
   }
 
   const meetingId = value("meeting-id");
-  const result = meetingId
+  const result = isUuid(meetingId)
     ? await supabaseClient.from("meetings").update({ ...payload, updated_by: currentUser.id }).eq("id", meetingId).select().single()
     : await supabaseClient.from("meetings").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
@@ -1875,6 +1875,13 @@ async function deleteMeetingNotice(meetingId) {
   if (!isAdminOrSteward()) return;
   if (!confirm("Delete this meeting notice?")) return;
   if (previewMode || !isConfigured || !meetingsStorageReady) {
+    meetingNotices = meetingNotices.filter((item) => item.id !== meetingId);
+    selectedMeetingId = meetingNotices[0]?.id || null;
+    renderMeetingBoard(selectedMeetingId);
+    renderMeetingManager();
+    return;
+  }
+  if (!isUuid(meetingId)) {
     meetingNotices = meetingNotices.filter((item) => item.id !== meetingId);
     selectedMeetingId = meetingNotices[0]?.id || null;
     renderMeetingBoard(selectedMeetingId);
@@ -1999,6 +2006,13 @@ async function deleteAnnouncement(id) {
     renderAnnouncementManager();
     return;
   }
+  if (!isUuid(id)) {
+    announcementItems = announcementItems.filter((item) => item.id !== id);
+    selectedAnnouncementId = announcementItems[0]?.id || null;
+    renderPublicBoard();
+    renderAnnouncementManager();
+    return;
+  }
   const { error } = await supabaseClient.from("public_announcements").delete().eq("id", id);
   if (error) return alert(error.message);
   await loadData();
@@ -2099,6 +2113,13 @@ async function deletePublicResource(id) {
     renderPublicResourceManager();
     return;
   }
+  if (!isUuid(id)) {
+    publicResourceItems = publicResourceItems.filter((item) => item.id !== id);
+    selectedPublicResourceId = publicResourceItems[0]?.id || null;
+    renderPublicBoard();
+    renderPublicResourceManager();
+    return;
+  }
   const { error } = await supabaseClient.from("resources").delete().eq("id", id);
   if (error) return alert(error.message);
   await loadData();
@@ -2192,6 +2213,13 @@ async function saveExecutiveMember() {
 async function deleteExecutiveMember(id) {
   if (!isAdminOrSteward() || !confirm("Delete this executive entry?")) return;
   if (previewMode || !isConfigured) {
+    publicExecutiveTeam = publicExecutiveTeam.filter((item) => item.id !== id);
+    selectedExecutiveId = publicExecutiveTeam[0]?.id || null;
+    renderPublicDirectory();
+    renderExecutiveManager();
+    return;
+  }
+  if (!isUuid(id)) {
     publicExecutiveTeam = publicExecutiveTeam.filter((item) => item.id !== id);
     selectedExecutiveId = publicExecutiveTeam[0]?.id || null;
     renderPublicDirectory();
@@ -2555,7 +2583,7 @@ async function saveElectionContact() {
     return;
   }
   const id = value("election-id");
-  const result = id
+  const result = isUuid(id)
     ? await supabaseClient.from("election_contacts").update({ ...payload, updated_by: currentUser.id }).eq("id", id).select().single()
     : await supabaseClient.from("election_contacts").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
@@ -2566,6 +2594,12 @@ async function saveElectionContact() {
 async function deleteElectionContact(id) {
   if (!(isAdmin() || isSteward() || isCommittee()) || !confirm("Delete this election contact?")) return;
   if (previewMode || !isConfigured) {
+    electionContacts = electionContacts.filter((item) => item.id !== id);
+    selectedElectionId = electionContacts[0]?.id || null;
+    renderElectionManager();
+    return;
+  }
+  if (!isUuid(id)) {
     electionContacts = electionContacts.filter((item) => item.id !== id);
     selectedElectionId = electionContacts[0]?.id || null;
     renderElectionManager();
