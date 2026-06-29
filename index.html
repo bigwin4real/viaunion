@@ -737,6 +737,21 @@
             <h3>Distribution lists</h3>
             <p class="helper-text">Committee distribution lists grouped by Local 4005 company. Election date is optional metadata only.</p>
             <div class="meeting-editor">
+              <div class="form-row">
+                <label>
+                  Company
+                  <select id="distribution-company-select"></select>
+                </label>
+                <label>
+                  Company election date
+                  <input id="distribution-election-date-input" type="date">
+                </label>
+              </div>
+              <div class="button-row">
+                <button id="save-distribution-company" type="button">Save company details</button>
+              </div>
+            </div>
+            <div class="meeting-editor">
               <input id="election-id" type="hidden">
               <div class="form-row">
                 <label>
@@ -750,13 +765,19 @@
               </div>
               <div class="form-row">
                 <label>
-                  Election date
-                  <input id="election-date-input" type="date">
-                </label>
-                <label>
                   Member name
                   <input id="election-member-input" type="text" placeholder="Member name">
                 </label>
+                <div class="checkbox-stack">
+                  <label class="checkbox-row">
+                    <input id="election-is-shop-steward-input" type="checkbox">
+                    Shop steward
+                  </label>
+                  <label class="checkbox-row">
+                    <input id="election-is-chief-shop-steward-input" type="checkbox">
+                    Chief shop steward
+                  </label>
+                </div>
               </div>
               <div class="form-row">
                 <label>
@@ -780,7 +801,7 @@
                   <input id="election-csv-input" type="file" accept=".csv,text/csv">
                 </label>
               </div>
-              <p class="helper-text">Accepted headers: <code>company</code>, <code>group</code> or <code>group_name</code>, <code>election_date</code>, <code>member_name</code>, <code>email</code>, <code>note</code>.</p>
+              <p class="helper-text">Accepted headers: <code>company</code>, <code>group</code> or <code>group_name</code>, <code>election_date</code> (company-level), <code>member_name</code>, <code>email</code>, <code>is_shop_steward</code>, <code>is_chief_shop_steward</code>, and <code>note</code>.</p>
               <div class="button-row">
                 <button id="import-election-csv" type="button">Import CSV</button>
                 <button id="export-election-csv" class="secondary" type="button">Export CSV</button>

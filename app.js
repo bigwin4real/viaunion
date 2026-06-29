@@ -155,6 +155,11 @@ const local4005Companies = [
   "World Trade and Convention Centre"
 ];
 
+const defaultDistributionCompanies = local4005Companies.map((company) => ({
+  company,
+  election_date: null
+}));
+
 const publicKnowledge = [
   { title: "VIA Rail Agreement No. 1", category: "Agreement No. 1", text: "Council 4000 lists VIA Rail Agreement No. 1 - National as 2025-2027 on its Collective Agreements page." },
   { title: "VIA Rail Agreement No. 2", category: "Agreement No. 2", text: "Council 4000 lists VIA Rail Agreement No. 2 - National as 2025-2027 on its Collective Agreements page." },
@@ -184,6 +189,7 @@ let publicResourceItems = [...publicResources];
 let meetingNotices = [...defaultMeetings];
 let inviteCodes = [...sampleInvites];
 let electionContacts = [];
+let distributionCompanies = [];
 let selectedMeetingId = defaultMeetings[0]?.id || null;
 let selectedAnnouncementId = announcementItems[0]?.id || null;
 let selectedPublicResourceId = null;
@@ -786,7 +792,7 @@ function renderRegister() {
 async function loadData() {
   const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
   const canManageUsers = profileHasRole(currentProfile, "admin");
-  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult] = await Promise.all([
+  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult, companyResult] = await Promise.all([
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     canManageUsers
@@ -803,7 +809,8 @@ async function loadData() {
       ? supabaseClient.from("invite_codes").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true })
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true }),
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("distribution_companies").select("*").order("company", { ascending: true })
   ]);
 
   cases = caseResult.data || [];
@@ -844,6 +851,9 @@ async function loadData() {
     }));
   }
   electionContacts = electionResult.data || [];
+  distributionCompanies = (companyResult.data && companyResult.data.length)
+    ? companyResult.data
+    : [...defaultDistributionCompanies];
   if (meetingResult.error) {
     meetingsStorageReady = false;
     meetingNotices = [...defaultMeetings];
@@ -1034,6 +1044,8 @@ function wirePortalEvents() {
   document.querySelector("#new-executive")?.addEventListener("click", clearExecutiveForm);
   document.querySelector("#save-election")?.addEventListener("click", saveElectionContact);
   document.querySelector("#new-election")?.addEventListener("click", clearElectionForm);
+  document.querySelector("#save-distribution-company")?.addEventListener("click", saveDistributionCompany);
+  document.querySelector("#distribution-company-select")?.addEventListener("change", populateDistributionCompanyForm);
   document.querySelector("#import-election-csv")?.addEventListener("click", importElectionCsv);
   document.querySelector("#export-election-csv")?.addEventListener("click", exportElectionCsv);
   document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
@@ -2130,6 +2142,7 @@ function renderElectionManager() {
     return;
   }
   renderElectionCompanyOptions();
+  populateDistributionCompanyForm();
   const grouped = electionContacts.reduce((map, item) => {
     const company = item.company || "Unassigned";
     if (!map[company]) map[company] = [];
@@ -2140,18 +2153,23 @@ function renderElectionManager() {
   list.innerHTML = companies.map((company) => `
     <section class="resource-item">
       <h3>${escapeHtml(company)}</h3>
+      <p>${escapeHtml(companyElectionDateLabel(company))}</p>
       <div class="content-list">
         ${grouped[company].map((item) => `
           <article class="resource-item ${item.id === selectedElectionId ? "meeting-item-active" : ""}">
             <div class="meeting-item-header">
               <div>
                 <h3>${escapeHtml(item.member_name)}</h3>
-                <p>${escapeHtml(item.group_name || "")}${item.election_date ? ` · ${escapeHtml(item.election_date)}` : ""}</p>
+                <p>${escapeHtml(item.group_name || "")}</p>
               </div>
               <div class="button-row">
                 <button type="button" data-edit-election-id="${escapeHtml(item.id)}">Edit</button>
                 <button class="secondary" type="button" data-delete-election-id="${escapeHtml(item.id)}">Delete</button>
               </div>
+            </div>
+            <div class="meta-row">
+              ${item.is_chief_shop_steward ? `<span class="pill strong">Chief shop steward</span>` : ""}
+              ${item.is_shop_steward ? `<span class="pill">Shop steward</span>` : ""}
             </div>
             <p>${escapeHtml(item.email || "")}</p>
             ${item.note ? `<p>${escapeHtml(item.note)}</p>` : ""}
@@ -2174,15 +2192,59 @@ function renderElectionManager() {
 }
 
 function renderElectionCompanyOptions() {
-  const select = document.querySelector("#election-company-input");
+  const companies = Array.from(new Set([
+    ...local4005Companies,
+    ...distributionCompanies.map((item) => item.company).filter(Boolean),
+    ...electionContacts.map((item) => item.company).filter(Boolean)
+  ])).sort((a, b) => a.localeCompare(b));
+  ["#election-company-input", "#distribution-company-select"].forEach((selector) => {
+    const select = document.querySelector(selector);
+    if (!select) return;
+    const currentValue = select.value;
+    select.innerHTML = `
+      <option value="">Select company</option>
+      ${companies.map((company) => `<option value="${escapeHtml(company)}">${escapeHtml(company)}</option>`).join("")}
+    `;
+    if (companies.includes(currentValue)) select.value = currentValue;
+  });
+}
+
+function companyElectionDateLabel(company) {
+  const match = distributionCompanies.find((item) => item.company === company);
+  return match?.election_date ? `Election date: ${match.election_date}` : "Election date not set";
+}
+
+function populateDistributionCompanyForm() {
+  const select = document.querySelector("#distribution-company-select");
   if (!select) return;
-  const currentValue = select.value;
-  const companies = Array.from(new Set([...local4005Companies, ...electionContacts.map((item) => item.company).filter(Boolean)])).sort((a, b) => a.localeCompare(b));
-  select.innerHTML = `
-    <option value="">Select company</option>
-    ${companies.map((company) => `<option value="${escapeHtml(company)}">${escapeHtml(company)}</option>`).join("")}
-  `;
-  if (companies.includes(currentValue)) select.value = currentValue;
+  const company = select.value || distributionCompanies[0]?.company || local4005Companies[0] || "";
+  if (company) select.value = company;
+  const match = distributionCompanies.find((item) => item.company === company);
+  setValue("distribution-election-date-input", match?.election_date || "");
+}
+
+async function saveDistributionCompany() {
+  if (!(isAdmin() || isSteward() || isCommittee())) return;
+  const company = value("distribution-company-select");
+  if (!company) return alert("Select a company.");
+  const payload = {
+    company,
+    election_date: value("distribution-election-date-input") || null
+  };
+  if (previewMode || !isConfigured) {
+    const index = distributionCompanies.findIndex((item) => item.company === company);
+    if (index >= 0) distributionCompanies[index] = { ...distributionCompanies[index], ...payload };
+    else distributionCompanies.push(payload);
+    renderElectionManager();
+    return;
+  }
+  const existing = distributionCompanies.find((item) => item.company === company);
+  const result = existing?.id
+    ? await supabaseClient.from("distribution_companies").update({ ...payload, updated_by: currentUser.id }).eq("id", existing.id).select().single()
+    : await supabaseClient.from("distribution_companies").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
+  if (result.error) return alert(result.error.message);
+  await loadData();
+  renderAll();
 }
 
 function populateElectionForm(id) {
@@ -2191,10 +2253,13 @@ function populateElectionForm(id) {
   setValue("election-id", item.id);
   setValue("election-company-input", item.company || "");
   setValue("election-group-input", item.group_name || "");
-  setValue("election-date-input", item.election_date || "");
   setValue("election-member-input", item.member_name || "");
   setValue("election-email-input", item.email || "");
   setValue("election-note-input", item.note || "");
+  const stewardCheck = document.querySelector("#election-is-shop-steward-input");
+  const chiefCheck = document.querySelector("#election-is-chief-shop-steward-input");
+  if (stewardCheck) stewardCheck.checked = !!item.is_shop_steward;
+  if (chiefCheck) chiefCheck.checked = !!item.is_chief_shop_steward;
 }
 
 function clearElectionForm() {
@@ -2204,7 +2269,11 @@ function clearElectionForm() {
 }
 
 function clearElectionFormFields() {
-  ["election-id", "election-company-input", "election-group-input", "election-date-input", "election-member-input", "election-email-input", "election-note-input"].forEach((id) => setValue(id, ""));
+  ["election-id", "election-company-input", "election-group-input", "election-member-input", "election-email-input", "election-note-input"].forEach((id) => setValue(id, ""));
+  const stewardCheck = document.querySelector("#election-is-shop-steward-input");
+  const chiefCheck = document.querySelector("#election-is-chief-shop-steward-input");
+  if (stewardCheck) stewardCheck.checked = false;
+  if (chiefCheck) chiefCheck.checked = false;
 }
 
 function parseCsvRow(line) {
@@ -2247,10 +2316,12 @@ function normalizeElectionImportRecord(headers, values) {
   return {
     company: company.trim(),
     group_name: groupName.trim() || null,
-    election_date: electionDate.trim() || null,
     member_name: memberName.trim(),
     email: email.trim() || null,
-    note: note.trim() || null
+    note: note.trim() || null,
+    election_date: electionDate.trim() || null,
+    is_shop_steward: ["true", "yes", "1", "shop steward"].includes((row.is_shop_steward || row.shop_steward || "").trim().toLowerCase()),
+    is_chief_shop_steward: ["true", "yes", "1", "chief shop steward"].includes((row.is_chief_shop_steward || row.chief_shop_steward || "").trim().toLowerCase())
   };
 }
 
@@ -2268,7 +2339,18 @@ async function importElectionCsv() {
     .filter((row) => row.company && row.member_name);
   if (!rows.length) return alert("No valid rows found. CSV needs at least company and member_name.");
 
+  const companyUpserts = Array.from(new Map(
+    rows
+      .filter((row) => row.election_date)
+      .map((row) => [row.company, { company: row.company, election_date: row.election_date }])
+  ).values());
+
   if (previewMode || !isConfigured) {
+    companyUpserts.forEach((row) => {
+      const index = distributionCompanies.findIndex((item) => item.company === row.company);
+      if (index >= 0) distributionCompanies[index] = { ...distributionCompanies[index], ...row };
+      else distributionCompanies.push(row);
+    });
     rows.forEach((row) => {
       electionContacts.push({ id: crypto.randomUUID(), ...row });
     });
@@ -2281,9 +2363,19 @@ async function importElectionCsv() {
 
   const payload = rows.map((row) => ({
     ...row,
+    election_date: null,
     created_by: currentUser.id,
     updated_by: currentUser.id
   }));
+  if (companyUpserts.length) {
+    for (const companyRow of companyUpserts) {
+      const existing = distributionCompanies.find((item) => item.company === companyRow.company);
+      const result = existing?.id
+        ? await supabaseClient.from("distribution_companies").update({ ...companyRow, updated_by: currentUser.id }).eq("id", existing.id)
+        : await supabaseClient.from("distribution_companies").insert({ ...companyRow, created_by: currentUser.id, updated_by: currentUser.id });
+      if (result.error) return alert(result.error.message);
+    }
+  }
   const { error } = await supabaseClient.from("election_contacts").insert(payload);
   if (error) return alert(error.message);
   await loadData();
@@ -2296,13 +2388,15 @@ function exportElectionCsv() {
   if (!(isAdmin() || isSteward() || isCommittee())) return;
   if (!electionContacts.length) return alert("No contacts to export.");
   const lines = [
-    ["company", "group_name", "election_date", "member_name", "email", "note"].join(","),
+    ["company", "group_name", "election_date", "member_name", "email", "is_shop_steward", "is_chief_shop_steward", "note"].join(","),
     ...electionContacts.map((item) => [
       item.company || "",
       item.group_name || "",
-      item.election_date || "",
+      distributionCompanies.find((row) => row.company === item.company)?.election_date || "",
       item.member_name || "",
       item.email || "",
+      item.is_shop_steward ? "true" : "false",
+      item.is_chief_shop_steward ? "true" : "false",
       item.note || ""
     ].map((value) => `"${String(value).replace(/"/g, "\"\"")}"`).join(","))
   ];
@@ -2322,10 +2416,11 @@ async function saveElectionContact() {
   const payload = {
     company: value("election-company-input"),
     group_name: value("election-group-input") || null,
-    election_date: value("election-date-input") || null,
     member_name: value("election-member-input"),
     email: value("election-email-input") || null,
-    note: value("election-note-input") || null
+    note: value("election-note-input") || null,
+    is_shop_steward: document.querySelector("#election-is-shop-steward-input")?.checked || false,
+    is_chief_shop_steward: document.querySelector("#election-is-chief-shop-steward-input")?.checked || false
   };
   if (!payload.company || !payload.member_name) return alert("Company and member name are required.");
   if (previewMode || !isConfigured) {
