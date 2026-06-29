@@ -109,6 +109,8 @@ let publicStewards = [];
 
 let publicAdmins = [];
 
+let publicCommitteeMembers = [];
+
 let publicExecutiveTeam = [
   { name: "Steve Harding", role: "President, Local 4005 / VP to the President of Council 4000", area: "Local 4005", contact: "Listed on Council 4000 contact page" },
   { name: "Rheanne Gautreau", role: "Regional Representative - Local 4005", area: "NB / PEI / NS / NL", contact: "Listed on Council 4000 regional representatives page" },
@@ -216,17 +218,10 @@ function profileRoles(profile) {
   const assigned = Array.isArray(profile?.assigned_roles)
     ? profile.assigned_roles.map(normalizeRoleName).filter(Boolean)
     : [];
-  const expanded = new Set(assigned);
-  if (profile?.role) expanded.add(normalizeRoleName(profile.role));
-  if (expanded.has("admin")) {
-    expanded.add("steward");
-    expanded.add("committee");
-  } else if (expanded.has("steward")) {
-    expanded.add("committee");
-  } else if (!expanded.size) {
-    expanded.add("committee");
-  }
-  return ["admin", "steward", "committee"].filter((role) => expanded.has(role));
+  const direct = new Set(assigned);
+  if (profile?.role) direct.add(normalizeRoleName(profile.role));
+  if (!direct.size) direct.add("committee");
+  return ["admin", "steward", "committee"].filter((role) => direct.has(role));
 }
 
 function profileHasRole(profile, role) {
@@ -411,6 +406,9 @@ async function loadPublicAccountDirectory() {
     publicAdmins = (data || [])
       .filter((entry) => entry.directory_role === "admin")
       .map(directoryEntryToContact);
+    publicCommitteeMembers = (data || [])
+      .filter((entry) => normalizeRoleName(entry.directory_role) === "committee")
+      .map(directoryEntryToContact);
     renderPublicDirectory();
   } catch {
     // Account-backed directory is optional until Supabase is configured.
@@ -467,12 +465,16 @@ function renderDiscounts() {
 function renderPublicDirectory() {
   const stewardList = document.querySelector("#public-steward-list");
   const adminCard = document.querySelector("#admin-contact-card");
+  const committeeList = document.querySelector("#committee-list");
   const executiveList = document.querySelector("#executive-list");
   if (stewardList) {
     stewardList.innerHTML = publicStewards.map(renderContactCard).join("") || `<div class="empty">No approved steward accounts are listed publicly yet.</div>`;
   }
   if (adminCard) {
     adminCard.innerHTML = publicAdmins.map((person) => renderContactCard(person, true)).join("") || `<div class="empty">No approved admin accounts are listed publicly yet.</div>`;
+  }
+  if (committeeList) {
+    committeeList.innerHTML = publicCommitteeMembers.map(renderContactCard).join("") || `<div class="empty">No committee members are listed publicly yet.</div>`;
   }
   if (executiveList) {
     executiveList.innerHTML = publicExecutiveTeam.map(renderContactCard).join("");
@@ -1067,6 +1069,7 @@ function wirePortalEvents() {
   document.querySelector("#new-resource")?.addEventListener("click", clearPublicResourceForm);
   document.querySelector("#save-executive")?.addEventListener("click", saveExecutiveMember);
   document.querySelector("#new-executive")?.addEventListener("click", clearExecutiveForm);
+  document.querySelector("#restore-executives")?.addEventListener("click", restoreExecutiveDefaults);
   document.querySelector("#save-election")?.addEventListener("click", saveElectionContact);
   document.querySelector("#new-election")?.addEventListener("click", clearElectionForm);
   document.querySelector("#save-distribution-company")?.addEventListener("click", saveDistributionCompany);
@@ -1595,7 +1598,7 @@ async function upsertApprovedDirectoryEntry(profileId) {
     .eq("id", profileId)
     .single();
   if (error || !profile) return;
-  const directoryRoles = profileRoles(profile).filter((role) => role === "admin" || role === "steward");
+  const directoryRoles = profileRoles(profile).filter((role) => role === "admin" || role === "steward" || role === "committee");
   await supabaseClient.from("public_directory_entries").delete().eq("profile_id", profile.id);
   if (!directoryRoles.length) return;
 
@@ -1607,7 +1610,11 @@ async function upsertApprovedDirectoryEntry(profileId) {
     profile_id: profile.id,
     directory_role: role,
     display_name: profile.full_name,
-    public_title: role === "admin" ? "Admin contact" : "Shop Steward",
+    public_title: role === "admin"
+      ? "Admin contact"
+      : role === "steward"
+        ? "Shop Steward"
+        : "Committee member",
     location: "Local 4005",
     contract: "Shared",
     public_contact: contactParts.join(" / ") || null,
@@ -2180,6 +2187,57 @@ async function deleteExecutiveMember(id) {
   }
   const { error } = await supabaseClient.from("public_executive_team").delete().eq("id", id);
   if (error) return alert(error.message);
+  await loadData();
+  renderAll();
+  renderPublicDirectory();
+}
+
+async function restoreExecutiveDefaults() {
+  if (!isAdminOrSteward()) return;
+  if (!confirm("Restore the default executive entries that are currently missing?")) return;
+  const defaults = [
+    {
+      name: "Steve Harding",
+      role: "President, Local 4005 / VP to the President of Council 4000",
+      area: "Local 4005",
+      contact: "Listed on Council 4000 contact page",
+      note: null
+    },
+    {
+      name: "Rheanne Gautreau",
+      role: "Regional Representative - Local 4005",
+      area: "NB / PEI / NS / NL",
+      contact: "Listed on Council 4000 regional representatives page",
+      note: null
+    },
+    {
+      name: "To be confirmed",
+      role: "Other Local 4005 executive positions",
+      area: "Local 4005",
+      contact: "Not listed on the public Unifor source pages.",
+      note: null
+    }
+  ];
+
+  if (previewMode || !isConfigured) {
+    defaults.forEach((entry) => {
+      if (!publicExecutiveTeam.some((item) => item.name === entry.name && item.role === entry.role)) {
+        publicExecutiveTeam.push({ id: crypto.randomUUID(), ...entry });
+      }
+    });
+    renderExecutiveManager();
+    renderPublicDirectory();
+    return;
+  }
+
+  for (const entry of defaults) {
+    const exists = publicExecutiveTeam.some((item) => item.name === entry.name && item.role === entry.role);
+    if (exists) continue;
+    const { error } = await supabaseClient
+      .from("public_executive_team")
+      .insert({ ...entry, created_by: currentUser.id, updated_by: currentUser.id });
+    if (error) return alert(error.message);
+  }
   await loadData();
   renderAll();
   renderPublicDirectory();
