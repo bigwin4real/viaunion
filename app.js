@@ -746,6 +746,7 @@ function renderPasswordUpdate() {
 
 function renderRegister() {
   app.innerHTML = document.querySelector("#register-template").innerHTML;
+  applyInvitePrefill();
   document.querySelector("#back-login").addEventListener("click", renderAuth);
   document.querySelector("#register-form").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -787,6 +788,29 @@ function renderRegister() {
     message.textContent = "Request submitted. An admin must approve the account before private tools are available.";
     document.querySelector("#register-form").reset();
   });
+}
+
+function applyInvitePrefill() {
+  const params = new URLSearchParams(window.location.search);
+  const inviteCode = (params.get("invite") || params.get("code") || "").trim();
+  const requestedRole = normalizeRoleName((params.get("role") || "").trim());
+  if (!inviteCode && !requestedRole) return;
+
+  if (inviteCode) setValue("register-invite-code", inviteCode);
+  if (requestedRole && roleLabels[requestedRole]) {
+    setValue("register-role", requestedRole);
+    const roleSelect = document.querySelector("#register-role");
+    if (roleSelect) roleSelect.disabled = true;
+  }
+
+  const helper = document.querySelector("#register-invite-helper");
+  if (helper) {
+    const roleText = requestedRole && roleLabels[requestedRole] ? `${roleLabels[requestedRole]} access` : "requested access";
+    helper.textContent = inviteCode
+      ? `Invite detected. This signup will request ${roleText} using code ${inviteCode}.`
+      : `Invite detected. This signup will request ${roleText}.`;
+    helper.hidden = false;
+  }
 }
 
 async function loadData() {
@@ -2464,16 +2488,41 @@ function renderInviteManager() {
         <div>
           <h3>${escapeHtml(item.code)}</h3>
           <p>${escapeHtml(item.requested_role)}${item.note ? ` · ${escapeHtml(item.note)}` : ""}</p>
+          <p class="helper-text">${escapeHtml(buildInviteUrl(item))}</p>
         </div>
         <div class="button-row">
+          <button type="button" data-copy-invite-id="${escapeHtml(item.id)}">Copy link</button>
           <button class="secondary" type="button" data-delete-invite-id="${escapeHtml(item.id)}">Delete</button>
         </div>
       </div>
     </article>
   `).join("") || `<div class="empty">No invite codes created yet.</div>`;
+  list.querySelectorAll("[data-copy-invite-id]").forEach((button) => {
+    button.addEventListener("click", () => copyInviteLink(button.dataset.copyInviteId));
+  });
   list.querySelectorAll("[data-delete-invite-id]").forEach((button) => {
     button.addEventListener("click", () => deleteInviteCode(button.dataset.deleteInviteId));
   });
+}
+
+function buildInviteUrl(invite) {
+  const url = new URL(window.location.origin + window.location.pathname);
+  url.searchParams.set("register", "1");
+  url.searchParams.set("invite", invite.code);
+  url.searchParams.set("role", normalizeRoleName(invite.requested_role || "steward"));
+  return url.toString();
+}
+
+async function copyInviteLink(id) {
+  const invite = inviteCodes.find((item) => item.id === id);
+  if (!invite) return;
+  const url = buildInviteUrl(invite);
+  try {
+    await navigator.clipboard.writeText(url);
+    alert("Invite link copied.");
+  } catch {
+    window.prompt("Copy this invite link:", url);
+  }
 }
 
 async function createInviteCode() {
