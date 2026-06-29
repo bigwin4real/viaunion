@@ -1192,6 +1192,9 @@ function renderSectionTabs() {
 
   if (!isWorkspaceView) {
     sectionNav.hidden = true;
+    filesSection.hidden = true;
+    casesSection.hidden = true;
+    resourcesSection.hidden = true;
     return;
   }
 
