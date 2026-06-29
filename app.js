@@ -1968,7 +1968,7 @@ async function saveAnnouncement() {
     return;
   }
   const id = value("announcement-id");
-  const result = id
+  const result = isUuid(id)
     ? await supabaseClient.from("public_announcements").update(payload).eq("id", id).select().single()
     : await supabaseClient.from("public_announcements").insert({ ...payload, created_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
@@ -2068,7 +2068,7 @@ async function savePublicResource() {
     return;
   }
   const id = value("resource-id");
-  const result = id
+  const result = isUuid(id)
     ? await supabaseClient.from("resources").update(payload).eq("id", id).select().single()
     : await supabaseClient.from("resources").insert({ ...payload, created_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
@@ -2167,7 +2167,7 @@ async function saveExecutiveMember() {
     return;
   }
   const id = value("executive-id");
-  const result = id
+  const result = isUuid(id)
     ? await supabaseClient.from("public_executive_team").update({ ...payload, updated_by: currentUser.id }).eq("id", id).select().single()
     : await supabaseClient.from("public_executive_team").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
@@ -2789,6 +2789,10 @@ function value(id) {
 function setValue(id, nextValue) {
   const element = document.querySelector(`#${id}`);
   if (element) element.value = nextValue || "";
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
 }
 
 function nextDate(offset) {
