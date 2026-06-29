@@ -197,6 +197,7 @@ let selectedExecutiveId = null;
 let selectedElectionId = null;
 let meetingsStorageReady = previewMode || !isConfigured;
 let selectedCaseId = null;
+let selectedUserId = null;
 let activePortalRole = null;
 let activeAdminTab = "dashboard";
 let activeSectionTab = "cases";
@@ -1396,51 +1397,65 @@ function renderUsers() {
   const list = document.querySelector("#users-list");
   if (!list || !isAdmin()) return;
   const rows = filteredUsers();
+  if (selectedUserId && !rows.some((profile) => profile.id === selectedUserId)) selectedUserId = null;
   const total = document.querySelector("#users-total");
   if (total) total.textContent = `${rows.length} users`;
   list.innerHTML = rows.map((profile) => `
-    <article class="approval-card">
+    <article class="approval-card ${profile.id === selectedUserId ? "meeting-item-active" : ""}">
       <div>
         <h3>${escapeHtml(profile.full_name || profile.email || "User")}</h3>
-        <div class="user-profile-grid">
-          <label>
-            Name
-            <input type="text" value="${escapeHtml(profile.full_name || "")}" data-profile-name="${escapeHtml(profile.id)}">
-          </label>
-          <label>
-            Email
-            <input type="email" value="${escapeHtml(profile.email || "")}" data-profile-email="${escapeHtml(profile.id)}">
-          </label>
-          <label>
-            Phone
-            <input type="text" value="${escapeHtml(profile.phone || "")}" data-profile-phone="${escapeHtml(profile.id)}">
-          </label>
-        </div>
+        <p>${escapeHtml(profile.email || "")}</p>
         <div class="meta-row">
           <span class="pill">${profile.active ? "active" : escapeHtml(profile.access_status || "inactive")}</span>
           <span class="pill">${assignedRoles(profile).join(", ")}</span>
           <span class="pill">${profile.share_email ? "email public" : "email private"}</span>
           <span class="pill">${profile.share_phone ? "phone public" : "phone private"}</span>
         </div>
-        <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
-          ${["admin", "steward", "committee"].map((role) => `
+        ${profile.id === selectedUserId ? `
+          <div class="user-profile-grid">
             <label>
-              <input type="checkbox" value="${role}" ${assignedRoles(profile).includes(role) ? "checked" : ""}>
-              ${roleLabels[role] || role}
+              Name
+              <input type="text" value="${escapeHtml(profile.full_name || "")}" data-profile-name="${escapeHtml(profile.id)}">
             </label>
-          `).join("")}
-        </div>
+            <label>
+              Email
+              <input type="email" value="${escapeHtml(profile.email || "")}" data-profile-email="${escapeHtml(profile.id)}">
+            </label>
+            <label>
+              Phone
+              <input type="text" value="${escapeHtml(profile.phone || "")}" data-profile-phone="${escapeHtml(profile.id)}">
+            </label>
+          </div>
+          <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
+            ${["admin", "steward", "committee"].map((role) => `
+              <label>
+                <input type="checkbox" value="${role}" ${assignedRoles(profile).includes(role) ? "checked" : ""}>
+                ${roleLabels[role] || role}
+              </label>
+            `).join("")}
+          </div>
+        ` : ""}
       </div>
       <div class="button-row">
         ${profile.access_status === "pending"
-          ? `<button type="button" data-approve-id="${escapeHtml(profile.id)}">Approve</button>
+          ? `<button type="button" data-edit-user-id="${escapeHtml(profile.id)}">${profile.id === selectedUserId ? "Close" : "Edit"}</button>
+             <button type="button" data-approve-id="${escapeHtml(profile.id)}">Approve</button>
              <button class="secondary" type="button" data-reject-id="${escapeHtml(profile.id)}">Reject</button>`
-          : `<button type="button" data-save-profile-id="${escapeHtml(profile.id)}">Save profile</button>
-             <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
-             <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>`}
+          : profile.id === selectedUserId
+            ? `<button type="button" data-save-profile-id="${escapeHtml(profile.id)}">Save profile</button>
+               <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
+               <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>
+               <button class="secondary" type="button" data-edit-user-id="${escapeHtml(profile.id)}">Close</button>`
+            : `<button type="button" data-edit-user-id="${escapeHtml(profile.id)}">Edit</button>`}
       </div>
     </article>
   `).join("") || `<div class="empty">No users match the current filters.</div>`;
+  list.querySelectorAll("[data-edit-user-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedUserId = selectedUserId === button.dataset.editUserId ? null : button.dataset.editUserId;
+      renderUsers();
+    });
+  });
   list.querySelectorAll("[data-approve-id]").forEach((button) => {
     button.addEventListener("click", () => updateAccessRequest(button.dataset.approveId, true, selectedRolesForProfile(button.dataset.approveId)));
   });
@@ -1465,7 +1480,9 @@ function assignedRoles(profile) {
 function selectedRolesForProfile(profileId) {
   const container = Array.from(document.querySelectorAll("[data-role-checks]"))
     .find((element) => element.dataset.roleChecks === profileId);
-  const checks = Array.from(container?.querySelectorAll("input:checked") || []).map((input) => normalizeRoleName(input.value));
+  const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
+  if (!container) return assignedRoles(profile);
+  const checks = Array.from(container.querySelectorAll("input:checked")).map((input) => normalizeRoleName(input.value));
   return checks.length ? checks : ["committee"];
 }
 
@@ -1475,6 +1492,7 @@ async function updateAccessRequest(profileId, approved, assignedRoles = []) {
     if (approved) {
       activeProfiles.push({ id: profileId, full_name: "Approved preview user", email: "preview@example.ca", role: assignedRoles[0] || "committee", assigned_roles: assignedRoles, share_email: false, share_phone: false, created_at: new Date().toISOString() });
     }
+    selectedUserId = null;
     renderApprovals();
     return;
   }
@@ -1485,6 +1503,7 @@ async function updateAccessRequest(profileId, approved, assignedRoles = []) {
   const { error } = await supabaseClient.from("profiles").update(payload).eq("id", profileId);
   if (error) return alert(error.message);
   if (approved) await upsertApprovedDirectoryEntry(profileId);
+  selectedUserId = null;
   await loadData();
   renderApprovals();
 }
@@ -1498,6 +1517,7 @@ async function updateProfileRoles(profileId, assignedRoles) {
       profile.assigned_roles = assignedRoles;
       if (profile.id === currentProfile.id) currentProfile = { ...currentProfile, role: profile.role, assigned_roles: assignedRoles };
     }
+    selectedUserId = null;
     renderRoleSwitcher();
     renderApprovals();
     return;
@@ -1512,6 +1532,7 @@ async function updateProfileRoles(profileId, assignedRoles) {
     const { data } = await supabaseClient.from("profiles").select("*").eq("id", profileId).single();
     if (data) currentProfile = data;
   }
+  selectedUserId = null;
   await loadData();
   renderPortal();
 }
@@ -1534,6 +1555,7 @@ async function updateProfileDetails(profileId) {
       profile.email = email;
       profile.phone = phone || null;
     }
+    selectedUserId = null;
     renderUsers();
     return;
   }
@@ -1545,6 +1567,7 @@ async function updateProfileDetails(profileId) {
   if (profileId === currentProfile.id) {
     currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null };
   }
+  selectedUserId = null;
   await loadData();
   renderPortal();
 }
