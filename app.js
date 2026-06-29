@@ -114,7 +114,7 @@ let publicCommitteeMembers = [];
 let publicExecutiveTeam = [
   { name: "Steve Harding", role: "President, Local 4005 / VP to the President of Council 4000", area: "Local 4005", contact: "Listed on Council 4000 contact page" },
   { name: "Rheanne Gautreau", role: "Regional Representative - Local 4005", area: "NB / PEI / NS / NL", contact: "Listed on Council 4000 regional representatives page" },
-  { name: "To be confirmed", role: "Other Local 4005 executive positions", area: "Local 4005", contact: "Not listed on the public Unifor source pages." }
+  { name: "Colin Macleod", role: "Recording Secretary", area: "Local 4005", contact: null, note: null }
 ];
 
 const publicDiscounts = [
@@ -2211,10 +2211,10 @@ async function restoreExecutiveDefaults() {
       note: null
     },
     {
-      name: "To be confirmed",
-      role: "Other Local 4005 executive positions",
+      name: "Colin Macleod",
+      role: "Recording Secretary",
       area: "Local 4005",
-      contact: "Not listed on the public Unifor source pages.",
+      contact: null,
       note: null
     }
   ];
