@@ -212,6 +212,11 @@ const roleLabels = {
   committee: "Committee"
 };
 
+function wantsRegisterFlow() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("register") === "1" || Boolean((params.get("invite") || params.get("code") || "").trim());
+}
+
 function normalizeRoleName(role) {
   return role === "election_committee" ? "committee" : role;
 }
@@ -316,12 +321,23 @@ function wirePublicBoard() {
   loadPublicAnnouncements();
   loadPublicMeetings();
   renderDiscounts();
+  if (wantsRegisterFlow()) {
+    renderRegister();
+    return;
+  }
   document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
   document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
   document.querySelector("#question-form")?.addEventListener("submit", submitPublicQuestion);
   ["public-search", "public-contract"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
   });
+}
+
+function showAssistantAnswer(html) {
+  const answerBox = document.querySelector("#assistant-answer");
+  if (!answerBox) return;
+  answerBox.hidden = false;
+  answerBox.innerHTML = html;
 }
 
 async function loadPublicExecutiveTeam() {
@@ -595,10 +611,13 @@ async function answerPublicQuestion() {
   const question = value("assistant-question").toLowerCase();
   const answerBox = document.querySelector("#assistant-answer");
   if (!question) {
-    answerBox.textContent = "Type a question about Agreement No. 1, Agreement No. 2, supplementals, or the Safety and Health Agreement.";
+    showAssistantAnswer("Type a question about Agreement No. 1, Agreement No. 2, supplementals, or the Safety and Health Agreement.");
     return;
   }
-  answerBox.textContent = "Checking agreement assistant...";
+  if (answerBox) {
+    answerBox.hidden = false;
+    answerBox.textContent = "Checking agreement assistant...";
+  }
   try {
     const response = await fetch("/api/ask", {
       method: "POST",
@@ -607,10 +626,11 @@ async function answerPublicQuestion() {
     });
     if (response.ok) {
       const data = await response.json();
-      answerBox.innerHTML = `<p>${escapeHtml(data.answer)}</p>`;
+      let html = `<p>${escapeHtml(data.answer)}</p>`;
       if (data.sources?.length) {
-        answerBox.innerHTML += `<div class="meta-row">${data.sources.map((source) => `<a class="pill" href="${escapeHtml(source.url)}" target="_blank" rel="noopener">${escapeHtml(source.title)}</a>`).join("")}</div>`;
+        html += `<div class="meta-row">${data.sources.map((source) => `<a class="pill" href="${escapeHtml(source.url)}" target="_blank" rel="noopener">${escapeHtml(source.title)}</a>`).join("")}</div>`;
       }
+      showAssistantAnswer(html);
       return;
     }
   } catch (error) {
@@ -620,9 +640,9 @@ async function answerPublicQuestion() {
     const text = [item.title, item.category, item.text].join(" ").toLowerCase();
     return question.split(/\s+/).some((word) => word.length > 2 && text.includes(word));
   });
-  answerBox.innerHTML = matches.length
+  showAssistantAnswer(matches.length
     ? matches.map((item) => `<p><strong>${escapeHtml(item.title)}:</strong> ${escapeHtml(item.text)}</p>`).join("")
-    : `<p>No matching agreement note yet. Check the linked Council 4000 agreements and contact a steward for interpretation.</p>`;
+    : `<p>No matching agreement note yet. Check the linked Council 4000 agreements and contact a steward for interpretation.</p>`);
 }
 
 async function loadPublicQuestions() {

@@ -734,10 +734,18 @@ textarea {
 }
 
 .answer-box {
-  min-height: 78px;
+  min-height: 0;
   margin-top: 12px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.answer-box p:first-child {
+  margin-top: 0;
+}
+
+.answer-box p:last-child {
+  margin-bottom: 0;
 }
 
 .qa-list {
