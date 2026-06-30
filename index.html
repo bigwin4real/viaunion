@@ -287,6 +287,7 @@
           <button class="admin-nav-tab" type="button" data-tab="workspace">Workspace</button>
           <button class="admin-nav-tab" type="button" data-tab="public">Public Site</button>
           <button class="admin-nav-tab" type="button" data-tab="invites">Invites</button>
+          <button class="admin-nav-tab" type="button" data-tab="audit">Audit</button>
           <button class="admin-nav-tab" type="button" data-tab="admin">Administration</button>
         </nav>
 
@@ -329,6 +330,11 @@
             <h2>Invites</h2>
             <p>Create and copy sign-up links for admins, stewards, and committee users.</p>
             <button class="secondary dashboard-jump" type="button" data-jump-tab="invites">Open invites</button>
+          </article>
+          <article class="dashboard-card">
+            <h2>Audit</h2>
+            <p>See who changed or accessed protected records, then open the event details.</p>
+            <button class="secondary dashboard-jump" type="button" data-jump-tab="audit">Open audit</button>
           </article>
         </section>
 
@@ -574,6 +580,47 @@
             </div>
             <div id="invites-list" class="content-list"></div>
           </div>
+        </section>
+
+        <section id="audit-tab" class="admin-tab" hidden>
+          <div class="section-heading">
+            <h2>Audit</h2>
+            <span id="audit-total"></span>
+          </div>
+          <div class="user-tools">
+            <label>
+              Search
+              <input id="audit-search" type="search" placeholder="User, action, target">
+            </label>
+            <label>
+              Action
+              <select id="audit-action-filter">
+                <option value="all">All actions</option>
+                <option value="create">Create</option>
+                <option value="update">Update</option>
+                <option value="delete">Delete</option>
+                <option value="access">Access</option>
+                <option value="approve">Approve</option>
+                <option value="reject">Reject</option>
+                <option value="reset_password">Reset password</option>
+              </select>
+            </label>
+          </div>
+          <section class="audit-layout">
+            <section class="case-column" aria-labelledby="audit-list-title">
+              <div class="section-heading">
+                <h2 id="audit-list-title">Events</h2>
+                <span id="audit-list-count"></span>
+              </div>
+              <div id="audit-list" class="case-list"></div>
+            </section>
+            <section class="detail-column" aria-labelledby="audit-detail-title">
+              <div class="section-heading">
+                <h2 id="audit-detail-title">Event details</h2>
+              </div>
+              <div id="audit-detail" class="meeting-editor"></div>
+            </section>
+          </section>
         </section>
 
         <!-- ADMIN: MODERATION -->

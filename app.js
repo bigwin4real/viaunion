@@ -200,6 +200,8 @@ let selectedElectionId = null;
 let meetingsStorageReady = previewMode || !isConfigured;
 let selectedCaseId = null;
 let selectedUserId = null;
+let auditEntries = [];
+let selectedAuditId = null;
 let activePortalRole = null;
 let activeAdminTab = "dashboard";
 let activeSectionTab = "cases";
@@ -832,7 +834,7 @@ function applyInvitePrefill() {
 async function loadData() {
   const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
   const canManageUsers = profileHasRole(currentProfile, "admin");
-  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult, companyResult] = await Promise.all([
+  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult, companyResult, auditResult] = await Promise.all([
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     canManageUsers
@@ -850,7 +852,8 @@ async function loadData() {
       : Promise.resolve({ data: [] }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("distribution_companies").select("*").order("company", { ascending: true })
+    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("distribution_companies").select("*").order("company", { ascending: true }),
+    canManageUsers ? supabaseClient.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200) : Promise.resolve({ data: [] })
   ]);
 
   cases = caseResult.data || [];
@@ -894,6 +897,7 @@ async function loadData() {
   distributionCompanies = (companyResult.data && companyResult.data.length)
     ? companyResult.data
     : [...defaultDistributionCompanies];
+  auditEntries = auditResult.data || [];
   if (meetingResult.error) {
     meetingsStorageReady = false;
     meetingNotices = [...defaultMeetings];
@@ -907,6 +911,7 @@ async function loadData() {
   selectedPublicResourceId = publicResourceItems.find((item) => item.id === selectedPublicResourceId)?.id || publicResourceItems[0]?.id || null;
   selectedExecutiveId = publicExecutiveTeam.find((item) => item.id === selectedExecutiveId)?.id || publicExecutiveTeam[0]?.id || null;
   selectedElectionId = electionContacts.find((item) => item.id === selectedElectionId)?.id || electionContacts[0]?.id || null;
+  selectedAuditId = auditEntries.find((item) => item.id === selectedAuditId)?.id || auditEntries[0]?.id || null;
   selectedCaseId = cases[0]?.id || null;
   if (selectedCaseId) await loadCaseChildren(selectedCaseId);
 }
@@ -1021,7 +1026,7 @@ function applyRoleVisibility() {
     ".approval-panel": role === "admin" && isAdminTab,
     ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
-    ".workspace": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
+    "#cases-tab": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
     ".resources": committeeOnlyView || (((isSteward() || isAdmin()) && isWorkspaceTab && activeSectionTab === "resources")),
     "#admin-nav": isAdmin() || isSteward(),
     "#users-tab": isAdmin() && isAdminTab,
@@ -1070,6 +1075,9 @@ function wirePortalEvents() {
   ["user-search", "user-role-filter", "user-status-filter"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderUsers);
   });
+  ["audit-search", "audit-action-filter"].forEach((id) => {
+    document.querySelector(`#${id}`)?.addEventListener("input", renderAuditLog);
+  });
   document.querySelector("#new-case")?.addEventListener("click", clearCaseForm);
   document.querySelector("#save-case")?.addEventListener("click", saveCase);
   document.querySelector("#delete-case")?.addEventListener("click", deleteSelectedCase);
@@ -1115,6 +1123,7 @@ function renderAll() {
   renderExecutiveManager();
   renderElectionManager();
   renderInviteManager();
+  renderAuditLog();
 }
 
 function renderAdminTabs() {
@@ -1126,6 +1135,7 @@ function renderAdminTabs() {
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
   const invitesTab = document.querySelector("#invites-tab");
+  const auditTab = document.querySelector("#audit-tab");
   const moderationTab = document.querySelector("#moderation-tab");
   const statsGrid = document.querySelector(".stats-grid");
   const approvalPanel = document.querySelector("#approval-panel");
@@ -1140,6 +1150,7 @@ function renderAdminTabs() {
     if (usersTab) usersTab.hidden = true;
     if (contentTab) contentTab.hidden = true;
     if (invitesTab) invitesTab.hidden = true;
+    if (auditTab) auditTab.hidden = true;
     if (moderationTab) moderationTab.hidden = true;
     if (approvalPanel) approvalPanel.hidden = true;
     activeSectionTab = "resources";
@@ -1147,7 +1158,7 @@ function renderAdminTabs() {
     return;
   }
 
-  if (!["dashboard", "workspace", "public", "invites", "admin"].includes(activeAdminTab)) activeAdminTab = "dashboard";
+  if (!["dashboard", "workspace", "public", "invites", "audit", "admin"].includes(activeAdminTab)) activeAdminTab = "dashboard";
   if (!isAdminView && activeAdminTab === "admin") activeAdminTab = "dashboard";
 
   document.querySelectorAll(".admin-nav-tab").forEach((button) => {
@@ -1157,6 +1168,7 @@ function renderAdminTabs() {
       || tab === "workspace"
       || tab === "public"
       || tab === "invites"
+      || (tab === "audit" && isAdminView)
       || (tab === "admin" && isAdminView);
     button.hidden = !(allowed && (isAdminView || isStewardView));
   });
@@ -1165,6 +1177,7 @@ function renderAdminTabs() {
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "admin";
   if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
   if (invitesTab) invitesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "invites";
+  if (auditTab) auditTab.hidden = !isAdminView || activeAdminTab !== "audit";
   if (moderationTab) moderationTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
   if (approvalPanel) approvalPanel.hidden = !isAdminView || activeAdminTab !== "admin";
   if (activeAdminTab !== "workspace") {
@@ -1330,6 +1343,16 @@ async function openInternalFile(path) {
   if (previewMode) return alert("File download is available after Supabase storage is configured.");
   const { data, error } = await supabaseClient.storage.from(INTERNAL_BUCKET).createSignedUrl(path, 300);
   if (error) return alert(error.message);
+  const file = internalFiles.find((item) => item.storage_path === path);
+  await logAuditEvent("access", "internal_file", {
+    targetId: path,
+    targetLabel: file?.file_name || path.split("/").pop() || path,
+    summary: "Opened internal file",
+    details: {
+      path,
+      kind: file?.kind || null
+    }
+  });
   window.open(data.signedUrl, "_blank", "noopener");
 }
 
@@ -1337,7 +1360,7 @@ function renderApprovals() {
   const panel = document.querySelector("#approval-panel");
   if (!panel) return;
 
-  if (!isAdmin() || activeAdminTab !== "users") {
+  if (!isAdmin() || activeAdminTab !== "admin") {
     panel.hidden = true;
     return;
   }
@@ -1511,6 +1534,7 @@ function selectedRolesForProfile(profileId) {
 }
 
 async function updateAccessRequest(profileId, approved, assignedRoles = []) {
+  const profile = pendingProfiles.find((item) => item.id === profileId) || activeProfiles.find((item) => item.id === profileId);
   if (previewMode) {
     pendingProfiles = pendingProfiles.filter((profile) => profile.id !== profileId);
     if (approved) {
@@ -1527,6 +1551,15 @@ async function updateAccessRequest(profileId, approved, assignedRoles = []) {
   const { error } = await supabaseClient.from("profiles").update(payload).eq("id", profileId);
   if (error) return alert(error.message);
   if (approved) await upsertApprovedDirectoryEntry(profileId);
+  await logAuditEvent(approved ? "approve" : "reject", "profile_access", {
+    targetId: profileId,
+    targetLabel: profile?.full_name || profile?.email || profileId,
+    summary: approved ? "Approved access request" : "Rejected access request",
+    details: {
+      assigned_roles: approved ? assignedRoles : [],
+      email: profile?.email || null
+    }
+  });
   selectedUserId = null;
   await loadData();
   renderApprovals();
@@ -1534,6 +1567,7 @@ async function updateAccessRequest(profileId, approved, assignedRoles = []) {
 
 async function updateProfileRoles(profileId, assignedRoles) {
   if (!assignedRoles.length) return alert("Select at least one role.");
+  const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
   if (previewMode) {
     const profile = activeProfiles.find((item) => item.id === profileId);
     if (profile) {
@@ -1552,6 +1586,14 @@ async function updateProfileRoles(profileId, assignedRoles) {
     .eq("id", profileId);
   if (error) return alert(error.message);
   await upsertApprovedDirectoryEntry(profileId);
+  await logAuditEvent("update", "profile_roles", {
+    targetId: profileId,
+    targetLabel: profile?.full_name || profile?.email || profileId,
+    summary: "Updated user roles",
+    details: {
+      assigned_roles: assignedRoles
+    }
+  });
   if (profileId === currentProfile.id) {
     const { data } = await supabaseClient.from("profiles").select("*").eq("id", profileId).single();
     if (data) currentProfile = data;
@@ -1588,6 +1630,16 @@ async function updateProfileDetails(profileId) {
     .update({ full_name: fullName, email, phone: phone || null })
     .eq("id", profileId);
   if (error) return alert(error.message);
+  await logAuditEvent("update", "profile", {
+    targetId: profileId,
+    targetLabel: fullName || email || profileId,
+    summary: "Updated user profile",
+    details: {
+      full_name: fullName,
+      email,
+      phone: phone || null
+    }
+  });
   if (profileId === currentProfile.id) {
     currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null };
   }
@@ -1605,6 +1657,12 @@ async function sendUserResetPassword(profileId) {
     redirectTo: `${window.location.origin}${window.location.pathname}?type=recovery`
   });
   if (error) return alert(error.message);
+  await logAuditEvent("reset_password", "profile", {
+    targetId: profileId,
+    targetLabel: profile?.full_name || email,
+    summary: "Sent password reset",
+    details: { email }
+  });
   alert(`Password reset sent to ${email}.`);
 }
 
@@ -1653,7 +1711,9 @@ function filteredCases() {
 
 function renderStats() {
   const grid = document.querySelector(".stats-grid");
-  if (!isAdminOrSteward() || activeAdminTab !== "workspace" || activeSectionTab !== "cases") {
+  const shouldShow = isAdminOrSteward()
+    && (activeAdminTab === "dashboard" || (activeAdminTab === "workspace" && activeSectionTab === "cases"));
+  if (!shouldShow) {
     if (grid) grid.hidden = true;
     return;
   }
@@ -1834,6 +1894,7 @@ function clearMeetingFormFields() {
 
 async function saveMeetingNotice() {
   if (!isAdminOrSteward()) return;
+  const meetingId = value("meeting-id");
   const payload = {
     title: value("meeting-title-input"),
     meeting_date: value("meeting-date-input"),
@@ -1848,7 +1909,7 @@ async function saveMeetingNotice() {
   }
 
   if (previewMode || !isConfigured || !meetingsStorageReady) {
-    const id = value("meeting-id") || crypto.randomUUID();
+    const id = meetingId || crypto.randomUUID();
     const nextMeeting = {
       id,
       title: payload.title,
@@ -1867,17 +1928,23 @@ async function saveMeetingNotice() {
     return;
   }
 
-  const meetingId = value("meeting-id");
   const result = isUuid(meetingId)
     ? await supabaseClient.from("meetings").update({ ...payload, updated_by: currentUser.id }).eq("id", meetingId).select().single()
     : await supabaseClient.from("meetings").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(isUuid(meetingId) ? "update" : "create", "meeting", {
+    targetId: result.data.id,
+    targetLabel: payload.title,
+    summary: `${isUuid(meetingId) ? "Updated" : "Created"} meeting notice`,
+    details: payload
+  });
   await refreshMeetings(result.data.id);
 }
 
 async function deleteMeetingNotice(meetingId) {
   if (!isAdminOrSteward()) return;
   if (!confirm("Delete this meeting notice?")) return;
+  const meeting = meetingNotices.find((item) => item.id === meetingId);
   if (previewMode || !isConfigured || !meetingsStorageReady) {
     meetingNotices = meetingNotices.filter((item) => item.id !== meetingId);
     selectedMeetingId = meetingNotices[0]?.id || null;
@@ -1894,6 +1961,16 @@ async function deleteMeetingNotice(meetingId) {
   }
   const { error } = await supabaseClient.from("meetings").delete().eq("id", meetingId);
   if (error) return alert(error.message);
+  await logAuditEvent("delete", "meeting", {
+    targetId: meetingId,
+    targetLabel: meeting?.title || meetingId,
+    summary: "Deleted meeting notice",
+    details: {
+      title: meeting?.title || null,
+      meeting_date: meeting?.date || null,
+      contract: meeting?.contract || null
+    }
+  });
   await refreshMeetings(selectedMeetingId === meetingId ? null : selectedMeetingId);
 }
 
@@ -1971,6 +2048,7 @@ function clearAnnouncementFormFields() {
 
 async function saveAnnouncement() {
   if (!isAdminOrSteward()) return;
+  const id = value("announcement-id");
   const payload = {
     title: value("announcement-title-input"),
     date: value("announcement-date-input"),
@@ -1982,20 +2060,25 @@ async function saveAnnouncement() {
   };
   if (!payload.title || !payload.date || !payload.summary) return alert("Title, date, and summary are required.");
   if (previewMode || !isConfigured) {
-    const id = value("announcement-id") || crypto.randomUUID();
-    const row = { id, ...payload };
-    const index = announcementItems.findIndex((item) => item.id === id);
+    const localId = id || crypto.randomUUID();
+    const row = { id: localId, ...payload };
+    const index = announcementItems.findIndex((item) => item.id === localId);
     if (index >= 0) announcementItems[index] = row; else announcementItems.unshift(row);
-    selectedAnnouncementId = id;
+    selectedAnnouncementId = localId;
     renderPublicBoard();
     renderAnnouncementManager();
     return;
   }
-  const id = value("announcement-id");
   const result = isUuid(id)
     ? await supabaseClient.from("public_announcements").update(payload).eq("id", id).select().single()
     : await supabaseClient.from("public_announcements").insert({ ...payload, created_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(isUuid(id) ? "update" : "create", "announcement", {
+    targetId: result.data.id,
+    targetLabel: payload.title,
+    summary: `${isUuid(id) ? "Updated" : "Created"} announcement`,
+    details: payload
+  });
   await loadData();
   renderAll();
   renderPublicBoard();
@@ -2003,6 +2086,7 @@ async function saveAnnouncement() {
 
 async function deleteAnnouncement(id) {
   if (!isAdminOrSteward() || !confirm("Delete this announcement?")) return;
+  const item = announcementItems.find((entry) => entry.id === id);
   if (previewMode || !isConfigured) {
     announcementItems = announcementItems.filter((item) => item.id !== id);
     selectedAnnouncementId = announcementItems[0]?.id || null;
@@ -2019,6 +2103,16 @@ async function deleteAnnouncement(id) {
   }
   const { error } = await supabaseClient.from("public_announcements").delete().eq("id", id);
   if (error) return alert(error.message);
+  await logAuditEvent("delete", "announcement", {
+    targetId: id,
+    targetLabel: item?.title || id,
+    summary: "Deleted announcement",
+    details: {
+      title: item?.title || null,
+      date: item?.date || null,
+      contract: item?.contract || null
+    }
+  });
   await loadData();
   renderAll();
   renderPublicBoard();
@@ -2079,6 +2173,7 @@ function clearPublicResourceFormFields() {
 
 async function savePublicResource() {
   if (!isAdminOrSteward()) return;
+  const id = value("resource-id");
   const payload = {
     title: value("resource-title-input"),
     category: value("resource-category-input"),
@@ -2089,20 +2184,25 @@ async function savePublicResource() {
   };
   if (!payload.title || !payload.category) return alert("Title and category are required.");
   if (previewMode || !isConfigured) {
-    const id = value("resource-id") || crypto.randomUUID();
-    const row = { id, ...payload };
-    const index = publicResourceItems.findIndex((item) => item.id === id);
+    const localId = id || crypto.randomUUID();
+    const row = { id: localId, ...payload };
+    const index = publicResourceItems.findIndex((item) => item.id === localId);
     if (index >= 0) publicResourceItems[index] = row; else publicResourceItems.unshift(row);
-    selectedPublicResourceId = id;
+    selectedPublicResourceId = localId;
     renderPublicBoard();
     renderPublicResourceManager();
     return;
   }
-  const id = value("resource-id");
   const result = isUuid(id)
     ? await supabaseClient.from("resources").update(payload).eq("id", id).select().single()
     : await supabaseClient.from("resources").insert({ ...payload, created_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(isUuid(id) ? "update" : "create", "resource", {
+    targetId: result.data.id,
+    targetLabel: payload.title,
+    summary: `${isUuid(id) ? "Updated" : "Created"} public resource`,
+    details: payload
+  });
   await loadData();
   renderAll();
   renderPublicBoard();
@@ -2110,6 +2210,7 @@ async function savePublicResource() {
 
 async function deletePublicResource(id) {
   if (!isAdminOrSteward() || !confirm("Delete this resource?")) return;
+  const item = publicResourceItems.find((entry) => entry.id === id) || resources.find((entry) => entry.id === id);
   if (previewMode || !isConfigured) {
     publicResourceItems = publicResourceItems.filter((item) => item.id !== id);
     selectedPublicResourceId = publicResourceItems[0]?.id || null;
@@ -2126,6 +2227,16 @@ async function deletePublicResource(id) {
   }
   const { error } = await supabaseClient.from("resources").delete().eq("id", id);
   if (error) return alert(error.message);
+  await logAuditEvent("delete", "resource", {
+    targetId: id,
+    targetLabel: item?.title || id,
+    summary: "Deleted public resource",
+    details: {
+      title: item?.title || null,
+      category: item?.category || null,
+      contract: item?.contract || null
+    }
+  });
   await loadData();
   renderAll();
   renderPublicBoard();
@@ -2186,6 +2297,7 @@ function clearExecutiveFormFields() {
 
 async function saveExecutiveMember() {
   if (!isAdminOrSteward()) return;
+  const id = value("executive-id");
   const payload = {
     name: value("executive-name-input"),
     role: value("executive-role-input"),
@@ -2195,20 +2307,25 @@ async function saveExecutiveMember() {
   };
   if (!payload.name || !payload.role) return alert("Name and role are required.");
   if (previewMode || !isConfigured) {
-    const id = value("executive-id") || crypto.randomUUID();
-    const row = { id, ...payload };
-    const index = publicExecutiveTeam.findIndex((item) => item.id === id);
+    const localId = id || crypto.randomUUID();
+    const row = { id: localId, ...payload };
+    const index = publicExecutiveTeam.findIndex((item) => item.id === localId);
     if (index >= 0) publicExecutiveTeam[index] = row; else publicExecutiveTeam.push(row);
-    selectedExecutiveId = id;
+    selectedExecutiveId = localId;
     renderPublicDirectory();
     renderExecutiveManager();
     return;
   }
-  const id = value("executive-id");
   const result = isUuid(id)
     ? await supabaseClient.from("public_executive_team").update({ ...payload, updated_by: currentUser.id }).eq("id", id).select().single()
     : await supabaseClient.from("public_executive_team").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(isUuid(id) ? "update" : "create", "executive_member", {
+    targetId: result.data.id,
+    targetLabel: payload.name,
+    summary: `${isUuid(id) ? "Updated" : "Created"} executive entry`,
+    details: payload
+  });
   await loadData();
   renderAll();
   renderPublicDirectory();
@@ -2216,6 +2333,7 @@ async function saveExecutiveMember() {
 
 async function deleteExecutiveMember(id) {
   if (!isAdminOrSteward() || !confirm("Delete this executive entry?")) return;
+  const item = publicExecutiveTeam.find((entry) => entry.id === id);
   if (previewMode || !isConfigured) {
     publicExecutiveTeam = publicExecutiveTeam.filter((item) => item.id !== id);
     selectedExecutiveId = publicExecutiveTeam[0]?.id || null;
@@ -2232,6 +2350,16 @@ async function deleteExecutiveMember(id) {
   }
   const { error } = await supabaseClient.from("public_executive_team").delete().eq("id", id);
   if (error) return alert(error.message);
+  await logAuditEvent("delete", "executive_member", {
+    targetId: id,
+    targetLabel: item?.name || id,
+    summary: "Deleted executive entry",
+    details: {
+      name: item?.name || null,
+      role: item?.role || null,
+      area: item?.area || null
+    }
+  });
   await loadData();
   renderAll();
   renderPublicDirectory();
@@ -2397,6 +2525,12 @@ async function saveDistributionCompany() {
     ? await supabaseClient.from("distribution_companies").update({ ...payload, updated_by: currentUser.id }).eq("id", existing.id).select().single()
     : await supabaseClient.from("distribution_companies").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(existing?.id ? "update" : "create", "distribution_company", {
+    targetId: result.data.id,
+    targetLabel: company,
+    summary: `${existing?.id ? "Updated" : "Created"} distribution company`,
+    details: payload
+  });
   await loadData();
   renderAll();
 }
@@ -2532,6 +2666,15 @@ async function importElectionCsv() {
   }
   const { error } = await supabaseClient.from("election_contacts").insert(payload);
   if (error) return alert(error.message);
+  await logAuditEvent("import", "election_contacts", {
+    targetLabel: file.name,
+    summary: "Imported election committee CSV",
+    details: {
+      file_name: file.name,
+      imported_contacts: rows.length,
+      updated_companies: companyUpserts.map((row) => row.company)
+    }
+  });
   await loadData();
   renderAll();
   input.value = "";
@@ -2567,6 +2710,7 @@ function exportElectionCsv() {
 
 async function saveElectionContact() {
   if (!(isAdmin() || isSteward() || isCommittee())) return;
+  const id = value("election-id");
   const payload = {
     company: value("election-company-input"),
     group_name: value("election-group-input") || null,
@@ -2578,25 +2722,31 @@ async function saveElectionContact() {
   };
   if (!payload.company || !payload.member_name) return alert("Company and member name are required.");
   if (previewMode || !isConfigured) {
-    const id = value("election-id") || crypto.randomUUID();
-    const row = { id, ...payload };
-    const index = electionContacts.findIndex((item) => item.id === id);
+    const localId = id || crypto.randomUUID();
+    const row = { id: localId, ...payload };
+    const index = electionContacts.findIndex((item) => item.id === localId);
     if (index >= 0) electionContacts[index] = row; else electionContacts.push(row);
-    selectedElectionId = id;
+    selectedElectionId = localId;
     renderElectionManager();
     return;
   }
-  const id = value("election-id");
   const result = isUuid(id)
     ? await supabaseClient.from("election_contacts").update({ ...payload, updated_by: currentUser.id }).eq("id", id).select().single()
     : await supabaseClient.from("election_contacts").insert({ ...payload, created_by: currentUser.id, updated_by: currentUser.id }).select().single();
   if (result.error) return alert(result.error.message);
+  await logAuditEvent(isUuid(id) ? "update" : "create", "election_contact", {
+    targetId: result.data.id,
+    targetLabel: payload.member_name,
+    summary: `${isUuid(id) ? "Updated" : "Created"} election contact`,
+    details: payload
+  });
   await loadData();
   renderAll();
 }
 
 async function deleteElectionContact(id) {
   if (!(isAdmin() || isSteward() || isCommittee()) || !confirm("Delete this election contact?")) return;
+  const item = electionContacts.find((entry) => entry.id === id);
   if (previewMode || !isConfigured) {
     electionContacts = electionContacts.filter((item) => item.id !== id);
     selectedElectionId = electionContacts[0]?.id || null;
@@ -2611,6 +2761,15 @@ async function deleteElectionContact(id) {
   }
   const { error } = await supabaseClient.from("election_contacts").delete().eq("id", id);
   if (error) return alert(error.message);
+  await logAuditEvent("delete", "election_contact", {
+    targetId: id,
+    targetLabel: item?.member_name || id,
+    summary: "Deleted election contact",
+    details: {
+      company: item?.company || null,
+      email: item?.email || null
+    }
+  });
   await loadData();
   renderAll();
 }
@@ -2639,6 +2798,105 @@ function renderInviteManager() {
   list.querySelectorAll("[data-delete-invite-id]").forEach((button) => {
     button.addEventListener("click", () => deleteInviteCode(button.dataset.deleteInviteId));
   });
+}
+
+function filteredAuditEntries() {
+  const term = document.querySelector("#audit-search")?.value.trim().toLowerCase() || "";
+  const action = document.querySelector("#audit-action-filter")?.value || "all";
+  return auditEntries.filter((entry) => {
+    const haystack = [
+      entry.actor_name,
+      entry.action_kind,
+      entry.target_type,
+      entry.target_label,
+      entry.summary
+    ].join(" ").toLowerCase();
+    return (!term || haystack.includes(term)) && (action === "all" || entry.action_kind === action);
+  });
+}
+
+function renderAuditLog() {
+  const list = document.querySelector("#audit-list");
+  const detail = document.querySelector("#audit-detail");
+  if (!list || !detail || !isAdmin()) return;
+  const rows = filteredAuditEntries();
+  const total = document.querySelector("#audit-total");
+  const count = document.querySelector("#audit-list-count");
+  if (total) total.textContent = `${auditEntries.length} recent events`;
+  if (count) count.textContent = `${rows.length} shown`;
+  if (selectedAuditId && !rows.some((entry) => entry.id === selectedAuditId)) selectedAuditId = rows[0]?.id || null;
+  list.innerHTML = rows.map((entry) => `
+    <button class="case-card ${entry.id === selectedAuditId ? "active" : ""}" type="button" data-audit-id="${escapeHtml(entry.id)}">
+      <h3>${escapeHtml(entry.actor_name || "Unknown user")}</h3>
+      <p>${escapeHtml(entry.summary)}</p>
+      <div class="meta-row">
+        <span class="pill">${escapeHtml(entry.action_kind)}</span>
+        <span class="pill">${escapeHtml(entry.target_type)}</span>
+        <span class="pill">${new Date(entry.created_at).toLocaleString()}</span>
+      </div>
+    </button>
+  `).join("") || `<div class="empty">No audit events match the current filters.</div>`;
+  list.querySelectorAll("[data-audit-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedAuditId = button.dataset.auditId;
+      renderAuditLog();
+    });
+  });
+  const selected = rows.find((entry) => entry.id === selectedAuditId) || rows[0];
+  if (!selected) {
+    detail.innerHTML = `<div class="empty">Select an audit event to review details.</div>`;
+    return;
+  }
+  selectedAuditId = selected.id;
+  detail.innerHTML = `
+    <label>
+      User
+      <input value="${escapeHtml(selected.actor_name || "Unknown user")}" disabled>
+    </label>
+    <div class="form-row">
+      <label>
+        Action
+        <input value="${escapeHtml(selected.action_kind)}" disabled>
+      </label>
+      <label>
+        Target
+        <input value="${escapeHtml(selected.target_type)}" disabled>
+      </label>
+    </div>
+    <label>
+      Summary
+      <textarea rows="3" disabled>${escapeHtml(selected.summary)}</textarea>
+    </label>
+    <label>
+      Modified / Accessed
+      <input value="${escapeHtml(selected.target_label || selected.target_id || "")}" disabled>
+    </label>
+    <label>
+      Details
+      <textarea rows="10" disabled>${escapeHtml(JSON.stringify(selected.details || {}, null, 2))}</textarea>
+    </label>
+  `;
+}
+
+async function logAuditEvent(actionKind, targetType, options = {}) {
+  if (!isConfigured || previewMode || !currentUser?.id) return;
+  const payload = {
+    actor_id: currentUser.id,
+    actor_name: currentProfile?.full_name || currentUser.email || "Unknown user",
+    action_kind: actionKind,
+    target_type: targetType,
+    target_id: options.targetId || null,
+    target_label: options.targetLabel || null,
+    summary: options.summary || `${actionKind} ${targetType}`,
+    details: options.details || {}
+  };
+  const { data, error } = await supabaseClient.from("audit_log").insert(payload).select().single();
+  if (error) console.warn("audit_log insert failed", error.message);
+  if (data) {
+    auditEntries = [data, ...auditEntries].slice(0, 200);
+    selectedAuditId = selectedAuditId || data.id;
+    if (isAdmin() && activeAdminTab === "audit") renderAuditLog();
+  }
 }
 
 function buildInviteUrl(invite) {
@@ -2675,8 +2933,17 @@ async function createInviteCode() {
     setValue("invite-note-input", "");
     return;
   }
-  const { error } = await supabaseClient.from("invite_codes").insert(payload);
+  const { data, error } = await supabaseClient.from("invite_codes").insert(payload).select().single();
   if (error) return alert(error.message);
+  await logAuditEvent("create", "invite_code", {
+    targetId: data.id,
+    targetLabel: payload.code,
+    summary: "Created invite code",
+    details: {
+      requested_role: payload.requested_role,
+      note: payload.note
+    }
+  });
   await loadData();
   renderInviteManager();
   setValue("invite-note-input", "");
@@ -2684,6 +2951,7 @@ async function createInviteCode() {
 
 async function deleteInviteCode(id) {
   if (!isAdminOrSteward() || !confirm("Delete this invite code?")) return;
+  const invite = inviteCodes.find((item) => item.id === id);
   if (previewMode || !isConfigured) {
     inviteCodes = inviteCodes.filter((item) => item.id !== id);
     renderInviteManager();
@@ -2691,6 +2959,15 @@ async function deleteInviteCode(id) {
   }
   const { error } = await supabaseClient.from("invite_codes").delete().eq("id", id);
   if (error) return alert(error.message);
+  await logAuditEvent("delete", "invite_code", {
+    targetId: id,
+    targetLabel: invite?.code || id,
+    summary: "Deleted invite code",
+    details: {
+      requested_role: invite?.requested_role || null,
+      note: invite?.note || null
+    }
+  });
   await loadData();
   renderInviteManager();
 }
@@ -2734,6 +3011,7 @@ function resetCaseFormFields() {
 }
 
 async function saveCase() {
+  const caseId = value("case-id");
   const payload = {
     member_name: value("member-name"),
     member_contact: value("member-contact"),
@@ -2748,7 +3026,7 @@ async function saveCase() {
   const noteText = value("new-note");
 
   if (previewMode) {
-    const id = value("case-id") || crypto.randomUUID();
+    const id = caseId || crypto.randomUUID();
     const existingIndex = cases.findIndex((item) => item.id === id);
     const nextCase = { ...payload, id, created_at: new Date().toISOString() };
     if (existingIndex >= 0) cases[existingIndex] = nextCase;
@@ -2759,7 +3037,6 @@ async function saveCase() {
     return;
   }
 
-  const caseId = value("case-id");
   let result;
   if (caseId) {
     result = await supabaseClient.from("cases").update(payload).eq("id", caseId).select().single();
@@ -2768,9 +3045,30 @@ async function saveCase() {
   }
   if (result.error) return alert(result.error.message);
   selectedCaseId = result.data.id;
+  await logAuditEvent(caseId ? "update" : "create", "case", {
+    targetId: result.data.id,
+    targetLabel: payload.member_name,
+    summary: `${caseId ? "Updated" : "Created"} case`,
+    details: {
+      contract: payload.contract,
+      issue_type: payload.issue_type,
+      status: payload.status,
+      next_deadline: payload.next_deadline,
+      note_added: Boolean(noteText)
+    }
+  });
 
   if (noteText) {
     await supabaseClient.from("case_notes").insert({ case_id: selectedCaseId, body: noteText, created_by: currentUser.id });
+    await logAuditEvent("create", "case_note", {
+      targetId: selectedCaseId,
+      targetLabel: payload.member_name,
+      summary: "Added case note",
+      details: {
+        case_id: selectedCaseId,
+        note: noteText
+      }
+    });
   }
   await loadData();
   await loadCaseChildren(selectedCaseId);
@@ -2780,6 +3078,7 @@ async function saveCase() {
 async function deleteSelectedCase() {
   if (!isAdmin() || !selectedCaseId) return;
   if (!confirm("Delete this case and its notes/documents?")) return;
+  const caseRecord = cases.find((item) => item.id === selectedCaseId);
   if (previewMode) {
     cases = cases.filter((item) => item.id !== selectedCaseId);
     selectedCaseId = cases[0]?.id || null;
@@ -2795,6 +3094,16 @@ async function deleteSelectedCase() {
   const { data, error } = await supabaseClient.from("cases").delete().eq("id", selectedCaseId).select("id");
   if (error) return alert(error.message);
   if (!data?.length) return alert("Case was not deleted. Refresh and confirm your account still has admin access.");
+  await logAuditEvent("delete", "case", {
+    targetId: selectedCaseId,
+    targetLabel: caseRecord?.member_name || selectedCaseId,
+    summary: "Deleted case",
+    details: {
+      contract: caseRecord?.contract || null,
+      issue_type: caseRecord?.issue_type || null,
+      status: caseRecord?.status || null
+    }
+  });
   selectedCaseId = null;
   await loadData();
   renderAll();
@@ -2830,6 +3139,12 @@ async function uploadDocument(event) {
 async function openDocument(path) {
   const { data, error } = await supabaseClient.storage.from(DOCUMENT_BUCKET).createSignedUrl(path, 300);
   if (error) return alert(error.message);
+  await logAuditEvent("access", "case_document", {
+    targetId: path,
+    targetLabel: documents.find((item) => item.storage_path === path)?.file_name || path.split("/").pop() || path,
+    summary: "Opened case document",
+    details: { path }
+  });
   window.open(data.signedUrl, "_blank", "noopener");
 }
 
