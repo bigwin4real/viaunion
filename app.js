@@ -306,6 +306,28 @@ async function startAuthenticatedApp() {
   }
 
   currentProfile = profile;
+  let shouldLogSignIn = true;
+  try {
+    const loginKey = `audit-sign-in:${currentUser.id}`;
+    if (window.sessionStorage.getItem(loginKey) === "1") {
+      shouldLogSignIn = false;
+    } else {
+      window.sessionStorage.setItem(loginKey, "1");
+    }
+  } catch {
+    // Ignore sessionStorage restrictions and log sign-in.
+  }
+  if (shouldLogSignIn) {
+    await logAuditEvent("sign_in", "profile", {
+      targetId: currentUser.id,
+      targetLabel: profile.full_name || profile.email || currentUser.email || currentUser.id,
+      summary: "Signed in to the private portal",
+      details: {
+        roles: profileRoles(profile),
+        email: profile.email || currentUser.email || null
+      }
+    });
+  }
   await loadData();
   renderPortal();
 }
@@ -1279,6 +1301,7 @@ function renderQuestionModeration() {
 
 async function deletePublicQuestion(questionId) {
   if (!confirm("Remove this Q&A message?")) return;
+  const question = publicQuestions.find((item) => item.id === questionId);
   if (previewMode) {
     publicQuestions = publicQuestions.filter((item) => item.id !== questionId);
     renderQuestionModeration();
@@ -1286,6 +1309,15 @@ async function deletePublicQuestion(questionId) {
   }
   const { error } = await supabaseClient.from("public_questions").delete().eq("id", questionId);
   if (error) return alert(error.message);
+  await logAuditEvent("delete", "public_question", {
+    targetId: questionId,
+    targetLabel: question?.question || questionId,
+    summary: "Removed public Q&A message",
+    details: {
+      name: question?.name || null,
+      status: question?.status || null
+    }
+  });
   await loadData();
   renderQuestionModeration();
 }
@@ -1354,6 +1386,16 @@ async function uploadInternalFile(event) {
     uploaded_by: currentUser.id
   });
   if (record.error) return alert(record.error.message);
+  await logAuditEvent("upload", "internal_file", {
+    targetId: storagePath,
+    targetLabel: file.name,
+    summary: "Uploaded internal file",
+    details: {
+      kind,
+      mime_type: file.type || null,
+      file_size: file.size
+    }
+  });
   await loadData();
   renderInternalFiles();
   event.target.value = "";
@@ -2423,6 +2465,7 @@ async function restoreExecutiveDefaults() {
     return;
   }
 
+  const restored = [];
   for (const entry of defaults) {
     const exists = publicExecutiveTeam.some((item) => item.name === entry.name && item.role === entry.role);
     if (exists) continue;
@@ -2430,7 +2473,15 @@ async function restoreExecutiveDefaults() {
       .from("public_executive_team")
       .insert({ ...entry, created_by: currentUser.id, updated_by: currentUser.id });
     if (error) return alert(error.message);
+    restored.push(`${entry.name} - ${entry.role}`);
   }
+  await logAuditEvent("restore", "executive_defaults", {
+    targetLabel: restored.length ? restored.join(", ") : "No changes",
+    summary: restored.length ? "Restored default executive entries" : "Checked executive defaults with no changes needed",
+    details: {
+      restored
+    }
+  });
   await loadData();
   renderAll();
   renderPublicDirectory();
@@ -3151,6 +3202,16 @@ async function uploadDocument(event) {
     uploaded_by: currentUser.id
   });
   if (record.error) return alert(record.error.message);
+  await logAuditEvent("upload", "case_document", {
+    targetId: storagePath,
+    targetLabel: file.name,
+    summary: "Uploaded case document",
+    details: {
+      case_id: selectedCaseId,
+      mime_type: file.type || null,
+      file_size: file.size
+    }
+  });
   await loadCaseChildren(selectedCaseId);
   renderDocuments();
   event.target.value = "";
