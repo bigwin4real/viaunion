@@ -213,6 +213,14 @@ const roleLabels = {
   committee: "Committee"
 };
 
+function sanitizeAssignedRoles(roles = []) {
+  const normalized = [...new Set((roles || []).map(normalizeRoleName).filter(Boolean))];
+  if (normalized.includes("admin") && normalized.includes("steward")) {
+    return normalized.filter((role) => role !== "steward");
+  }
+  return normalized.length ? normalized : ["committee"];
+}
+
 function wantsRegisterFlow() {
   const params = new URLSearchParams(window.location.search);
   return params.get("register") === "1" || Boolean((params.get("invite") || params.get("code") || "").trim());
@@ -224,12 +232,12 @@ function normalizeRoleName(role) {
 
 function profileRoles(profile) {
   const assigned = Array.isArray(profile?.assigned_roles)
-    ? profile.assigned_roles.map(normalizeRoleName).filter(Boolean)
+    ? sanitizeAssignedRoles(profile.assigned_roles)
     : [];
   const direct = new Set(assigned);
   if (profile?.role) direct.add(normalizeRoleName(profile.role));
   if (!direct.size) direct.add("committee");
-  return ["admin", "steward", "committee"].filter((role) => direct.has(role));
+  return sanitizeAssignedRoles(["admin", "steward", "committee"].filter((role) => direct.has(role)));
 }
 
 function profileHasRole(profile, role) {
@@ -237,8 +245,7 @@ function profileHasRole(profile, role) {
 }
 
 function availablePortalRoles() {
-  if (hasAdminAccount()) return ["admin", "steward", "committee"];
-  return ["admin", "steward", "committee"].filter((role) => profileHasRole(currentProfile, role));
+  return profileRoles(currentProfile);
 }
 
 function activeRole() {
@@ -263,7 +270,7 @@ const app = document.querySelector("#app");
 
 if (previewMode) {
   currentUser = { id: "preview-user", email: "preview@local4005.test" };
-  currentProfile = { id: "preview-user", full_name: "Preview Admin", role: "admin", assigned_roles: ["admin", "steward", "committee"] };
+  currentProfile = { id: "preview-user", full_name: "Preview Admin", role: "admin", assigned_roles: ["admin", "committee"] };
   cases = [...sampleCases];
   resources = [...sampleResources];
   internalFiles = [
@@ -273,7 +280,7 @@ if (previewMode) {
     { id: "pending-1", full_name: "New Steward", email: "new.steward@example.ca", role: "steward", assigned_roles: ["steward"], request_note: "Moncton steward access request", share_email: false, share_phone: false, created_at: new Date().toISOString() }
   ];
   activeProfiles = [
-    { id: "preview-user", full_name: "Preview Admin", email: "preview@local4005.test", role: "admin", assigned_roles: ["admin", "steward", "committee"], share_email: false, share_phone: false, created_at: new Date().toISOString() }
+    { id: "preview-user", full_name: "Preview Admin", email: "preview@local4005.test", role: "admin", assigned_roles: ["admin", "committee"], share_email: false, share_phone: false, created_at: new Date().toISOString() }
   ];
   publicStewards = [
     { name: "Nicolas Hachey", role: "Shop Steward", area: "Moncton VCC", contract: "Contract 1", contact: "Contact through Local 4005" }
@@ -1598,7 +1605,7 @@ function selectedRolesForProfile(profileId) {
   const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
   if (!container) return assignedRoles(profile);
   const checks = Array.from(container.querySelectorAll("input:checked")).map((input) => normalizeRoleName(input.value));
-  return checks.length ? checks : ["committee"];
+  return sanitizeAssignedRoles(checks);
 }
 
 async function updateAccessRequest(profileId, approved, assignedRoles = []) {
