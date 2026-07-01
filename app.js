@@ -1161,6 +1161,14 @@ function wirePortalEvents() {
   document.querySelector("#new-election")?.addEventListener("click", clearElectionForm);
   document.querySelector("#save-distribution-company")?.addEventListener("click", saveDistributionCompany);
   document.querySelector("#distribution-company-select")?.addEventListener("change", populateDistributionCompanyForm);
+  document.querySelector("#committee-company-filter")?.addEventListener("change", renderElectionManager);
+  document.querySelector("#committee-search")?.addEventListener("input", renderElectionManager);
+  document.querySelector("#committee-jump-contact")?.addEventListener("click", () => {
+    document.querySelector("#election-member-input")?.focus();
+  });
+  document.querySelector("#committee-jump-import")?.addEventListener("click", () => {
+    document.querySelector("#election-csv-input")?.click();
+  });
   document.querySelector("#import-election-csv")?.addEventListener("click", importElectionCsv);
   document.querySelector("#export-election-csv")?.addEventListener("click", exportElectionCsv);
   document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
@@ -1933,19 +1941,17 @@ function renderCaseForm() {
 function renderResources() {
   const term = document.querySelector("#search")?.value.trim().toLowerCase() || "";
   const contract = document.querySelector("#contract-filter")?.value || "all";
+  const currentRole = activeRole();
   
   let sourceRows = resources;
   
-  // Committee only sees wages form
-  if (isCommittee()) {
+  if (currentRole === "committee") {
     sourceRows = resources.filter((item) => item.url === "wages-form.html");
   }
-  // Stewards see most resources but not admin-only
-  else if (isSteward()) {
+  else if (currentRole === "steward") {
     sourceRows = resources.filter((item) => !item.adminOnly);
   }
-  // Admins see everything
-  
+
   const rows = sourceRows.filter((item) => {
     const text = [item.title, item.category, item.description].join(" ").toLowerCase();
     return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
@@ -1965,6 +1971,8 @@ function renderResources() {
 
   const electionSection = document.querySelector("#elections-section");
   if (electionSection) electionSection.hidden = !(isAdmin() || isSteward() || isCommittee());
+  const committeeOverview = document.querySelector("#committee-overview");
+  if (committeeOverview) committeeOverview.hidden = currentRole !== "committee";
 }
 
 function normalizeMeetings(rows) {
@@ -2588,13 +2596,29 @@ function renderElectionManager() {
   }
   renderElectionCompanyOptions();
   populateDistributionCompanyForm();
+  renderCommitteeFilterOptions();
+  renderCommitteeOverview();
+
+  const companyFilter = document.querySelector("#committee-company-filter")?.value || "all";
+  const searchTerm = document.querySelector("#committee-search")?.value.trim().toLowerCase() || "";
+  const filteredContacts = electionContacts.filter((item) => {
+    const matchesCompany = companyFilter === "all" || item.company === companyFilter;
+    const haystack = [item.member_name, item.group_name, item.email, item.note].join(" ").toLowerCase();
+    const matchesSearch = !searchTerm || haystack.includes(searchTerm);
+    return matchesCompany && matchesSearch;
+  });
   const grouped = electionContacts.reduce((map, item) => {
+    if (!filteredContacts.includes(item)) return map;
     const company = item.company || "Unassigned";
     if (!map[company]) map[company] = [];
     map[company].push(item);
     return map;
   }, {});
   const companies = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+  const filterSummary = document.querySelector("#committee-filter-summary");
+  if (filterSummary) {
+    filterSummary.textContent = `${filteredContacts.length} contact${filteredContacts.length === 1 ? "" : "s"} shown`;
+  }
   list.innerHTML = companies.map((company) => `
     <section class="resource-item">
       <h3>${escapeHtml(company)}</h3>
@@ -2634,6 +2658,37 @@ function renderElectionManager() {
     button.addEventListener("click", () => deleteElectionContact(button.dataset.deleteElectionId));
   });
   populateElectionForm(selectedElectionId);
+}
+
+function renderCommitteeFilterOptions() {
+  const select = document.querySelector("#committee-company-filter");
+  if (!select) return;
+  const companies = Array.from(new Set([
+    ...local4005Companies,
+    ...distributionCompanies.map((item) => item.company).filter(Boolean),
+    ...electionContacts.map((item) => item.company).filter(Boolean)
+  ])).sort((a, b) => a.localeCompare(b));
+  const currentValue = select.value || "all";
+  select.innerHTML = `
+    <option value="all">All companies</option>
+    ${companies.map((company) => `<option value="${escapeHtml(company)}">${escapeHtml(company)}</option>`).join("")}
+  `;
+  select.value = companies.includes(currentValue) || currentValue === "all" ? currentValue : "all";
+}
+
+function renderCommitteeOverview() {
+  const companyCount = document.querySelector("#committee-company-count");
+  const contactCount = document.querySelector("#committee-contact-count");
+  const stewardCount = document.querySelector("#committee-steward-count");
+  if (!companyCount || !contactCount || !stewardCount) return;
+  const companyTotal = Array.from(new Set([
+    ...distributionCompanies.map((item) => item.company).filter(Boolean),
+    ...electionContacts.map((item) => item.company).filter(Boolean)
+  ])).length;
+  const stewardTotal = electionContacts.filter((item) => item.is_shop_steward || item.is_chief_shop_steward).length;
+  companyCount.textContent = String(companyTotal);
+  contactCount.textContent = String(electionContacts.length);
+  stewardCount.textContent = String(stewardTotal);
 }
 
 function renderElectionCompanyOptions() {
