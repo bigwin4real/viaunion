@@ -1072,7 +1072,7 @@ function applyRoleVisibility() {
     "#dashboard-grid": (role === "steward" || role === "admin") && isDashboardTab,
     ".approval-panel": role === "admin" && isAdminTab,
     ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
-    "#workspace-tab": (role === "steward" || role === "admin") && isWorkspaceTab,
+    "#workspace-tab": isWorkspaceTab,
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
     "#cases-tab": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
     ".resources": committeeView || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
@@ -1194,7 +1194,7 @@ function renderAdminTabs() {
       button.classList.remove("active");
     });
     if (statsGrid) statsGrid.hidden = true;
-    if (workspaceTab) workspaceTab.hidden = true;
+    if (workspaceTab) workspaceTab.hidden = false;
     if (usersTab) usersTab.hidden = true;
     if (contentTab) contentTab.hidden = true;
     if (invitesTab) invitesTab.hidden = true;
