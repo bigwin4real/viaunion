@@ -184,6 +184,7 @@ let notes = [];
 let documents = [];
 let pendingProfiles = [];
 let activeProfiles = [];
+let allProfiles = [];
 let internalFiles = [];
 let publicQuestions = [...sampleQuestions];
 let announcementItems = publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item }));
@@ -876,7 +877,7 @@ function applyInvitePrefill() {
 async function loadData() {
   const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
   const canManageUsers = profileHasRole(currentProfile, "admin");
-  const [caseResult, resourceResult, pendingResult, activeProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult, companyResult, auditResult] = await Promise.all([
+  const [caseResult, resourceResult, pendingResult, activeProfileResult, allProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult, companyResult, auditResult] = await Promise.all([
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     canManageUsers
@@ -884,6 +885,9 @@ async function loadData() {
       : Promise.resolve({ data: [] }),
     canManageUsers
       ? supabaseClient.from("profiles").select("*").eq("active", true).order("full_name", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    canManageUsers
+      ? supabaseClient.from("profiles").select("*").order("full_name", { ascending: true })
       : Promise.resolve({ data: [] }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
     committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false }),
@@ -912,6 +916,7 @@ async function loadData() {
   }
   pendingProfiles = pendingResult.data || [];
   activeProfiles = activeProfileResult.data || [];
+  allProfiles = allProfileResult.data || [...activeProfiles, ...pendingProfiles];
   internalFiles = internalResult.data || [];
   publicQuestions = questionResult.data || [];
   announcementItems = (announcementResult.data || []).map((item) => ({
@@ -1040,8 +1045,8 @@ function renderRoleSwitcher() {
 
 function applyRoleVisibility() {
   const role = activeRole();
-  const committeeOnlyView = role === "committee" && !hasAdminAccount();
-  if (committeeOnlyView) {
+  const committeeView = role === "committee";
+  if (committeeView) {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
   }
@@ -1052,7 +1057,7 @@ function applyRoleVisibility() {
     portal.dataset.section = activeSectionTab;
   }
   const isDashboardTab = activeAdminTab === "dashboard";
-  const isWorkspaceTab = activeAdminTab === "workspace" || committeeOnlyView;
+  const isWorkspaceTab = activeAdminTab === "workspace" || committeeView;
   const isPublicTab = activeAdminTab === "public";
   const isAdminTab = activeAdminTab === "admin";
   const title = document.querySelector(".topbar h1");
@@ -1067,9 +1072,10 @@ function applyRoleVisibility() {
     "#dashboard-grid": (role === "steward" || role === "admin") && isDashboardTab,
     ".approval-panel": role === "admin" && isAdminTab,
     ".qa-moderation": (role === "admin" || role === "steward") && isPublicTab,
+    "#workspace-tab": (role === "steward" || role === "admin") && isWorkspaceTab,
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
     "#cases-tab": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
-    ".resources": committeeOnlyView || (((isSteward() || isAdmin()) && isWorkspaceTab && activeSectionTab === "resources")),
+    ".resources": committeeView || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
     "#admin-nav": isAdmin() || isSteward(),
     "#users-tab": isAdmin() && isAdminTab,
     "#content-tab": (isAdmin() || isSteward()) && isPublicTab
@@ -1144,7 +1150,7 @@ function wirePortalEvents() {
 }
 
 function renderAll() {
-  if (activeRole() === "committee" && !hasAdminAccount()) {
+  if (activeRole() === "committee") {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
   }
@@ -1172,8 +1178,8 @@ function renderAdminTabs() {
   const role = activeRole();
   const isAdminView = hasAdminAccount();
   const isStewardView = hasStewardAccount() || isAdminView;
-  const isCommitteeView = role === "committee" && !isAdminView;
-  const casesTab = document.querySelector("#cases-tab");
+  const isCommitteeView = role === "committee";
+  const workspaceTab = document.querySelector("#workspace-tab");
   const usersTab = document.querySelector("#users-tab");
   const contentTab = document.querySelector("#content-tab");
   const invitesTab = document.querySelector("#invites-tab");
@@ -1188,7 +1194,7 @@ function renderAdminTabs() {
       button.classList.remove("active");
     });
     if (statsGrid) statsGrid.hidden = true;
-    if (casesTab) casesTab.hidden = true;
+    if (workspaceTab) workspaceTab.hidden = true;
     if (usersTab) usersTab.hidden = true;
     if (contentTab) contentTab.hidden = true;
     if (invitesTab) invitesTab.hidden = true;
@@ -1215,7 +1221,7 @@ function renderAdminTabs() {
     button.hidden = !(allowed && (isAdminView || isStewardView));
   });
   if (statsGrid) statsGrid.hidden = activeAdminTab !== "dashboard";
-  if (casesTab) casesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "workspace";
+  if (workspaceTab) workspaceTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "workspace";
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "admin";
   if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
   if (invitesTab) invitesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "invites";
@@ -1234,11 +1240,11 @@ function renderSectionTabs() {
   const filesSection = document.querySelector("#files-section");
   const casesSection = document.querySelector("#cases-tab");
   const resourcesSection = document.querySelector("#resources-section");
-  const isWorkspaceView = activeAdminTab === "workspace" || (role === "committee" && !hasAdminAccount());
+  const isWorkspaceView = activeAdminTab === "workspace" || role === "committee";
 
   if (!sectionNav || !filesSection || !casesSection || !resourcesSection) return;
 
-  if (role === "committee" && !hasAdminAccount()) {
+  if (role === "committee") {
     sectionNav.hidden = true;
     filesSection.hidden = true;
     casesSection.hidden = true;
@@ -1492,7 +1498,7 @@ function filteredUsers() {
   const term = document.querySelector("#user-search")?.value.trim().toLowerCase() || "";
   const role = document.querySelector("#user-role-filter")?.value || "all";
   const status = document.querySelector("#user-status-filter")?.value || "all";
-  return [...activeProfiles, ...pendingProfiles].filter((profile) => {
+  return allProfiles.filter((profile) => {
     const matchesTerm = !term || [profile.full_name, profile.email].join(" ").toLowerCase().includes(term);
     const roles = assignedRoles(profile);
     const matchesRole = role === "all" || roles.includes(role) || profile.role === role;

@@ -1014,6 +1014,7 @@ textarea {
 .portal[data-role="committee"] .stats-grid,
 .portal[data-role="committee"] #dashboard-grid,
 .portal[data-role="committee"] #admin-nav,
+.portal[data-role="committee"] #workspace-tab,
 .portal[data-role="committee"] #users-tab,
 .portal[data-role="committee"] #content-tab,
 .portal[data-role="committee"] #moderation-tab,
