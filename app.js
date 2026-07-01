@@ -1581,6 +1581,7 @@ function renderUsers() {
           : profile.id === selectedUserId
             ? `<button type="button" data-save-profile-id="${escapeHtml(profile.id)}">Save profile</button>
                <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
+               <button class="secondary" type="button" data-confirm-email-id="${escapeHtml(profile.id)}">Approve email</button>
                <button class="secondary" type="button" data-resend-confirmation-id="${escapeHtml(profile.id)}">Resend confirmation</button>
                <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>
                <button class="secondary" type="button" data-edit-user-id="${escapeHtml(profile.id)}">Close</button>`
@@ -1606,6 +1607,9 @@ function renderUsers() {
   });
   list.querySelectorAll("[data-save-profile-id]").forEach((button) => {
     button.addEventListener("click", () => updateProfileDetails(button.dataset.saveProfileId));
+  });
+  list.querySelectorAll("[data-confirm-email-id]").forEach((button) => {
+    button.addEventListener("click", () => approveUserEmail(button.dataset.confirmEmailId));
   });
   list.querySelectorAll("[data-resend-confirmation-id]").forEach((button) => {
     button.addEventListener("click", () => resendUserConfirmation(button.dataset.resendConfirmationId));
@@ -1781,6 +1785,39 @@ async function resendUserConfirmation(profileId) {
     details: { email }
   });
   alert(`Confirmation email resent to ${email}.`);
+}
+
+async function approveUserEmail(profileId) {
+  const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
+  if (!profileId) return;
+  if (!isConfigured) return alert("Supabase is not configured.");
+  if (!currentUser) return alert("You must be signed in.");
+
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) return alert("Your session expired. Sign in again.");
+
+  const response = await fetch("/api/confirm-user-email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ profileId })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) return alert(payload.error || "Unable to approve email.");
+
+  await logAuditEvent("update", "profile_confirmation", {
+    targetId: profileId,
+    targetLabel: profile?.full_name || profile?.email || profileId,
+    summary: "Admin approved email confirmation",
+    details: {
+      email: profile?.email || null,
+      method: "server_admin_update"
+    }
+  });
+  alert(`Email approved for ${profile?.full_name || profile?.email || "user"}.`);
 }
 
 async function upsertApprovedDirectoryEntry(profileId) {
