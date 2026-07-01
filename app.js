@@ -245,7 +245,11 @@ function profileHasRole(profile, role) {
 }
 
 function availablePortalRoles() {
-  return profileRoles(currentProfile);
+  const roles = [];
+  if (hasAdminAccount()) roles.push("admin");
+  if (hasStewardAccount()) roles.push("steward");
+  if (hasAdminAccount() || hasStewardAccount() || hasCommitteeAccount()) roles.push("committee");
+  return [...new Set(roles)];
 }
 
 function activeRole() {
