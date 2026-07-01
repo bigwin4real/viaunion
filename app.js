@@ -857,7 +857,9 @@ function renderRegister() {
       message.textContent = error.message;
       return;
     }
-    message.textContent = "Request submitted. An admin must approve the account before private tools are available.";
+    message.textContent = inviteCode
+      ? "Signup submitted. If the invite code is valid, the account will be activated automatically after email confirmation."
+      : "Request submitted. An admin must approve the account before private tools are available.";
     document.querySelector("#register-form").reset();
   });
 }

@@ -29,8 +29,21 @@ set search_path = public
 as $$
 declare
   requested_role public.portal_role;
+  invite_role public.portal_role;
+  invite_code text;
+  is_invited boolean := false;
 begin
+  invite_code := nullif(new.raw_user_meta_data ->> 'invite_code', '');
+  if invite_code is not null then
+    select requested_role
+      into invite_role
+    from public.invite_codes
+    where code = invite_code;
+    is_invited := invite_role is not null;
+  end if;
+
   requested_role := case
+    when is_invited then invite_role
     when new.raw_user_meta_data ->> 'requested_role' = 'admin' then 'admin'::public.portal_role
     when new.raw_user_meta_data ->> 'requested_role' = 'committee' then 'committee'::public.portal_role
     when new.raw_user_meta_data ->> 'requested_role' = 'election_committee' then 'election_committee'::public.portal_role
@@ -47,8 +60,8 @@ begin
     coalesce((new.raw_user_meta_data ->> 'share_phone')::boolean, false),
     requested_role,
     array[requested_role],
-    false,
-    'pending',
+    is_invited,
+    case when is_invited then 'approved'::public.access_status else 'pending'::public.access_status end,
     nullif(new.raw_user_meta_data ->> 'request_note', '')
   )
   on conflict (id) do update
@@ -59,6 +72,8 @@ begin
         share_phone = excluded.share_phone,
         role = excluded.role,
         assigned_roles = excluded.assigned_roles,
+        active = excluded.active,
+        access_status = excluded.access_status,
         request_note = excluded.request_note,
         updated_at = now();
 
