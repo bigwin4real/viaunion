@@ -751,7 +751,11 @@ function renderAuth() {
     const email = document.querySelector("#email").value;
     const password = document.querySelector("#password").value;
     const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    authMessage.textContent = error ? error.message : "Signed in.";
+    authMessage.textContent = error
+      ? /confirm/i.test(error.message || "")
+        ? "This account is approved, but the email is not confirmed yet. Ask an admin to resend the confirmation email or confirm it in Supabase Auth."
+        : error.message
+      : "Signed in.";
     if (!error) await startAuthenticatedApp();
   });
 }
@@ -1522,6 +1526,11 @@ function renderUsers() {
   if (selectedUserId && !rows.some((profile) => profile.id === selectedUserId)) selectedUserId = null;
   const total = document.querySelector("#users-total");
   if (total) total.textContent = `${rows.length} users`;
+  const intro = `
+    <div class="helper-text">
+      Approval and email confirmation are separate. If a user is approved but cannot sign in because the email is not confirmed, use <strong>Resend confirmation</strong>.
+    </div>
+  `;
   list.innerHTML = rows.map((profile) => `
     <article class="approval-card ${profile.id === selectedUserId ? "meeting-item-active" : ""}">
       <div>
@@ -1566,12 +1575,14 @@ function renderUsers() {
           : profile.id === selectedUserId
             ? `<button type="button" data-save-profile-id="${escapeHtml(profile.id)}">Save profile</button>
                <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
+               <button class="secondary" type="button" data-resend-confirmation-id="${escapeHtml(profile.id)}">Resend confirmation</button>
                <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>
                <button class="secondary" type="button" data-edit-user-id="${escapeHtml(profile.id)}">Close</button>`
             : `<button type="button" data-edit-user-id="${escapeHtml(profile.id)}">Edit</button>`}
       </div>
     </article>
   `).join("") || `<div class="empty">No users match the current filters.</div>`;
+  list.innerHTML = intro + list.innerHTML;
   list.querySelectorAll("[data-edit-user-id]").forEach((button) => {
     button.addEventListener("click", () => {
       selectedUserId = selectedUserId === button.dataset.editUserId ? null : button.dataset.editUserId;
@@ -1589,6 +1600,9 @@ function renderUsers() {
   });
   list.querySelectorAll("[data-save-profile-id]").forEach((button) => {
     button.addEventListener("click", () => updateProfileDetails(button.dataset.saveProfileId));
+  });
+  list.querySelectorAll("[data-resend-confirmation-id]").forEach((button) => {
+    button.addEventListener("click", () => resendUserConfirmation(button.dataset.resendConfirmationId));
   });
   list.querySelectorAll("[data-reset-password-id]").forEach((button) => {
     button.addEventListener("click", () => sendUserResetPassword(button.dataset.resetPasswordId));
@@ -1739,6 +1753,28 @@ async function sendUserResetPassword(profileId) {
     details: { email }
   });
   alert(`Password reset sent to ${email}.`);
+}
+
+async function resendUserConfirmation(profileId) {
+  const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
+  const email = userFieldValue(profileId, "email") || profile?.email;
+  if (!email) return alert("User email is required before resending confirmation.");
+  if (!isConfigured) return alert("Supabase is not configured.");
+  const { error } = await supabaseClient.auth.resend({
+    type: "signup",
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}${window.location.pathname}`
+    }
+  });
+  if (error) return alert(error.message);
+  await logAuditEvent("update", "profile_confirmation", {
+    targetId: profileId,
+    targetLabel: profile?.full_name || email,
+    summary: "Resent signup confirmation email",
+    details: { email }
+  });
+  alert(`Confirmation email resent to ${email}.`);
 }
 
 async function upsertApprovedDirectoryEntry(profileId) {
