@@ -7,7 +7,9 @@ export async function onRequestPost({ request, env }) {
   }
 
   const targetUserId = String(body.profileId || "").trim();
-  if (!targetUserId) return json({ error: "Missing profileId." }, 400);
+  const targetEmail = String(body.email || "").trim().toLowerCase();
+  const targetUsername = normalizeUsername(body.username || "");
+  if (!targetUserId && !targetEmail && !targetUsername) return json({ error: "Missing profile target." }, 400);
 
   if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.SUPABASE_SERVICE_ROLE_KEY) {
     return json({ error: "Supabase admin repair is not configured." }, 503);
@@ -40,27 +42,18 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Admin access required." }, 403);
   }
 
-  const targetProfileResponse = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(targetUserId)}&select=id,email,username,role,assigned_roles,share_email,share_phone,full_name,phone`,
-    {
-      headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
-      }
-    }
-  );
-  if (!targetProfileResponse.ok) {
-    const detail = await targetProfileResponse.text();
-    return json({ error: "Unable to load the target profile.", detail }, 502);
-  }
-  const targetProfiles = await targetProfileResponse.json();
-  const targetProfile = Array.isArray(targetProfiles) ? targetProfiles[0] || null : null;
+  const serviceHeaders = {
+    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+  };
+  const targetProfile = await findTargetProfile(env, { id: targetUserId, email: targetEmail, username: targetUsername }, serviceHeaders);
+  if (targetProfile === undefined) return json({ error: "Unable to load the target profile." }, 502);
   if (!targetProfile) return json({ error: "Target profile was not found." }, 404);
 
   const normalizedAssignedRoles = normalizeRoles(targetProfile.assigned_roles);
   const normalizedRole = normalizeRole(targetProfile.role) || normalizedAssignedRoles[0] || "committee";
 
-  const confirmResponse = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(targetUserId)}`, {
+  const confirmResponse = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(targetProfile.id)}`, {
     method: "PUT",
     headers: {
       apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -84,7 +77,7 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Supabase rejected the access repair update.", detail }, 502);
   }
 
-  const profileRepairResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(targetUserId)}`, {
+  const profileRepairResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(targetProfile.id)}`, {
     method: "PATCH",
     headers: {
       apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -191,6 +184,33 @@ async function fetchProfileById(env, id, headers) {
   if (!response.ok) return undefined;
   const rows = await response.json();
   return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function findTargetProfile(env, target, headers) {
+  const select = "id,email,username,role,assigned_roles,share_email,share_phone,full_name,phone";
+  if (target.id) {
+    const byId = await fetchProfileRows(env, `id=eq.${encodeURIComponent(target.id)}&select=${select}`, headers);
+    if (byId === undefined) return undefined;
+    if (byId[0]) return byId[0];
+  }
+  if (target.email) {
+    const byEmail = await fetchProfileRows(env, `email=ilike.${encodeURIComponent(target.email)}&select=${select}&order=created_at.desc`, headers);
+    if (byEmail === undefined) return undefined;
+    if (byEmail[0]) return byEmail[0];
+  }
+  if (target.username) {
+    const byUsername = await fetchProfileRows(env, `username=eq.${encodeURIComponent(target.username)}&select=${select}&order=created_at.desc`, headers);
+    if (byUsername === undefined) return undefined;
+    if (byUsername[0]) return byUsername[0];
+  }
+  return null;
+}
+
+async function fetchProfileRows(env, query, headers) {
+  const response = await fetch(`${env.SUPABASE_URL}/rest/v1/profiles?${query}`, { headers });
+  if (!response.ok) return undefined;
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows : [];
 }
 
 function normalizeUsername(value) {

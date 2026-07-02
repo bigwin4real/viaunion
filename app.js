@@ -1958,7 +1958,11 @@ async function repairUserAccess(profileId) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`
     },
-    body: JSON.stringify({ profileId })
+    body: JSON.stringify({
+      profileId,
+      email: userFieldValue(profileId, "email") || profile?.email || "",
+      username: userFieldValue(profileId, "username") || profile?.username || ""
+    })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) return alert(payload.error || "Unable to repair access.");
@@ -2015,7 +2019,11 @@ async function approveUserEmail(profileId) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`
     },
-    body: JSON.stringify({ profileId })
+    body: JSON.stringify({
+      profileId,
+      email: userFieldValue(profileId, "email") || profile?.email || "",
+      username: userFieldValue(profileId, "username") || profile?.username || ""
+    })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) return alert(payload.error || "Unable to approve email.");
