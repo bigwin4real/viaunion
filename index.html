@@ -160,8 +160,8 @@
         <p>Authorized access for Moncton shop stewards, administrators, and committee form users.</p>
         <form id="login-form" class="login-form">
           <label>
-            Email
-            <input id="email" type="email" autocomplete="email" required>
+            Username or email
+            <input id="login-identifier" autocomplete="username email" required>
           </label>
           <label>
             Password
@@ -210,6 +210,10 @@
           <label>
             Full name
             <input id="register-name" autocomplete="name" required>
+          </label>
+          <label>
+            Username
+            <input id="register-username" autocomplete="username" required>
           </label>
           <label>
             Email
@@ -291,6 +295,10 @@
             <label>
               Full name
               <input id="self-profile-name" type="text" autocomplete="name">
+            </label>
+            <label>
+              Username
+              <input id="self-profile-username" type="text" autocomplete="username">
             </label>
             <label>
               Email

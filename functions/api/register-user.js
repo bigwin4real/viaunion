@@ -11,6 +11,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const fullName = String(body.full_name || "").trim();
+  const username = normalizeUsername(body.username || "");
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   const inviteCode = String(body.invite_code || "").trim();
@@ -21,6 +22,7 @@ export async function onRequestPost({ request, env }) {
   const sharePhone = Boolean(body.share_phone);
 
   if (!fullName) return json({ error: "Full name is required." }, 400);
+  if (!username) return json({ error: "Username is required." }, 400);
   if (!email) return json({ error: "Email is required." }, 400);
   if (!password || password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
   if (!inviteCode) return json({ error: "Invite code is required." }, 400);
@@ -49,7 +51,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const existingProfileResponse = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=id,email&limit=1`,
+    `${env.SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=id,email,username&limit=1`,
     { headers }
   );
   if (!existingProfileResponse.ok) {
@@ -59,6 +61,20 @@ export async function onRequestPost({ request, env }) {
   const existingProfiles = await existingProfileResponse.json();
   const existingProfile = Array.isArray(existingProfiles) ? existingProfiles[0] || null : null;
 
+  const usernameCheckResponse = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id,username,email&limit=1`,
+    { headers }
+  );
+  if (!usernameCheckResponse.ok) {
+    const detail = await usernameCheckResponse.text();
+    return json({ error: "Unable to verify username availability.", detail }, 502);
+  }
+  const usernameRows = await usernameCheckResponse.json();
+  const existingUsername = Array.isArray(usernameRows) ? usernameRows[0] || null : null;
+  if (existingUsername && existingUsername.id !== existingProfile?.id) {
+    return json({ error: "That username is already in use." }, 400);
+  }
+
   if (existingProfile?.id) {
     const confirmResponse = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(existingProfile.id)}`, {
       method: "PUT",
@@ -67,6 +83,7 @@ export async function onRequestPost({ request, env }) {
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
+          username,
           requested_role: inviteRole || requestedRole || "steward",
           invite_code: inviteCode,
           request_note: requestNote || `Invite: ${inviteCode}`,
@@ -86,6 +103,7 @@ export async function onRequestPost({ request, env }) {
       headers,
       body: JSON.stringify({
         full_name: fullName,
+        username,
         phone: phone || null,
         share_email: shareEmail,
         share_phone: sharePhone,
@@ -113,6 +131,7 @@ export async function onRequestPost({ request, env }) {
       email_confirm: true,
       user_metadata: {
         full_name: fullName,
+        username,
         requested_role: inviteRole || requestedRole || "steward",
         invite_code: inviteCode,
         request_note: requestNote || `Invite: ${inviteCode}`,
@@ -136,6 +155,14 @@ function normalizeRole(role) {
   const value = String(role || "").trim().toLowerCase();
   if (!value) return "";
   return value === "election_committee" ? "committee" : value;
+}
+
+function normalizeUsername(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function json(payload, status = 200) {

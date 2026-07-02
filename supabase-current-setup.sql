@@ -7,6 +7,13 @@ alter type public.portal_role add value if not exists 'election_committee';
 alter table public.profiles
 add column if not exists assigned_roles public.portal_role[] not null default array['steward']::public.portal_role[];
 
+alter table public.profiles
+add column if not exists username text;
+
+create unique index if not exists profiles_username_unique
+on public.profiles (lower(username))
+where username is not null and length(trim(username)) > 0;
+
 update public.profiles
 set assigned_roles = array[role]::public.portal_role[]
 where assigned_roles is null or array_length(assigned_roles, 1) is null;
@@ -50,10 +57,11 @@ begin
     else 'steward'::public.portal_role
   end;
 
-  insert into public.profiles (id, email, full_name, phone, share_email, share_phone, role, assigned_roles, active, access_status, request_note)
+  insert into public.profiles (id, email, username, full_name, phone, share_email, share_phone, role, assigned_roles, active, access_status, request_note)
   values (
     new.id,
     new.email,
+    nullif(lower(regexp_replace(coalesce(new.raw_user_meta_data ->> 'username', ''), '[^a-z0-9._-]+', '-', 'g')), ''),
     coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), new.email),
     nullif(new.raw_user_meta_data ->> 'phone', ''),
     coalesce((new.raw_user_meta_data ->> 'share_email')::boolean, false),
@@ -66,6 +74,7 @@ begin
   )
   on conflict (id) do update
     set email = excluded.email,
+        username = coalesce(excluded.username, public.profiles.username),
         full_name = excluded.full_name,
         phone = excluded.phone,
         share_email = excluded.share_email,

@@ -8,6 +8,7 @@ create type public.issue_type as enum ('Grievance', 'Discipline', 'Claim', 'Sche
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
+  username text,
   full_name text not null,
   phone text,
   share_email boolean not null default false,
@@ -22,6 +23,10 @@ create table public.profiles (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create unique index if not exists profiles_username_unique
+on public.profiles (lower(username))
+where username is not null and length(trim(username)) > 0;
 
 create table public.cases (
   id uuid primary key default gen_random_uuid(),
@@ -249,10 +254,11 @@ begin
     else 'steward'::public.portal_role
   end;
 
-  insert into public.profiles (id, email, full_name, phone, share_email, share_phone, role, assigned_roles, active, access_status, request_note)
+  insert into public.profiles (id, email, username, full_name, phone, share_email, share_phone, role, assigned_roles, active, access_status, request_note)
   values (
     new.id,
     new.email,
+    nullif(lower(regexp_replace(coalesce(new.raw_user_meta_data ->> 'username', ''), '[^a-z0-9._-]+', '-', 'g')), ''),
     coalesce(nullif(new.raw_user_meta_data ->> 'full_name', ''), new.email),
     nullif(new.raw_user_meta_data ->> 'phone', ''),
     coalesce((new.raw_user_meta_data ->> 'share_email')::boolean, false),
@@ -265,6 +271,7 @@ begin
   )
   on conflict (id) do update
     set email = excluded.email,
+        username = coalesce(excluded.username, public.profiles.username),
         full_name = excluded.full_name,
         phone = excluded.phone,
         share_email = excluded.share_email,

@@ -231,6 +231,14 @@ function normalizeRoleName(role) {
   return role === "election_committee" ? "committee" : role;
 }
 
+function normalizeUsername(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function profileRoles(profile) {
   const assigned = Array.isArray(profile?.assigned_roles)
     ? sanitizeAssignedRoles(profile.assigned_roles)
@@ -753,29 +761,43 @@ function renderAuth() {
       return;
     }
 
-    const email = document.querySelector("#email").value;
+    const identifier = value("login-identifier");
     const password = document.querySelector("#password").value;
-    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-    authMessage.textContent = error
-      ? /confirm/i.test(error.message || "")
-        ? "This account is approved, but the email is not confirmed yet. Ask an admin to resend the confirmation email or confirm it in Supabase Auth."
-        : error.message
-      : "Signed in.";
+    const response = await fetch("/api/login-with-identifier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier, password })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      authMessage.textContent = payload.error || "Unable to sign in.";
+      return;
+    }
+    const { error } = await supabaseClient.auth.setSession({
+      access_token: payload.access_token,
+      refresh_token: payload.refresh_token
+    });
+    authMessage.textContent = error ? error.message : "Signed in.";
     if (!error) await startAuthenticatedApp();
   });
 }
 
 async function sendPasswordReset() {
   const authMessage = document.querySelector("#auth-message");
-  const email = value("email");
-  if (!email) {
-    authMessage.textContent = "Enter your email address first.";
+  const identifier = value("login-identifier");
+  if (!identifier) {
+    authMessage.textContent = "Enter your username or email first.";
     return;
   }
   if (!isConfigured) {
     authMessage.textContent = "Supabase is not configured yet, so password reset email cannot be sent.";
     return;
   }
+  if (!identifier.includes("@")) {
+    authMessage.textContent = "Password reset uses the private email on the account. Enter your email address.";
+    return;
+  }
+  const email = identifier.toLowerCase();
   const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}${window.location.pathname}`
   });
@@ -834,6 +856,7 @@ function renderRegister() {
     }
 
     const fullName = value("register-name");
+    const username = normalizeUsername(value("register-username"));
     const email = value("register-email");
     const phone = value("register-phone");
     const password = value("register-password");
@@ -842,6 +865,10 @@ function renderRegister() {
     const requestNote = value("register-note");
     const shareEmail = document.querySelector("#register-share-email")?.checked || false;
     const sharePhone = document.querySelector("#register-share-phone")?.checked || false;
+    if (!username) {
+      message.textContent = "Username is required.";
+      return;
+    }
     let error = null;
     if (inviteCode) {
       const response = await fetch("/api/register-user", {
@@ -851,6 +878,7 @@ function renderRegister() {
         },
         body: JSON.stringify({
           full_name: fullName,
+          username,
           email,
           password,
           requested_role: role,
@@ -870,6 +898,7 @@ function renderRegister() {
         options: {
           data: {
             full_name: fullName,
+            username,
             requested_role: role,
             invite_code: inviteCode,
             request_note: requestNote ? `${requestNote}${inviteCode ? ` | Invite: ${inviteCode}` : ""}` : (inviteCode ? `Invite: ${inviteCode}` : ""),
@@ -1216,6 +1245,7 @@ function renderSelfProfilePanel() {
   panel.hidden = !selfProfilePanelOpen;
   toggle.textContent = selfProfilePanelOpen ? "Hide profile" : "My profile";
   setValue("self-profile-name", currentProfile.full_name || "");
+  setValue("self-profile-username", currentProfile.username || "");
   setValue("self-profile-email", currentProfile.email || currentUser?.email || "");
   setValue("self-profile-phone", currentProfile.phone || "");
   const shareEmail = document.querySelector("#self-profile-share-email");
@@ -1230,6 +1260,7 @@ async function saveSelfProfile() {
   if (!currentProfile?.id) return;
   const message = document.querySelector("#self-profile-message");
   const fullName = value("self-profile-name");
+  const username = normalizeUsername(value("self-profile-username"));
   const email = value("self-profile-email");
   const phone = value("self-profile-phone");
   const shareEmail = !!document.querySelector("#self-profile-share-email")?.checked;
@@ -1242,9 +1273,13 @@ async function saveSelfProfile() {
     if (message) message.textContent = "Email is required.";
     return;
   }
+  if (!username) {
+    if (message) message.textContent = "Username is required.";
+    return;
+  }
 
   if (previewMode) {
-    currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
+    currentProfile = { ...currentProfile, full_name: fullName, username, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
     document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
     if (message) message.textContent = "Profile updated.";
     return;
@@ -1252,7 +1287,7 @@ async function saveSelfProfile() {
 
   const { error } = await supabaseClient
     .from("profiles")
-    .update({ full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone })
+    .update({ full_name: fullName, username, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone })
     .eq("id", currentProfile.id);
   if (error) {
     if (message) message.textContent = error.message;
@@ -1266,13 +1301,14 @@ async function saveSelfProfile() {
     summary: "Updated own profile",
     details: {
       full_name: fullName,
+      username,
       email,
       phone: phone || null,
       share_email: shareEmail,
       share_phone: sharePhone
     }
   });
-  currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
+  currentProfile = { ...currentProfile, full_name: fullName, username, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
   await loadData();
   document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
   renderSelfProfilePanel();
@@ -1669,6 +1705,10 @@ function renderUsers() {
               <input type="text" value="${escapeHtml(profile.full_name || "")}" data-profile-name="${escapeHtml(profile.id)}">
             </label>
             <label>
+              Username
+              <input type="text" value="${escapeHtml(profile.username || "")}" data-profile-username="${escapeHtml(profile.id)}">
+            </label>
+            <label>
               Email
               <input type="email" value="${escapeHtml(profile.email || "")}" data-profile-email="${escapeHtml(profile.id)}">
             </label>
@@ -1834,16 +1874,19 @@ function userCheckboxValue(profileId, field) {
 
 async function updateProfileDetails(profileId) {
   const fullName = userFieldValue(profileId, "name");
+  const username = normalizeUsername(userFieldValue(profileId, "username"));
   const email = userFieldValue(profileId, "email");
   const phone = userFieldValue(profileId, "phone");
   const shareEmail = userCheckboxValue(profileId, "share-email");
   const sharePhone = userCheckboxValue(profileId, "share-phone");
   if (!fullName) return alert("Name is required.");
   if (!email) return alert("Email is required.");
+  if (!username) return alert("Username is required.");
   if (previewMode) {
     const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
     if (profile) {
       profile.full_name = fullName;
+      profile.username = username;
       profile.email = email;
       profile.phone = phone || null;
       profile.share_email = shareEmail;
@@ -1855,7 +1898,7 @@ async function updateProfileDetails(profileId) {
   }
   const { error } = await supabaseClient
     .from("profiles")
-    .update({ full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone })
+    .update({ full_name: fullName, username, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone })
     .eq("id", profileId);
   if (error) return alert(error.message);
   await upsertApprovedDirectoryEntry(profileId);
@@ -1865,6 +1908,7 @@ async function updateProfileDetails(profileId) {
     summary: "Updated user profile",
     details: {
       full_name: fullName,
+      username,
       email,
       phone: phone || null,
       share_email: shareEmail,
@@ -1872,7 +1916,7 @@ async function updateProfileDetails(profileId) {
     }
   });
   if (profileId === currentProfile.id) {
-    currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
+    currentProfile = { ...currentProfile, full_name: fullName, username, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
   }
   selectedUserId = null;
   await loadData();

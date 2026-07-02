@@ -54,7 +54,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const targetProfileResponse = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(targetUserId)}&select=id,email,role,assigned_roles,share_email,share_phone,full_name,phone`,
+    `${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(targetUserId)}&select=id,email,username,role,assigned_roles,share_email,share_phone,full_name,phone`,
     {
       headers: {
         apikey: env.SUPABASE_SERVICE_ROLE_KEY,
@@ -84,6 +84,7 @@ export async function onRequestPost({ request, env }) {
       email_confirm: true,
       user_metadata: {
         full_name: targetProfile.full_name || targetProfile.email || "",
+        username: targetProfile.username || "",
         requested_role: normalizedRole,
         phone: targetProfile.phone || null,
         share_email: !!targetProfile.share_email,
