@@ -28,7 +28,7 @@ export async function onRequestPost({ request, env }) {
   const actorId = actor?.id;
   if (!actorId) return json({ error: "Unable to verify current session." }, 401);
 
-  const adminProfile = await findAdminProfile(env, actor);
+  const adminProfile = await findAdminProfile(env, actor, token);
   if (adminProfile === undefined) return json({ error: "Unable to verify admin access." }, 403);
   const assignedRoles = normalizeRoles(adminProfile?.assigned_roles);
   const directRole = normalizeRole(adminProfile?.role);
@@ -137,25 +137,29 @@ function normalizeRoles(roles) {
   return [];
 }
 
-async function findAdminProfile(env, actor) {
-  const headers = {
+async function findAdminProfile(env, actor, userToken) {
+  const serviceHeaders = {
     apikey: env.SUPABASE_SERVICE_ROLE_KEY,
     Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
   };
+  const userHeaders = {
+    apikey: env.SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${userToken}`
+  };
 
-  const byIdResponse = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(actor?.id || "")}&select=id,email,role,assigned_roles,active,access_status`,
-    { headers }
-  );
-  if (!byIdResponse.ok) return undefined;
-  const byId = await byIdResponse.json();
-  if (Array.isArray(byId) && byId[0]) return byId[0];
+  const bySession = await fetchProfileById(env, actor?.id || "", userHeaders);
+  if (bySession !== undefined && bySession) return bySession;
+
+  const byServiceId = await fetchProfileById(env, actor?.id || "", serviceHeaders);
+  if (byServiceId !== undefined && byServiceId) return byServiceId;
+
+  if (bySession === undefined || byServiceId === undefined) return undefined;
 
   const actorEmail = String(actor?.email || "").trim();
   if (actorEmail) {
     const byEmailResponse = await fetch(
       `${env.SUPABASE_URL}/rest/v1/profiles?email=ilike.${encodeURIComponent(actorEmail)}&select=id,email,role,assigned_roles,active,access_status,created_at&order=created_at.desc`,
-      { headers }
+      { headers: serviceHeaders }
     );
     if (!byEmailResponse.ok) return undefined;
     const byEmail = await byEmailResponse.json();
@@ -171,11 +175,22 @@ async function findAdminProfile(env, actor) {
 
   const byUsernameResponse = await fetch(
     `${env.SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(actorUsername)}&select=id,email,role,assigned_roles,active,access_status,created_at&order=created_at.desc`,
-    { headers }
+    { headers: serviceHeaders }
   );
   if (!byUsernameResponse.ok) return undefined;
   const byUsername = await byUsernameResponse.json();
   return Array.isArray(byUsername) ? byUsername[0] || null : null;
+}
+
+async function fetchProfileById(env, id, headers) {
+  if (!id) return null;
+  const response = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(id)}&select=id,email,role,assigned_roles,active,access_status`,
+    { headers }
+  );
+  if (!response.ok) return undefined;
+  const rows = await response.json();
+  return Array.isArray(rows) ? rows[0] || null : null;
 }
 
 function normalizeUsername(value) {
