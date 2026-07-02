@@ -1345,6 +1345,10 @@ textarea {
 
 .committee-company-list {
   padding: 0 14px 14px;
+  max-height: 720px;
+  overflow: auto;
+  display: grid;
+  gap: 10px;
 }
 
 .committee-contact-card {
