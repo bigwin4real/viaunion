@@ -858,11 +858,15 @@ function renderRegister() {
     });
 
     if (error) {
-      message.textContent = error.message;
+      if (/confirm|confirmed/i.test(error.message || "")) {
+        message.textContent = "Registration could not be completed right now. Invite-based access is being simplified. Ask an admin to create a fresh invite if this keeps happening.";
+      } else {
+        message.textContent = error.message;
+      }
       return;
     }
     message.textContent = inviteCode
-      ? "Signup submitted. If the invite code is valid, the account will be activated automatically after email confirmation."
+      ? "Signup submitted. If the invite code is valid, the account will be activated with the invited access level."
       : "Request submitted. An admin must approve the account before private tools are available.";
     document.querySelector("#register-form").reset();
   });
@@ -1542,7 +1546,7 @@ function renderUsers() {
   if (total) total.textContent = `${rows.length} users`;
   const intro = `
     <div class="helper-text">
-      Approval and email confirmation are separate. If a user is approved but cannot sign in because the email is not confirmed, use <strong>Resend confirmation</strong>.
+      Manage profiles, roles, and contact visibility here. Use edit only when you need to change a specific user.
     </div>
   `;
   list.innerHTML = rows.map((profile) => `
@@ -1589,8 +1593,6 @@ function renderUsers() {
           : profile.id === selectedUserId
             ? `<button type="button" data-save-profile-id="${escapeHtml(profile.id)}">Save profile</button>
                <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
-               <button class="secondary" type="button" data-confirm-email-id="${escapeHtml(profile.id)}">Approve email</button>
-               <button class="secondary" type="button" data-resend-confirmation-id="${escapeHtml(profile.id)}">Resend confirmation</button>
                <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>
                <button class="secondary" type="button" data-edit-user-id="${escapeHtml(profile.id)}">Close</button>`
             : `<button type="button" data-edit-user-id="${escapeHtml(profile.id)}">Edit</button>`}
@@ -1615,12 +1617,6 @@ function renderUsers() {
   });
   list.querySelectorAll("[data-save-profile-id]").forEach((button) => {
     button.addEventListener("click", () => updateProfileDetails(button.dataset.saveProfileId));
-  });
-  list.querySelectorAll("[data-confirm-email-id]").forEach((button) => {
-    button.addEventListener("click", () => approveUserEmail(button.dataset.confirmEmailId));
-  });
-  list.querySelectorAll("[data-resend-confirmation-id]").forEach((button) => {
-    button.addEventListener("click", () => resendUserConfirmation(button.dataset.resendConfirmationId));
   });
   list.querySelectorAll("[data-reset-password-id]").forEach((button) => {
     button.addEventListener("click", () => sendUserResetPassword(button.dataset.resetPasswordId));

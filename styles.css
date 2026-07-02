@@ -1070,6 +1070,40 @@ textarea {
   margin-bottom: 14px;
 }
 
+.admin-tab {
+  display: grid;
+  gap: 14px;
+}
+
+.user-tools,
+.file-tools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.users-list,
+.internal-file-list {
+  display: grid;
+  gap: 12px;
+}
+
+.internal-files {
+  display: grid;
+  gap: 12px;
+}
+
+.helper-text {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .approval-list,
 .moderation-list {
   display: grid;
@@ -1081,7 +1115,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   gap: 14px;
-  align-items: center;
+  align-items: flex-start;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 12px;
@@ -1105,6 +1139,19 @@ textarea {
   margin: 0 0 6px;
   color: var(--muted);
   line-height: 1.35;
+}
+
+.approval-card > div:first-child,
+.moderation-card > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.approval-card .button-row,
+.moderation-card .button-row {
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  align-self: stretch;
 }
 
 .filters {
@@ -1542,6 +1589,8 @@ textarea {
   .executive-grid,
   .discount-grid,
   .resource-toolbar,
+  .user-tools,
+  .file-tools,
   .filters,
   .form-row,
   .resource-list {
