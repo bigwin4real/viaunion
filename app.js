@@ -1814,7 +1814,12 @@ async function approveUserEmail(profileId) {
     body: JSON.stringify({ profileId })
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) return alert(payload.error || "Unable to approve email.");
+  if (!response.ok) {
+    const detailMessage = payload?.detail
+      ? `\n${typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail)}`
+      : "";
+    return alert(`${payload.error || "Unable to approve email."}${detailMessage}`);
+  }
 
   await logAuditEvent("update", "profile_confirmation", {
     targetId: profileId,

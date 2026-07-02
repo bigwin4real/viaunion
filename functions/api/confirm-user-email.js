@@ -39,9 +39,27 @@ export async function onRequestPost({ request, env }) {
   );
   if (!adminProfileResponse.ok) return json({ error: "Unable to verify admin access." }, 403);
   const [adminProfile] = await adminProfileResponse.json();
-  const assignedRoles = Array.isArray(adminProfile?.assigned_roles) ? adminProfile.assigned_roles : [];
-  const isAdmin = adminProfile?.active && (adminProfile?.role === "admin" || assignedRoles.includes("admin"));
-  if (!isAdmin) return json({ error: "Admin access required." }, 403);
+  const assignedRoles = normalizeRoles(adminProfile?.assigned_roles);
+  const directRole = normalizeRole(adminProfile?.role);
+  const isAdmin =
+    adminProfile?.active === true
+    && (adminProfile?.access_status === "approved" || !adminProfile?.access_status)
+    && (directRole === "admin" || assignedRoles.includes("admin"));
+  if (!isAdmin) {
+    return json(
+      {
+        error: "Admin access required.",
+        detail: {
+          role: adminProfile?.role ?? null,
+          assigned_roles: adminProfile?.assigned_roles ?? null,
+          active: adminProfile?.active ?? null,
+          access_status: adminProfile?.access_status ?? null,
+          actor_id: actorId
+        }
+      },
+      403
+    );
+  }
 
   const confirmResponse = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(targetUserId)}`, {
     method: "PUT",
@@ -68,4 +86,23 @@ function json(payload, status = 200) {
       "Cache-Control": "no-store"
     }
   });
+}
+
+function normalizeRole(role) {
+  const value = String(role || "").trim().toLowerCase();
+  if (!value) return "";
+  return value === "election_committee" ? "committee" : value;
+}
+
+function normalizeRoles(roles) {
+  if (Array.isArray(roles)) return roles.map(normalizeRole).filter(Boolean);
+  if (typeof roles === "string") {
+    return roles
+      .replace(/^\{|\}$/g, "")
+      .split(",")
+      .map((value) => value.replace(/^"|"$/g, ""))
+      .map(normalizeRole)
+      .filter(Boolean);
+  }
+  return [];
 }
