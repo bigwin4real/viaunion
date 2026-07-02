@@ -1961,12 +1961,7 @@ async function repairUserAccess(profileId) {
     body: JSON.stringify({ profileId })
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detailMessage = payload?.detail
-      ? `\n${typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail)}`
-      : "";
-    return alert(`${payload.error || "Unable to repair access."}${detailMessage}`);
-  }
+  if (!response.ok) return alert(payload.error || "Unable to repair access.");
 
   await logAuditEvent("repair", "profile_access", {
     targetId: profileId,
@@ -2023,12 +2018,7 @@ async function approveUserEmail(profileId) {
     body: JSON.stringify({ profileId })
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const detailMessage = payload?.detail
-      ? `\n${typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail)}`
-      : "";
-    return alert(`${payload.error || "Unable to approve email."}${detailMessage}`);
-  }
+  if (!response.ok) return alert(payload.error || "Unable to approve email.");
 
   await logAuditEvent("update", "profile_confirmation", {
     targetId: profileId,

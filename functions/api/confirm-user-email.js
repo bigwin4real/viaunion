@@ -37,20 +37,7 @@ export async function onRequestPost({ request, env }) {
     && (adminProfile?.access_status === "approved" || !adminProfile?.access_status)
     && (directRole === "admin" || assignedRoles.includes("admin"));
   if (!isAdmin) {
-    return json(
-      {
-        error: "Admin access required.",
-        detail: {
-          role: adminProfile?.role ?? null,
-          assigned_roles: adminProfile?.assigned_roles ?? null,
-          active: adminProfile?.active ?? null,
-          access_status: adminProfile?.access_status ?? null,
-          actor_id: actorId,
-          actor_email: actor?.email ?? null
-        }
-      },
-      403
-    );
+    return json({ error: "Admin access required." }, 403);
   }
 
   const targetProfileResponse = await fetch(
@@ -165,13 +152,36 @@ async function findAdminProfile(env, actor) {
   if (Array.isArray(byId) && byId[0]) return byId[0];
 
   const actorEmail = String(actor?.email || "").trim();
-  if (!actorEmail) return null;
+  if (actorEmail) {
+    const byEmailResponse = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/profiles?email=ilike.${encodeURIComponent(actorEmail)}&select=id,email,role,assigned_roles,active,access_status,created_at&order=created_at.desc`,
+      { headers }
+    );
+    if (!byEmailResponse.ok) return undefined;
+    const byEmail = await byEmailResponse.json();
+    if (Array.isArray(byEmail) && byEmail[0]) return byEmail[0];
+  }
 
-  const byEmailResponse = await fetch(
-    `${env.SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(actorEmail)}&select=id,email,role,assigned_roles,active,access_status,created_at&order=created_at.desc`,
+  const actorUsername = normalizeUsername(
+    actor?.user_metadata?.username
+      || actor?.app_metadata?.username
+      || ""
+  );
+  if (!actorUsername) return null;
+
+  const byUsernameResponse = await fetch(
+    `${env.SUPABASE_URL}/rest/v1/profiles?username=eq.${encodeURIComponent(actorUsername)}&select=id,email,role,assigned_roles,active,access_status,created_at&order=created_at.desc`,
     { headers }
   );
-  if (!byEmailResponse.ok) return undefined;
-  const byEmail = await byEmailResponse.json();
-  return Array.isArray(byEmail) ? byEmail[0] || null : null;
+  if (!byUsernameResponse.ok) return undefined;
+  const byUsername = await byUsernameResponse.json();
+  return Array.isArray(byUsername) ? byUsername[0] || null : null;
+}
+
+function normalizeUsername(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
