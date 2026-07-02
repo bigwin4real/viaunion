@@ -164,7 +164,7 @@ begin
   end if;
 
   update auth.users
-  set email_confirmed_at = coalesce(email_confirmed_at, now()),
+  set email_confirmed_at = coalesce(auth.users.email_confirmed_at, now()),
       updated_at = now(),
       raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
         'full_name', coalesce(target_profile.full_name, target_profile.email, ''),
@@ -191,7 +191,11 @@ begin
   where id = target_profile.id;
 
   return query
-  select target_profile.id, repaired_user.id, repaired_user.email, repaired_user.email_confirmed_at;
+  select
+    target_profile.id,
+    repaired_user.id,
+    repaired_user.email::text,
+    repaired_user.email_confirmed_at;
 end;
 $$;
 
