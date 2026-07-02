@@ -912,6 +912,13 @@
                   Import CSV
                   <input id="election-csv-input" type="file" accept=".csv,text/csv">
                 </label>
+                <label>
+                  Export scope
+                  <select id="committee-export-scope">
+                    <option value="all">All companies</option>
+                    <option value="filtered">Current company filter</option>
+                  </select>
+                </label>
               </div>
               <p class="helper-text">Accepted headers: <code>company</code>, <code>group</code> or <code>group_name</code>, <code>election_date</code> (company-level), <code>member_name</code>, <code>email</code>, <code>is_shop_steward</code>, <code>is_chief_shop_steward</code>, and <code>note</code>.</p>
               <div class="button-row">

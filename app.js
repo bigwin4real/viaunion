@@ -2836,6 +2836,26 @@ function normalizeElectionImportRecord(headers, values) {
   };
 }
 
+function isValidEmailAddress(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+}
+
+function validateElectionImportRow(row, index) {
+  const errors = [];
+  if (!row.company) errors.push("missing company");
+  if (!row.member_name) errors.push("missing member_name");
+  if (row.email && !isValidEmailAddress(row.email)) errors.push("invalid email");
+  if (row.election_date && !/^\d{4}-\d{2}-\d{2}$/.test(row.election_date)) errors.push("invalid election_date");
+  if (row.group_name && row.group_name.length > 120) errors.push("group_name too long");
+  if (row.member_name && row.member_name.length > 160) errors.push("member_name too long");
+  if (row.note && row.note.length > 500) errors.push("note too long");
+  return {
+    rowNumber: index + 2,
+    row,
+    errors
+  };
+}
+
 async function importElectionCsv() {
   if (!(isAdmin() || isSteward() || isCommittee())) return;
   const input = document.querySelector("#election-csv-input");
@@ -2845,10 +2865,31 @@ async function importElectionCsv() {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   if (lines.length < 2) return alert("CSV must include a header row and at least one data row.");
   const headers = normalizeElectionImportHeaders(parseCsvRow(lines[0]));
-  const rows = lines.slice(1)
-    .map((line) => normalizeElectionImportRecord(headers, parseCsvRow(line)))
-    .filter((row) => row.company && row.member_name);
+  const inspectedRows = lines.slice(1).map((line, index) => validateElectionImportRow(
+    normalizeElectionImportRecord(headers, parseCsvRow(line)),
+    index
+  ));
+  const invalidRows = inspectedRows.filter((entry) => entry.errors.length);
+  if (invalidRows.length) {
+    const summary = invalidRows
+      .slice(0, 8)
+      .map((entry) => `Row ${entry.rowNumber}: ${entry.errors.join(", ")}`)
+      .join("\n");
+    return alert(`Import stopped. Fix the invalid rows first.\n\n${summary}${invalidRows.length > 8 ? `\n…and ${invalidRows.length - 8} more.` : ""}`);
+  }
+  const rows = inspectedRows.map((entry) => entry.row);
   if (!rows.length) return alert("No valid rows found. CSV needs at least company and member_name.");
+
+  const duplicateKeys = new Set();
+  const duplicateRows = [];
+  rows.forEach((row, index) => {
+    const key = `${row.company}::${row.member_name}::${row.email || ""}`.toLowerCase();
+    if (duplicateKeys.has(key)) duplicateRows.push(index + 2);
+    duplicateKeys.add(key);
+  });
+  if (duplicateRows.length) {
+    return alert(`Import stopped. Duplicate rows found in the CSV: ${duplicateRows.join(", ")}`);
+  }
 
   const companyUpserts = Array.from(new Map(
     rows
@@ -2906,10 +2947,15 @@ async function importElectionCsv() {
 
 function exportElectionCsv() {
   if (!(isAdmin() || isSteward() || isCommittee())) return;
-  if (!electionContacts.length) return alert("No contacts to export.");
+  const scope = document.querySelector("#committee-export-scope")?.value || "all";
+  const companyFilter = document.querySelector("#committee-company-filter")?.value || "all";
+  const exportRows = scope === "filtered" && companyFilter !== "all"
+    ? electionContacts.filter((item) => item.company === companyFilter)
+    : electionContacts;
+  if (!exportRows.length) return alert("No contacts to export.");
   const lines = [
     ["company", "group_name", "election_date", "member_name", "email", "is_shop_steward", "is_chief_shop_steward", "note"].join(","),
-    ...electionContacts.map((item) => [
+    ...exportRows.map((item) => [
       item.company || "",
       item.group_name || "",
       distributionCompanies.find((row) => row.company === item.company)?.election_date || "",
@@ -2924,7 +2970,9 @@ function exportElectionCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "local-4005-distribution-lists.csv";
+  link.download = scope === "filtered" && companyFilter !== "all"
+    ? `local-4005-${companyFilter.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-distribution-list.csv`
+    : "local-4005-distribution-lists.csv";
   document.body.appendChild(link);
   link.click();
   link.remove();
