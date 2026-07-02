@@ -842,21 +842,45 @@ function renderRegister() {
     const requestNote = value("register-note");
     const shareEmail = document.querySelector("#register-share-email")?.checked || false;
     const sharePhone = document.querySelector("#register-share-phone")?.checked || false;
-    const { error } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
+    let error = null;
+    if (inviteCode) {
+      const response = await fetch("/api/register-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
           full_name: fullName,
+          email,
+          password,
           requested_role: role,
           invite_code: inviteCode,
-          request_note: requestNote ? `${requestNote}${inviteCode ? ` | Invite: ${inviteCode}` : ""}` : (inviteCode ? `Invite: ${inviteCode}` : ""),
+          request_note: requestNote ? `${requestNote} | Invite: ${inviteCode}` : `Invite: ${inviteCode}`,
           phone,
           share_email: shareEmail,
           share_phone: sharePhone
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) error = { message: payload.error || "Invite registration failed." };
+    } else {
+      const result = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            requested_role: role,
+            invite_code: inviteCode,
+            request_note: requestNote ? `${requestNote}${inviteCode ? ` | Invite: ${inviteCode}` : ""}` : (inviteCode ? `Invite: ${inviteCode}` : ""),
+            phone,
+            share_email: shareEmail,
+            share_phone: sharePhone
+          }
         }
-      }
-    });
+      });
+      error = result.error;
+    }
 
     if (error) {
       if (/confirm|confirmed/i.test(error.message || "")) {
@@ -867,7 +891,7 @@ function renderRegister() {
       return;
     }
     message.textContent = inviteCode
-      ? "Signup submitted. If the invite code is valid, the account will be activated with the invited access level."
+      ? "Invite accepted. Your account is ready with the invited access level."
       : "Request submitted. An admin must approve the account before private tools are available.";
     document.querySelector("#register-form").reset();
   });
@@ -1681,6 +1705,7 @@ function renderUsers() {
           : profile.id === selectedUserId
             ? `<button type="button" data-save-profile-id="${escapeHtml(profile.id)}">Save profile</button>
                <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
+               <button class="secondary" type="button" data-repair-user-id="${escapeHtml(profile.id)}">Repair access</button>
                <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>
                <button class="secondary" type="button" data-edit-user-id="${escapeHtml(profile.id)}">Close</button>`
             : `<button type="button" data-edit-user-id="${escapeHtml(profile.id)}">Edit</button>`}
@@ -1705,6 +1730,9 @@ function renderUsers() {
   });
   list.querySelectorAll("[data-save-profile-id]").forEach((button) => {
     button.addEventListener("click", () => updateProfileDetails(button.dataset.saveProfileId));
+  });
+  list.querySelectorAll("[data-repair-user-id]").forEach((button) => {
+    button.addEventListener("click", () => repairUserAccess(button.dataset.repairUserId));
   });
   list.querySelectorAll("[data-reset-password-id]").forEach((button) => {
     button.addEventListener("click", () => sendUserResetPassword(button.dataset.resetPasswordId));
@@ -1868,6 +1896,46 @@ async function sendUserResetPassword(profileId) {
     details: { email }
   });
   alert(`Password reset sent to ${email}.`);
+}
+
+async function repairUserAccess(profileId) {
+  const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
+  if (!profileId) return;
+  if (!isConfigured) return alert("Supabase is not configured.");
+  if (!currentUser) return alert("You must be signed in.");
+
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const accessToken = sessionData?.session?.access_token;
+  if (!accessToken) return alert("Your session expired. Sign in again.");
+
+  const response = await fetch("/api/confirm-user-email", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ profileId })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detailMessage = payload?.detail
+      ? `\n${typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail)}`
+      : "";
+    return alert(`${payload.error || "Unable to repair access."}${detailMessage}`);
+  }
+
+  await logAuditEvent("repair", "profile_access", {
+    targetId: profileId,
+    targetLabel: profile?.full_name || profile?.email || profileId,
+    summary: "Repaired user access",
+    details: {
+      email: profile?.email || null,
+      method: "server_admin_repair"
+    }
+  });
+  await loadData();
+  renderPortal();
+  alert(`Access repaired for ${profile?.full_name || profile?.email || "user"}.`);
 }
 
 async function resendUserConfirmation(profileId) {
