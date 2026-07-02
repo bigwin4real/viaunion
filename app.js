@@ -2944,7 +2944,7 @@ async function saveElectionContact() {
     const row = { id: localId, ...payload };
     const index = electionContacts.findIndex((item) => item.id === localId);
     if (index >= 0) electionContacts[index] = row; else electionContacts.push(row);
-    selectedElectionId = localId;
+    selectedElectionId = null;
     renderElectionManager();
     return;
   }
@@ -2958,6 +2958,7 @@ async function saveElectionContact() {
     summary: `${isUuid(id) ? "Updated" : "Created"} election contact`,
     details: payload
   });
+  selectedElectionId = null;
   await loadData();
   renderAll();
 }
