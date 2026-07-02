@@ -2620,12 +2620,17 @@ function renderElectionManager() {
     filterSummary.textContent = `${filteredContacts.length} contact${filteredContacts.length === 1 ? "" : "s"} shown`;
   }
   list.innerHTML = companies.map((company) => `
-    <section class="resource-item">
-      <h3>${escapeHtml(company)}</h3>
-      <p>${escapeHtml(companyElectionDateLabel(company))}</p>
-      <div class="content-list">
+    <details class="resource-item committee-company-group" ${companyFilter !== "all" ? "open" : ""}>
+      <summary class="committee-company-summary">
+        <div>
+          <h3>${escapeHtml(company)}</h3>
+          <p>${escapeHtml(companyElectionDateLabel(company))}</p>
+        </div>
+        <span class="pill">${grouped[company].length} contact${grouped[company].length === 1 ? "" : "s"}</span>
+      </summary>
+      <div class="content-list committee-company-list">
         ${grouped[company].map((item) => `
-          <article class="resource-item ${item.id === selectedElectionId ? "meeting-item-active" : ""}">
+          <article class="resource-item committee-contact-card ${item.id === selectedElectionId ? "meeting-item-active" : ""}">
             <div class="meeting-item-header">
               <div>
                 <h3>${escapeHtml(item.member_name)}</h3>
@@ -2645,7 +2650,7 @@ function renderElectionManager() {
           </article>
         `).join("")}
       </div>
-    </section>
+    </details>
   `).join("") || `<div class="empty">No distribution list contacts yet.</div>`;
   list.querySelectorAll("[data-edit-election-id]").forEach((button) => {
     button.addEventListener("click", () => {

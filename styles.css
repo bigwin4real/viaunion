@@ -1316,6 +1316,49 @@ textarea {
   margin-bottom: 14px;
 }
 
+.committee-company-group {
+  padding: 0;
+  overflow: hidden;
+}
+
+.committee-company-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+  list-style: none;
+  padding: 14px;
+}
+
+.committee-company-summary::-webkit-details-marker {
+  display: none;
+}
+
+.committee-company-summary h3 {
+  margin: 0 0 6px;
+}
+
+.committee-company-summary p {
+  margin: 0;
+}
+
+.committee-company-list {
+  padding: 0 14px 14px;
+}
+
+.committee-contact-card {
+  padding: 10px 12px;
+}
+
+.committee-contact-card h3 {
+  font-size: 1rem;
+}
+
+.committee-contact-card p {
+  margin-bottom: 8px;
+}
+
 .admin-nav,
 .content-editor,
 .content-section,
