@@ -224,11 +224,25 @@ create table if not exists public.election_contacts (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.audit_log (
+  id uuid primary key default gen_random_uuid(),
+  actor_id uuid references public.profiles(id) on delete set null,
+  actor_name text,
+  action_kind text not null,
+  target_type text not null,
+  target_id text,
+  target_label text,
+  summary text not null,
+  details jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
 alter table public.meetings enable row level security;
 alter table public.public_announcements enable row level security;
 alter table public.public_executive_team enable row level security;
 alter table public.invite_codes enable row level security;
 alter table public.election_contacts enable row level security;
+alter table public.audit_log enable row level security;
 
 drop trigger if exists meetings_touch_updated_at on public.meetings;
 create trigger meetings_touch_updated_at
@@ -328,6 +342,25 @@ with check (
     where id = auth.uid()
       and active = true
       and ('election_committee' = any(assigned_roles) or role = 'election_committee')
+  )
+);
+
+drop policy if exists "audit_log_admin_read" on public.audit_log;
+create policy "audit_log_admin_read"
+on public.audit_log for select
+using (public.is_admin());
+
+drop policy if exists "audit_log_authorized_insert" on public.audit_log;
+create policy "audit_log_authorized_insert"
+on public.audit_log for insert
+with check (
+  auth.uid() is not null
+  and actor_id = auth.uid()
+  and exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and active = true
   )
 );
 

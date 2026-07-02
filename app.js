@@ -255,9 +255,9 @@ function profileHasRole(profile, role) {
 
 function availablePortalRoles() {
   const roles = [];
-  if (hasAdminAccount()) roles.push("admin");
+  if (hasAdminAccount()) roles.push("admin", "steward", "committee");
   if (hasStewardAccount()) roles.push("steward");
-  if (hasAdminAccount() || hasStewardAccount() || hasCommitteeAccount()) roles.push("committee");
+  if (hasStewardAccount() || hasCommitteeAccount()) roles.push("committee");
   return [...new Set(roles)];
 }
 
