@@ -42,63 +42,26 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Admin access required." }, 403);
   }
 
-  const serviceHeaders = {
-    apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
-  };
-  const targetProfile = await findTargetProfile(env, { id: targetUserId, email: targetEmail, username: targetUsername }, serviceHeaders);
-  if (targetProfile === undefined) return json({ error: "Unable to load the target profile." }, 502);
-  if (!targetProfile) return json({ error: "Target profile was not found." }, 404);
-
-  const normalizedAssignedRoles = normalizeRoles(targetProfile.assigned_roles);
-  const normalizedRole = normalizeRole(targetProfile.role) || normalizedAssignedRoles[0] || "committee";
-
-  const confirmResponse = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(targetProfile.id)}`, {
-    method: "PUT",
+  const repairResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/admin_repair_user_access`, {
+    method: "POST",
     headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      email_confirm: true,
-      user_metadata: {
-        full_name: targetProfile.full_name || targetProfile.email || "",
-        username: targetProfile.username || "",
-        requested_role: normalizedRole,
-        phone: targetProfile.phone || null,
-        share_email: !!targetProfile.share_email,
-        share_phone: !!targetProfile.share_phone
-      }
+      target_profile_id: targetUserId || null,
+      target_email: targetEmail || null,
+      target_username: targetUsername || null
     })
   });
-  if (!confirmResponse.ok) {
-    const detail = await confirmResponse.text();
-    return json({ error: "Supabase rejected the access repair update.", detail }, 502);
+  if (!repairResponse.ok) {
+    const detail = await repairResponse.json().catch(async () => ({ message: await repairResponse.text() }));
+    return json({ error: detail?.message || "Unable to repair access.", detail }, repairResponse.status);
   }
 
-  const profileRepairResponse = await fetch(`${env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(targetProfile.id)}`, {
-    method: "PATCH",
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      active: true,
-      access_status: "approved",
-      role: normalizedRole,
-      assigned_roles: normalizedAssignedRoles.length ? normalizedAssignedRoles : [normalizedRole],
-      approved_by: actorId,
-      approved_at: new Date().toISOString()
-    })
-  });
-  if (!profileRepairResponse.ok) {
-    const detail = await profileRepairResponse.text();
-    return json({ error: "Auth email was confirmed, but profile repair failed.", detail }, 502);
-  }
-
-  return json({ ok: true, repaired: true });
+  const repaired = await repairResponse.json().catch(() => []);
+  return json({ ok: true, repaired: true, result: Array.isArray(repaired) ? repaired[0] || null : repaired });
 }
 
 function json(payload, status = 200) {

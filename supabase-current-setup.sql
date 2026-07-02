@@ -125,6 +125,78 @@ as $$
   );
 $$;
 
+create or replace function public.admin_repair_user_access(
+  target_profile_id uuid default null,
+  target_email text default null,
+  target_username text default null
+)
+returns table (
+  repaired_profile_id uuid,
+  repaired_auth_id uuid,
+  repaired_email text,
+  email_confirmed_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  target_profile public.profiles%rowtype;
+  repaired_user auth.users%rowtype;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required.' using errcode = '42501';
+  end if;
+
+  select *
+    into target_profile
+  from public.profiles
+  where (target_profile_id is not null and id = target_profile_id)
+     or (nullif(target_email, '') is not null and lower(email) = lower(target_email))
+     or (nullif(target_username, '') is not null and username = target_username)
+  order by
+    case when target_profile_id is not null and id = target_profile_id then 0 else 1 end,
+    created_at desc
+  limit 1;
+
+  if target_profile.id is null then
+    raise exception 'Target profile was not found.' using errcode = 'P0002';
+  end if;
+
+  update auth.users
+  set email_confirmed_at = coalesce(email_confirmed_at, now()),
+      updated_at = now(),
+      raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
+        'full_name', coalesce(target_profile.full_name, target_profile.email, ''),
+        'username', coalesce(target_profile.username, ''),
+        'requested_role', coalesce(target_profile.role::text, 'committee'),
+        'phone', target_profile.phone,
+        'share_email', target_profile.share_email,
+        'share_phone', target_profile.share_phone
+      )
+  where id = target_profile.id
+     or lower(email) = lower(target_profile.email)
+  returning * into repaired_user;
+
+  if repaired_user.id is null then
+    raise exception 'Auth user was not found for this profile.' using errcode = 'P0002';
+  end if;
+
+  update public.profiles
+  set active = true,
+      access_status = 'approved',
+      approved_by = auth.uid(),
+      approved_at = coalesce(approved_at, now()),
+      updated_at = now()
+  where id = target_profile.id;
+
+  return query
+  select target_profile.id, repaired_user.id, repaired_user.email, repaired_user.email_confirmed_at;
+end;
+$$;
+
+grant execute on function public.admin_repair_user_access(uuid, text, text) to authenticated;
+
 create or replace function public.is_steward()
 returns boolean
 language sql
