@@ -897,6 +897,22 @@ textarea {
   color: var(--muted);
 }
 
+.self-profile-panel {
+  display: grid;
+  gap: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+}
+
+.self-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
 .role-switcher {
   display: flex;
   align-items: center;

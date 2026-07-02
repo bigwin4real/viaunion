@@ -206,6 +206,7 @@ let selectedAuditId = null;
 let activePortalRole = null;
 let activeAdminTab = "dashboard";
 let activeSectionTab = "cases";
+let selfProfilePanelOpen = false;
 
 const roleLabels = {
   admin: "Admin",
@@ -1009,6 +1010,7 @@ function renderPortal() {
   wirePortalEvents();
   renderRoleSwitcher();
   document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
+  renderSelfProfilePanel();
   applyRoleVisibility();
   selectedCaseId = selectedCaseId || cases[0]?.id || null;
   renderAll();
@@ -1119,6 +1121,11 @@ function wirePortalEvents() {
     if (supabaseClient) await supabaseClient.auth.signOut();
     window.location.href = window.location.pathname;
   });
+  document.querySelector("#toggle-profile-panel")?.addEventListener("click", () => {
+    selfProfilePanelOpen = !selfProfilePanelOpen;
+    renderSelfProfilePanel();
+  });
+  document.querySelector("#save-self-profile")?.addEventListener("click", saveSelfProfile);
   document.querySelectorAll(".admin-nav-tab").forEach((button) => {
     button.addEventListener("click", () => {
       activeAdminTab = button.dataset.tab || "cases";
@@ -1176,6 +1183,77 @@ function wirePortalEvents() {
   document.querySelector("#import-election-csv")?.addEventListener("click", importElectionCsv);
   document.querySelector("#export-election-csv")?.addEventListener("click", exportElectionCsv);
   document.querySelector("#create-invite")?.addEventListener("click", createInviteCode);
+}
+
+function renderSelfProfilePanel() {
+  const panel = document.querySelector("#self-profile-panel");
+  const toggle = document.querySelector("#toggle-profile-panel");
+  if (!panel || !toggle || !currentProfile) return;
+  panel.hidden = !selfProfilePanelOpen;
+  toggle.textContent = selfProfilePanelOpen ? "Hide profile" : "My profile";
+  setValue("self-profile-name", currentProfile.full_name || "");
+  setValue("self-profile-email", currentProfile.email || currentUser?.email || "");
+  setValue("self-profile-phone", currentProfile.phone || "");
+  const shareEmail = document.querySelector("#self-profile-share-email");
+  const sharePhone = document.querySelector("#self-profile-share-phone");
+  if (shareEmail) shareEmail.checked = !!currentProfile.share_email;
+  if (sharePhone) sharePhone.checked = !!currentProfile.share_phone;
+  const message = document.querySelector("#self-profile-message");
+  if (message) message.textContent = "";
+}
+
+async function saveSelfProfile() {
+  if (!currentProfile?.id) return;
+  const message = document.querySelector("#self-profile-message");
+  const fullName = value("self-profile-name");
+  const email = value("self-profile-email");
+  const phone = value("self-profile-phone");
+  const shareEmail = !!document.querySelector("#self-profile-share-email")?.checked;
+  const sharePhone = !!document.querySelector("#self-profile-share-phone")?.checked;
+  if (!fullName) {
+    if (message) message.textContent = "Name is required.";
+    return;
+  }
+  if (!email) {
+    if (message) message.textContent = "Email is required.";
+    return;
+  }
+
+  if (previewMode) {
+    currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
+    document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
+    if (message) message.textContent = "Profile updated.";
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("profiles")
+    .update({ full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone })
+    .eq("id", currentProfile.id);
+  if (error) {
+    if (message) message.textContent = error.message;
+    return;
+  }
+
+  await upsertApprovedDirectoryEntry(currentProfile.id);
+  await logAuditEvent("update", "self_profile", {
+    targetId: currentProfile.id,
+    targetLabel: fullName || email || currentProfile.id,
+    summary: "Updated own profile",
+    details: {
+      full_name: fullName,
+      email,
+      phone: phone || null,
+      share_email: shareEmail,
+      share_phone: sharePhone
+    }
+  });
+  currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
+  await loadData();
+  document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
+  renderSelfProfilePanel();
+  renderUsers();
+  if (message) message.textContent = "Profile updated.";
 }
 
 function renderAll() {
@@ -1575,6 +1653,16 @@ function renderUsers() {
               <input type="text" value="${escapeHtml(profile.phone || "")}" data-profile-phone="${escapeHtml(profile.id)}">
             </label>
           </div>
+          <div class="role-checks">
+            <label>
+              <input type="checkbox" data-profile-share-email="${escapeHtml(profile.id)}" ${profile.share_email ? "checked" : ""}>
+              Show email publicly
+            </label>
+            <label>
+              <input type="checkbox" data-profile-share-phone="${escapeHtml(profile.id)}" ${profile.share_phone ? "checked" : ""}>
+              Show phone publicly
+            </label>
+          </div>
           <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
             ${["admin", "steward", "committee"].map((role) => `
               <label>
@@ -1711,10 +1799,17 @@ function userFieldValue(profileId, field) {
   return document.querySelector(selector)?.value.trim() || "";
 }
 
+function userCheckboxValue(profileId, field) {
+  const selector = `[data-profile-${field}="${profileId}"]`;
+  return !!document.querySelector(selector)?.checked;
+}
+
 async function updateProfileDetails(profileId) {
   const fullName = userFieldValue(profileId, "name");
   const email = userFieldValue(profileId, "email");
   const phone = userFieldValue(profileId, "phone");
+  const shareEmail = userCheckboxValue(profileId, "share-email");
+  const sharePhone = userCheckboxValue(profileId, "share-phone");
   if (!fullName) return alert("Name is required.");
   if (!email) return alert("Email is required.");
   if (previewMode) {
@@ -1723,6 +1818,8 @@ async function updateProfileDetails(profileId) {
       profile.full_name = fullName;
       profile.email = email;
       profile.phone = phone || null;
+      profile.share_email = shareEmail;
+      profile.share_phone = sharePhone;
     }
     selectedUserId = null;
     renderUsers();
@@ -1730,9 +1827,10 @@ async function updateProfileDetails(profileId) {
   }
   const { error } = await supabaseClient
     .from("profiles")
-    .update({ full_name: fullName, email, phone: phone || null })
+    .update({ full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone })
     .eq("id", profileId);
   if (error) return alert(error.message);
+  await upsertApprovedDirectoryEntry(profileId);
   await logAuditEvent("update", "profile", {
     targetId: profileId,
     targetLabel: fullName || email || profileId,
@@ -1740,16 +1838,19 @@ async function updateProfileDetails(profileId) {
     details: {
       full_name: fullName,
       email,
-      phone: phone || null
+      phone: phone || null,
+      share_email: shareEmail,
+      share_phone: sharePhone
     }
   });
   if (profileId === currentProfile.id) {
-    currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null };
+    currentProfile = { ...currentProfile, full_name: fullName, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
   }
   selectedUserId = null;
   await loadData();
   renderPortal();
 }
+
 
 async function sendUserResetPassword(profileId) {
   const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);

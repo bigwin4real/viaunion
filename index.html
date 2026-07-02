@@ -273,6 +273,7 @@
           </div>
           <div class="account-box">
             <span id="user-label"></span>
+            <button id="toggle-profile-panel" class="secondary" type="button">My profile</button>
             <label id="role-switcher-wrap" class="role-switcher" hidden>
               View as
               <select id="role-switcher"></select>
@@ -280,6 +281,41 @@
             <button id="sign-out" type="button">Sign out</button>
           </div>
         </header>
+
+        <section id="self-profile-panel" class="self-profile-panel" hidden>
+          <div class="section-heading">
+            <h2>My profile</h2>
+            <span>Personal details and public contact choices</span>
+          </div>
+          <div class="self-profile-grid">
+            <label>
+              Full name
+              <input id="self-profile-name" type="text" autocomplete="name">
+            </label>
+            <label>
+              Email
+              <input id="self-profile-email" type="email" autocomplete="email">
+            </label>
+            <label>
+              Phone
+              <input id="self-profile-phone" type="text" autocomplete="tel">
+            </label>
+          </div>
+          <div class="role-checks">
+            <label>
+              <input id="self-profile-share-email" type="checkbox">
+              Show my email publicly
+            </label>
+            <label>
+              <input id="self-profile-share-phone" type="checkbox">
+              Show my phone publicly
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="save-self-profile" type="button">Save my profile</button>
+          </div>
+          <p id="self-profile-message" class="message" role="status"></p>
+        </section>
 
         <!-- PRIVATE WORK AREAS -->
         <nav class="admin-nav" id="admin-nav" hidden>
