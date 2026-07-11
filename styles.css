@@ -96,6 +96,12 @@ button.secondary {
   border: 1px solid #d7e2ee;
 }
 
+button.danger {
+  background: #ffe8e8;
+  color: #8b1e1e;
+  border-color: #f0b9b9;
+}
+
 label {
   display: grid;
   gap: 6px;

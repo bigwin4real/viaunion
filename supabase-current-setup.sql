@@ -201,6 +201,86 @@ $$;
 
 grant execute on function public.admin_repair_user_access(uuid, text, text) to authenticated;
 
+create or replace function public.admin_delete_user(
+  target_profile_id uuid default null,
+  target_email text default null,
+  target_username text default null
+)
+returns table (
+  deleted_profile_id uuid,
+  deleted_email text
+)
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+  target_profile public.profiles%rowtype;
+  actor_id uuid := auth.uid();
+begin
+  if not public.is_admin() then
+    raise exception 'Admin access required.' using errcode = '42501';
+  end if;
+
+  select *
+    into target_profile
+  from public.profiles
+  where (target_profile_id is not null and id = target_profile_id)
+     or (nullif(target_email, '') is not null and lower(email) = lower(target_email))
+     or (nullif(target_username, '') is not null and username = target_username)
+  order by
+    case when target_profile_id is not null and id = target_profile_id then 0 else 1 end,
+    created_at desc
+  limit 1;
+
+  if target_profile.id is null then
+    raise exception 'Target profile was not found.' using errcode = 'P0002';
+  end if;
+
+  if target_profile.id = actor_id then
+    raise exception 'You cannot delete your own account here.' using errcode = '42501';
+  end if;
+
+  update public.profiles set approved_by = null where approved_by = target_profile.id;
+  update public.cases
+    set assigned_steward_id = case when assigned_steward_id = target_profile.id then null else assigned_steward_id end,
+        created_by = case when created_by = target_profile.id then actor_id else created_by end,
+        updated_by = case when updated_by = target_profile.id then actor_id else updated_by end
+    where assigned_steward_id = target_profile.id or created_by = target_profile.id or updated_by = target_profile.id;
+  update public.case_notes set created_by = actor_id where created_by = target_profile.id;
+  update public.case_documents set uploaded_by = actor_id where uploaded_by = target_profile.id;
+  update public.resources set created_by = null where created_by = target_profile.id;
+  update public.meetings
+    set created_by = case when created_by = target_profile.id then null else created_by end,
+        updated_by = case when updated_by = target_profile.id then null else updated_by end
+    where created_by = target_profile.id or updated_by = target_profile.id;
+  update public.public_announcements
+    set created_by = case when created_by = target_profile.id then null else created_by end,
+        updated_by = case when updated_by = target_profile.id then null else updated_by end
+    where created_by = target_profile.id or updated_by = target_profile.id;
+  update public.public_executive_team
+    set created_by = case when created_by = target_profile.id then null else created_by end,
+        updated_by = case when updated_by = target_profile.id then null else updated_by end
+    where created_by = target_profile.id or updated_by = target_profile.id;
+  update public.election_contacts
+    set created_by = case when created_by = target_profile.id then null else created_by end,
+        updated_by = case when updated_by = target_profile.id then null else updated_by end
+    where created_by = target_profile.id or updated_by = target_profile.id;
+  update public.internal_files set uploaded_by = actor_id where uploaded_by = target_profile.id;
+  update public.audit_log set actor_id = null where actor_id = target_profile.id;
+  delete from public.public_directory_entries where profile_id = target_profile.id;
+
+  delete from auth.users
+  where id = target_profile.id
+     or lower(email) = lower(target_profile.email);
+  delete from public.profiles where id = target_profile.id;
+
+  return query select target_profile.id, target_profile.email;
+end;
+$$;
+
+grant execute on function public.admin_delete_user(uuid, text, text) to authenticated;
+
 create or replace function public.is_steward()
 returns boolean
 language sql

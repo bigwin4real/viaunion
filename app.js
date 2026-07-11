@@ -1747,6 +1747,7 @@ function renderUsers() {
                <button class="secondary" type="button" data-save-roles-id="${escapeHtml(profile.id)}">Save roles</button>
                <button class="secondary" type="button" data-repair-user-id="${escapeHtml(profile.id)}">Repair access</button>
                <button class="secondary" type="button" data-reset-password-id="${escapeHtml(profile.id)}">Send reset</button>
+               ${profile.id === currentProfile.id ? "" : `<button class="secondary danger" type="button" data-delete-user-id="${escapeHtml(profile.id)}">Delete user</button>`}
                <button class="secondary" type="button" data-edit-user-id="${escapeHtml(profile.id)}">Close</button>`
             : `<button type="button" data-edit-user-id="${escapeHtml(profile.id)}">Edit</button>`}
       </div>
@@ -1776,6 +1777,9 @@ function renderUsers() {
   });
   list.querySelectorAll("[data-reset-password-id]").forEach((button) => {
     button.addEventListener("click", () => sendUserResetPassword(button.dataset.resetPasswordId));
+  });
+  list.querySelectorAll("[data-delete-user-id]").forEach((button) => {
+    button.addEventListener("click", () => deleteUserAccount(button.dataset.deleteUserId));
   });
 }
 
@@ -1940,6 +1944,38 @@ async function sendUserResetPassword(profileId) {
     details: { email }
   });
   alert(`Password reset sent to ${email}.`);
+}
+
+async function deleteUserAccount(profileId) {
+  const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
+  if (!profileId || !profile) return;
+  if (profileId === currentProfile.id) return alert("You cannot delete your own account here.");
+  const label = profile.full_name || profile.email || "this user";
+  if (!confirm(`Delete ${label}? This removes their sign-in account and private access.`)) return;
+  if (previewMode) {
+    activeProfiles = activeProfiles.filter((item) => item.id !== profileId);
+    pendingProfiles = pendingProfiles.filter((item) => item.id !== profileId);
+    allProfiles = allProfiles.filter((item) => item.id !== profileId);
+    selectedUserId = null;
+    renderUsers();
+    return;
+  }
+  const { error } = await supabaseClient.rpc("admin_delete_user", {
+    target_profile_id: profileId,
+    target_email: userFieldValue(profileId, "email") || profile.email || null,
+    target_username: userFieldValue(profileId, "username") || profile.username || null
+  });
+  if (error) return alert(error.message);
+  await logAuditEvent("delete", "profile", {
+    targetId: profileId,
+    targetLabel: label,
+    summary: "Deleted user account",
+    details: { email: profile.email || null }
+  });
+  selectedUserId = null;
+  await loadData();
+  renderPortal();
+  alert(`${label} was deleted.`);
 }
 
 async function repairUserAccess(profileId) {
