@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "via4005-supabase-keepalive",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-11",
+  "triggers": {
+    "crons": ["17 9 */3 * *"]
+  },
+  "vars": {
+    "SUPABASE_URL": "https://vsuhsyobkvjqlhekmmts.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzdWhzeW9ia3ZqcWxoZWttbXRzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyOTA1NDAsImV4cCI6MjA5Njg2NjU0MH0.SUpbbFv3INrpX9wl_4l9KvfIqngDFymwqzkAWMLmpes"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
