@@ -169,6 +169,29 @@ const publicKnowledge = [
   { title: "Safety and Health Agreement", category: "Safety", text: "Council 4000 links the VIA Rail Safety and Health Agreement on its Collective Agreements page." }
 ];
 
+const agreementOneUrl = "https://irp.cdn-website.com/a76b4e57/files/uploaded/Collective%2BAgreement%2B1%2B2025-2026-2027%2B-%2BEN.pdf";
+
+const sampleMemberPosts = [
+  {
+    id: "agreement-boot-allowance",
+    title: "Safety boot allowance",
+    topic: "Allowance",
+    contract: "Contract 1",
+    excerpt: "Eligible employees required to wear safety footwear receive $150 each year.",
+    body: "The allowance is paid automatically in the second pay period of September. When you buy new safety footwear, bring the footwear and your proof of purchase to your immediate supervisor. The footwear must meet the applicable Canada Occupational Health and Safety requirements and be CSA approved.",
+    amount: "$150",
+    frequency: "Every year",
+    timeframe: "Second pay period of September",
+    requirements: "Required by VIA Rail to wear safety footwear\nIn service at the beginning of the calendar year\nRendered compensated service during the year\nStill holds an employment relationship\nShow the footwear and proof of purchase to your supervisor\nFootwear must be CSA approved",
+    agreement_reference: "Agreement No. 1 (2025–2027), Article 38.4",
+    source_url: agreementOneUrl,
+    status: "published",
+    author_name: "Local 4005",
+    published_at: "2026-08-20T12:00:00Z",
+    created_at: "2026-08-20T12:00:00Z"
+  }
+];
+
 const sampleQuestions = [
   { id: "q1", name: "Member", question: "Where will current agreements be posted?", answer: "Approved public links will be added to the agreements section.", status: "answered", created_at: new Date().toISOString() },
   { id: "q2", name: "Anonymous", question: "Can a steward review this question?", answer: "", status: "pending", created_at: new Date().toISOString() }
@@ -187,6 +210,7 @@ let activeProfiles = [];
 let allProfiles = [];
 let internalFiles = [];
 let publicQuestions = [...sampleQuestions];
+let memberPosts = [...sampleMemberPosts];
 let announcementItems = publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item }));
 let publicResourceItems = [...publicResources];
 let meetingNotices = [...defaultMeetings];
@@ -207,24 +231,34 @@ let activePortalRole = null;
 let activeAdminTab = "dashboard";
 let activeSectionTab = "cases";
 let selfProfilePanelOpen = false;
+let memberPostPanelOpen = false;
+let selectedMemberPostId = null;
 
 const roleLabels = {
+  member: "Member",
   admin: "Admin",
   steward: "Shop Steward",
   committee: "Committee"
 };
 
 function sanitizeAssignedRoles(roles = []) {
-  const normalized = [...new Set((roles || []).map(normalizeRoleName).filter(Boolean))];
+  let normalized = [...new Set((roles || []).map(normalizeRoleName).filter(Boolean))];
+  if (normalized.some((role) => role !== "member")) {
+    normalized = normalized.filter((role) => role !== "member");
+  }
   if (normalized.includes("admin") && normalized.includes("steward")) {
     return normalized.filter((role) => role !== "steward");
   }
-  return normalized.length ? normalized : ["committee"];
+  return normalized.length ? normalized : ["member"];
 }
 
 function wantsRegisterFlow() {
   const params = new URLSearchParams(window.location.search);
   return params.get("register") === "1" || Boolean((params.get("invite") || params.get("code") || "").trim());
+}
+
+function wantsPublicBoard() {
+  return new URLSearchParams(window.location.search).get("board") === "1";
 }
 
 function normalizeRoleName(role) {
@@ -245,8 +279,8 @@ function profileRoles(profile) {
     : [];
   const direct = new Set(assigned);
   if (profile?.role) direct.add(normalizeRoleName(profile.role));
-  if (!direct.size) direct.add("committee");
-  return sanitizeAssignedRoles(["admin", "steward", "committee"].filter((role) => direct.has(role)));
+  if (!direct.size) direct.add("member");
+  return sanitizeAssignedRoles(["admin", "steward", "committee", "member"].filter((role) => direct.has(role)));
 }
 
 function profileHasRole(profile, role) {
@@ -255,15 +289,16 @@ function profileHasRole(profile, role) {
 
 function availablePortalRoles() {
   const roles = [];
-  if (hasAdminAccount()) roles.push("admin", "steward", "committee");
+  if (hasAdminAccount()) roles.push("admin", "steward", "committee", "member");
   if (hasStewardAccount()) roles.push("steward");
   if (hasStewardAccount() || hasCommitteeAccount()) roles.push("committee");
+  if (hasMemberAccount() || roles.length) roles.push("member");
   return [...new Set(roles)];
 }
 
 function activeRole() {
   const allowed = availablePortalRoles();
-  if (!allowed.includes(activePortalRole)) activePortalRole = allowed[0] || currentProfile?.role || "committee";
+  if (!allowed.includes(activePortalRole)) activePortalRole = allowed[0] || currentProfile?.role || "member";
   return activePortalRole;
 }
 
@@ -277,6 +312,10 @@ function hasStewardAccount() {
 
 function hasCommitteeAccount() {
   return profileHasRole(currentProfile, "committee");
+}
+
+function hasMemberAccount() {
+  return profileHasRole(currentProfile, "member");
 }
 
 const app = document.querySelector("#app");
@@ -302,7 +341,7 @@ if (previewMode) {
 } else if (isPasswordRecoveryLink()) {
   renderPasswordUpdate();
 } else if (isConfigured) {
-  startAuthenticatedApp();
+  if (!wantsPublicBoard() && !wantsRegisterFlow()) startAuthenticatedApp();
   wirePublicBoard();
 } else {
   wirePublicBoard();
@@ -322,7 +361,7 @@ async function startAuthenticatedApp() {
   if (error || !profile?.active) {
     await supabaseClient.auth.signOut();
     const authMessage = document.querySelector("#auth-message");
-    if (authMessage) authMessage.textContent = "This account is not authorized for the steward portal.";
+    if (authMessage) authMessage.textContent = "This account has not been approved yet.";
     return;
   }
 
@@ -362,18 +401,50 @@ function wirePublicBoard() {
   loadPublicExecutiveTeam();
   loadPublicQuestions();
   loadPublicAnnouncements();
+  loadPublicMemberPosts();
   loadPublicMeetings();
   renderDiscounts();
   if (wantsRegisterFlow()) {
     renderRegister();
     return;
   }
-  document.querySelector("#staff-login")?.addEventListener("click", renderAuth);
+  document.querySelector("#staff-login")?.addEventListener("click", openMemberPortal);
   document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
   document.querySelector("#question-form")?.addEventListener("submit", submitPublicQuestion);
   ["public-search", "public-contract"].forEach((id) => {
     document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
   });
+}
+
+async function openMemberPortal() {
+  if (isConfigured) {
+    const { data } = await supabaseClient.auth.getUser();
+    if (data.user) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      await startAuthenticatedApp();
+      return;
+    }
+  }
+  renderAuth();
+}
+
+async function loadPublicMemberPosts() {
+  if (!isConfigured) {
+    renderPublicBoard();
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient
+      .from("member_posts")
+      .select("*")
+      .eq("status", "published")
+      .order("published_at", { ascending: false });
+    if (error) return;
+    memberPosts = Array.isArray(data) && data.length ? data : [...sampleMemberPosts];
+    renderPublicBoard();
+  } catch {
+    // Keep the verified allowance guide while the posts table is being configured.
+  }
 }
 
 function showAssistantAnswer(html) {
@@ -576,7 +647,11 @@ function renderPublicBoard() {
   const term = document.querySelector("#public-search")?.value.trim().toLowerCase() || "";
   const contract = document.querySelector("#public-contract")?.value || "all";
   const matches = (item) => {
-    const text = [item.title, item.category, item.contract, item.summary, item.description].join(" ").toLowerCase();
+    const text = [
+      item.title, item.category, item.topic, item.contract, item.summary, item.description,
+      item.excerpt, item.body, item.amount, item.frequency, item.timeframe,
+      item.requirements, item.agreement_reference
+    ].join(" ").toLowerCase();
     return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
   };
   const announcements = announcementItems.filter(matches);
@@ -615,7 +690,54 @@ function renderPublicBoard() {
       `}
     `).join("") || `<div class="empty">No resources match the current filters.</div>`;
   }
+  renderAgreementGuides(matches);
   renderQABoard();
+}
+
+function renderAgreementGuides(matches) {
+  const list = document.querySelector("#agreement-guide-list");
+  const total = document.querySelector("#agreement-guide-total");
+  if (!list) return;
+  const rows = memberPosts.filter((item) => item.status === "published" && matches(item));
+  if (total) total.textContent = `${rows.length} guide${rows.length === 1 ? "" : "s"}`;
+  list.innerHTML = rows.map((item) => {
+    const requirements = String(item.requirements || "")
+      .split(/\n+/)
+      .map((requirement) => requirement.trim())
+      .filter(Boolean);
+    const facts = [
+      ["Amount", item.amount],
+      ["How often", item.frequency],
+      ["Timing", item.timeframe]
+    ].filter(([, value]) => value);
+    return `
+      <article class="agreement-guide-card">
+        <div class="meta-row">
+          <span class="pill strong">${escapeHtml(item.topic || "Agreement guide")}</span>
+          <span class="pill">${escapeHtml(item.contract || "Shared")}</span>
+        </div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p class="guide-excerpt">${escapeHtml(item.excerpt || "")}</p>
+        ${facts.length ? `<dl class="agreement-facts">${facts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>` : ""}
+        <details>
+          <summary>Read full guide</summary>
+          <div class="guide-body">
+            <p>${formatPostText(item.body)}</p>
+            ${requirements.length ? `<h4>Requirements</h4><ul>${requirements.map((requirement) => `<li>${escapeHtml(requirement)}</li>`).join("")}</ul>` : ""}
+            <div class="guide-source">
+              ${item.agreement_reference ? `<strong>${escapeHtml(item.agreement_reference)}</strong>` : ""}
+              ${item.source_url ? `<a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener">Open source agreement</a>` : ""}
+            </div>
+          </div>
+        </details>
+        <small>Posted by ${escapeHtml(item.author_name || "Local 4005")}</small>
+      </article>
+    `;
+  }).join("") || `<div class="empty">No agreement guides match the current filters.</div>`;
+}
+
+function formatPostText(text) {
+  return escapeHtml(text || "").replace(/\n/g, "<br>");
 }
 
 function renderMeetingBoard(activeId) {
@@ -892,6 +1014,14 @@ function renderRegister() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) error = { message: payload.error || "Invite registration failed." };
     } else {
+      const { error: memberSchemaError } = await supabaseClient
+        .from("member_posts")
+        .select("id", { head: true, count: "exact" })
+        .limit(1);
+      if (memberSchemaError) {
+        message.textContent = "Member registration is temporarily unavailable while the updated access system is being activated.";
+        return;
+      }
       const result = await supabaseClient.auth.signUp({
         email,
         password,
@@ -930,31 +1060,41 @@ function applyInvitePrefill() {
   const params = new URLSearchParams(window.location.search);
   const inviteCode = (params.get("invite") || params.get("code") || "").trim();
   const requestedRole = normalizeRoleName((params.get("role") || "").trim());
-  if (!inviteCode && !requestedRole) return;
-
   if (inviteCode) setValue("register-invite-code", inviteCode);
   if (requestedRole && roleLabels[requestedRole]) {
     setValue("register-role", requestedRole);
-    const roleSelect = document.querySelector("#register-role");
-    if (roleSelect) roleSelect.disabled = true;
   }
 
   const helper = document.querySelector("#register-invite-helper");
+  const accessTitle = document.querySelector("#register-access-title");
+  const accessDescription = document.querySelector("#register-access-description");
+  const registerTitle = document.querySelector("#register-title");
+  if (registerTitle && requestedRole && roleLabels[requestedRole]) {
+    registerTitle.textContent = `Create ${roleLabels[requestedRole]} account`;
+  }
+  if (accessTitle) accessTitle.textContent = requestedRole && roleLabels[requestedRole]
+    ? `${roleLabels[requestedRole]} invite`
+    : "Member account";
+  if (accessDescription && requestedRole && roleLabels[requestedRole]) {
+    accessDescription.textContent = `This role-specific invite requests ${roleLabels[requestedRole]} access. The invite code determines the role; it cannot be changed during registration.`;
+  }
   if (helper) {
     const roleText = requestedRole && roleLabels[requestedRole] ? `${roleLabels[requestedRole]} access` : "requested access";
     helper.textContent = inviteCode
       ? `Invite detected. This signup will request ${roleText} using code ${inviteCode}.`
       : `Invite detected. This signup will request ${roleText}.`;
-    helper.hidden = false;
+    helper.hidden = !inviteCode;
   }
 }
 
 async function loadData() {
   const committeeOnly = profileHasRole(currentProfile, "committee") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward");
+  const memberOnly = profileHasRole(currentProfile, "member") && !profileHasRole(currentProfile, "admin") && !profileHasRole(currentProfile, "steward") && !profileHasRole(currentProfile, "committee");
+  const limitedAccount = committeeOnly || memberOnly;
   const canManageUsers = profileHasRole(currentProfile, "admin");
-  const [caseResult, resourceResult, pendingResult, activeProfileResult, allProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult, companyResult, auditResult] = await Promise.all([
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
+  const [caseResult, resourceResult, pendingResult, activeProfileResult, allProfileResult, internalResult, questionResult, meetingResult, announcementResult, inviteResult, executiveResult, electionResult, companyResult, auditResult, memberPostResult] = await Promise.all([
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("cases").select("*").order("updated_at", { ascending: false }),
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("resources").select("*").order("category"),
     canManageUsers
       ? supabaseClient.from("profiles").select("*").eq("active", false).eq("access_status", "pending").order("created_at", { ascending: true })
       : Promise.resolve({ data: [] }),
@@ -964,17 +1104,18 @@ async function loadData() {
     canManageUsers
       ? supabaseClient.from("profiles").select("*").order("full_name", { ascending: true })
       : Promise.resolve({ data: [] }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("meetings").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_announcements").select("*").order("display_order", { ascending: true }).order("date", { ascending: false }),
-    canManageUsers || profileHasRole(currentProfile, "steward")
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("internal_files").select("*").order("uploaded_at", { ascending: false }),
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("public_questions").select("*").order("created_at", { ascending: false }),
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("meetings").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("public_announcements").select("*").order("display_order", { ascending: true }).order("date", { ascending: false }),
+    canManageUsers
       ? supabaseClient.from("invite_codes").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true }),
-    committeeOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("distribution_companies").select("*").order("company", { ascending: true }),
-    canManageUsers ? supabaseClient.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200) : Promise.resolve({ data: [] })
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true }),
+    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("distribution_companies").select("*").order("company", { ascending: true }),
+    canManageUsers ? supabaseClient.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200) : Promise.resolve({ data: [] }),
+    supabaseClient.from("member_posts").select("*").order("updated_at", { ascending: false })
   ]);
 
   cases = caseResult.data || [];
@@ -1020,6 +1161,10 @@ async function loadData() {
     ? companyResult.data
     : [...defaultDistributionCompanies];
   auditEntries = auditResult.data || [];
+  if (!memberPostResult.error) {
+    memberPosts = memberPostResult.data || [];
+  }
+  if (!memberPosts.length) memberPosts = [...sampleMemberPosts];
   if (meetingResult.error) {
     meetingsStorageReady = false;
     meetingNotices = [...defaultMeetings];
@@ -1034,6 +1179,7 @@ async function loadData() {
   selectedExecutiveId = publicExecutiveTeam.find((item) => item.id === selectedExecutiveId)?.id || publicExecutiveTeam[0]?.id || null;
   selectedElectionId = electionContacts.find((item) => item.id === selectedElectionId)?.id || electionContacts[0]?.id || null;
   selectedAuditId = auditEntries.find((item) => item.id === selectedAuditId)?.id || auditEntries[0]?.id || null;
+  selectedMemberPostId = memberPosts.find((item) => item.id === selectedMemberPostId)?.id || null;
   selectedCaseId = cases[0]?.id || null;
   if (selectedCaseId) await loadCaseChildren(selectedCaseId);
 }
@@ -1059,6 +1205,8 @@ function renderPortal() {
   if (activePortalRole === "committee") {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
+  } else if (activePortalRole === "member") {
+    activeAdminTab = "member";
   }
   wirePortalEvents();
   renderRoleSwitcher();
@@ -1111,6 +1259,8 @@ function renderRoleSwitcher() {
     if (activePortalRole === "committee") {
       activeAdminTab = "workspace";
       activeSectionTab = "resources";
+    } else if (activePortalRole === "member") {
+      activeAdminTab = "member";
     } else if (activeAdminTab === "workspace" && activeSectionTab === "resources") {
       activeSectionTab = "cases";
     }
@@ -1122,10 +1272,12 @@ function renderRoleSwitcher() {
 function applyRoleVisibility() {
   const role = activeRole();
   const committeeView = role === "committee";
+  const memberView = role === "member";
   if (committeeView) {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
   }
+  if (memberView) activeAdminTab = "member";
   const portal = document.querySelector(".portal");
   if (portal) {
     portal.dataset.role = role;
@@ -1140,7 +1292,8 @@ function applyRoleVisibility() {
   if (title) {
     if (role === "admin") title.textContent = "Admin Tools";
     else if (role === "steward") title.textContent = "Shop Steward Portal";
-    else title.textContent = "Committee Forms";
+    else if (role === "committee") title.textContent = "Committee Forms";
+    else title.textContent = "Member Portal";
   }
 
   const visibility = {
@@ -1154,12 +1307,16 @@ function applyRoleVisibility() {
     ".resources": committeeView || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
     "#admin-nav": isAdmin() || isSteward(),
     "#users-tab": isAdmin() && isAdminTab,
-    "#content-tab": (isAdmin() || isSteward()) && isPublicTab
+    "#content-tab": (isAdmin() || isSteward()) && isPublicTab,
+    "#member-home": memberView
   };
 
   Object.entries(visibility).forEach(([selector, visible]) => {
     const element = document.querySelector(selector);
     if (element) element.hidden = !visible;
+  });
+  document.querySelectorAll(".admin-only-dashboard").forEach((element) => {
+    element.hidden = !hasAdminAccount();
   });
 
   const resourcesTitle = document.querySelector("#resources-title");
@@ -1178,7 +1335,24 @@ function wirePortalEvents() {
     selfProfilePanelOpen = !selfProfilePanelOpen;
     renderSelfProfilePanel();
   });
+  document.querySelector("#toggle-post-panel")?.addEventListener("click", () => {
+    memberPostPanelOpen = !memberPostPanelOpen;
+    renderMemberPostPanel();
+  });
+  document.querySelector("#close-member-post")?.addEventListener("click", () => {
+    memberPostPanelOpen = false;
+    renderMemberPostPanel();
+  });
+  document.querySelector("#save-member-post")?.addEventListener("click", saveMemberPost);
+  document.querySelector("#new-member-post")?.addEventListener("click", clearMemberPostForm);
   document.querySelector("#save-self-profile")?.addEventListener("click", saveSelfProfile);
+  document.querySelector("#member-home-write")?.addEventListener("click", () => {
+    memberPostPanelOpen = true;
+    renderMemberPostPanel();
+  });
+  document.querySelector("#member-home-board")?.addEventListener("click", () => {
+    window.location.href = `${window.location.pathname}?board=1`;
+  });
   document.querySelectorAll(".admin-nav-tab").forEach((button) => {
     button.addEventListener("click", () => {
       activeAdminTab = button.dataset.tab || "cases";
@@ -1285,10 +1459,13 @@ async function saveSelfProfile() {
     return;
   }
 
-  const { error } = await supabaseClient
-    .from("profiles")
-    .update({ full_name: fullName, username, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone })
-    .eq("id", currentProfile.id);
+  const { error } = await supabaseClient.rpc("update_own_profile", {
+    new_full_name: fullName,
+    new_username: username,
+    new_phone: phone || null,
+    new_share_email: shareEmail,
+    new_share_phone: sharePhone
+  });
   if (error) {
     if (message) message.textContent = error.message;
     return;
@@ -1308,7 +1485,7 @@ async function saveSelfProfile() {
       share_phone: sharePhone
     }
   });
-  currentProfile = { ...currentProfile, full_name: fullName, username, email, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
+  currentProfile = { ...currentProfile, full_name: fullName, username, phone: phone || null, share_email: shareEmail, share_phone: sharePhone };
   await loadData();
   document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
   renderSelfProfilePanel();
@@ -1316,10 +1493,170 @@ async function saveSelfProfile() {
   if (message) message.textContent = "Profile updated.";
 }
 
+function canEditMemberPost(post) {
+  return Boolean(post && (hasAdminAccount() || post.author_id === currentUser?.id));
+}
+
+function renderMemberPostPanel() {
+  const panel = document.querySelector("#member-post-panel");
+  const list = document.querySelector("#member-post-manager-list");
+  if (!panel || !list) return;
+  panel.hidden = !memberPostPanelOpen;
+  if (!memberPostPanelOpen) return;
+
+  const editablePosts = memberPosts.filter(canEditMemberPost);
+  list.innerHTML = editablePosts.map((post) => `
+    <article class="resource-item ${post.id === selectedMemberPostId ? "meeting-item-active" : ""}">
+      <div class="meeting-item-header">
+        <div>
+          <h3>${escapeHtml(post.title)}</h3>
+          <p>${escapeHtml(post.contract || "Shared")} · ${escapeHtml(post.status || "draft")}</p>
+        </div>
+        <div class="button-row">
+          <button type="button" data-edit-member-post="${escapeHtml(post.id)}">Edit</button>
+          <button class="secondary" type="button" data-delete-member-post="${escapeHtml(post.id)}">Delete</button>
+        </div>
+      </div>
+      <p>${escapeHtml(post.excerpt || "")}</p>
+    </article>
+  `).join("") || `<div class="empty">You have not written any posts yet.</div>`;
+
+  list.querySelectorAll("[data-edit-member-post]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedMemberPostId = button.dataset.editMemberPost;
+      populateMemberPostForm(selectedMemberPostId);
+      renderMemberPostPanel();
+    });
+  });
+  list.querySelectorAll("[data-delete-member-post]").forEach((button) => {
+    button.addEventListener("click", () => deleteMemberPost(button.dataset.deleteMemberPost));
+  });
+}
+
+function populateMemberPostForm(id) {
+  const post = memberPosts.find((item) => item.id === id);
+  if (!post || !canEditMemberPost(post)) return clearMemberPostFormFields();
+  setValue("member-post-id", post.id);
+  setValue("member-post-title", post.title || "");
+  setValue("member-post-topic", post.topic || "");
+  setValue("member-post-contract", post.contract || "Shared");
+  setValue("member-post-excerpt", post.excerpt || "");
+  setValue("member-post-body", post.body || "");
+  setValue("member-post-amount", post.amount || "");
+  setValue("member-post-frequency", post.frequency || "");
+  setValue("member-post-timeframe", post.timeframe || "");
+  setValue("member-post-requirements", post.requirements || "");
+  setValue("member-post-reference", post.agreement_reference || "");
+  setValue("member-post-source", post.source_url || "");
+  setValue("member-post-status", post.status || "draft");
+}
+
+function clearMemberPostForm() {
+  selectedMemberPostId = null;
+  clearMemberPostFormFields();
+  const message = document.querySelector("#member-post-message");
+  if (message) message.textContent = "";
+  renderMemberPostPanel();
+}
+
+function clearMemberPostFormFields() {
+  [
+    "member-post-id", "member-post-title", "member-post-topic", "member-post-excerpt",
+    "member-post-body", "member-post-amount", "member-post-frequency", "member-post-timeframe",
+    "member-post-requirements", "member-post-reference", "member-post-source"
+  ].forEach((id) => setValue(id, ""));
+  setValue("member-post-contract", "Shared");
+  setValue("member-post-status", "draft");
+}
+
+async function saveMemberPost() {
+  if (!currentUser || !currentProfile?.active) return;
+  const id = value("member-post-id");
+  const existing = memberPosts.find((item) => item.id === id);
+  if (existing && !canEditMemberPost(existing)) return;
+  const status = value("member-post-status") || "draft";
+  const payload = {
+    title: value("member-post-title"),
+    topic: value("member-post-topic") || "Member update",
+    contract: value("member-post-contract") || "Shared",
+    excerpt: value("member-post-excerpt"),
+    body: value("member-post-body"),
+    amount: value("member-post-amount") || null,
+    frequency: value("member-post-frequency") || null,
+    timeframe: value("member-post-timeframe") || null,
+    requirements: value("member-post-requirements") || null,
+    agreement_reference: value("member-post-reference") || null,
+    source_url: value("member-post-source") || null,
+    status,
+    author_name: existing?.author_name || currentProfile.full_name || currentUser.email || "Local 4005 member",
+    published_at: status === "published" ? (existing?.published_at || new Date().toISOString()) : null
+  };
+  const message = document.querySelector("#member-post-message");
+  if (!payload.title || !payload.excerpt || !payload.body) {
+    if (message) message.textContent = "Title, short summary, and explanation are required.";
+    return;
+  }
+
+  if (previewMode || !isConfigured) {
+    const localId = id || crypto.randomUUID();
+    const row = { ...existing, ...payload, id: localId, author_id: currentUser.id, updated_at: new Date().toISOString() };
+    const index = memberPosts.findIndex((item) => item.id === localId);
+    if (index >= 0) memberPosts[index] = row; else memberPosts.unshift(row);
+    selectedMemberPostId = localId;
+    if (message) message.textContent = status === "published" ? "Post published in preview." : "Draft saved in preview.";
+    renderMemberPostPanel();
+    return;
+  }
+
+  const result = isUuid(id)
+    ? await supabaseClient.from("member_posts").update(payload).eq("id", id).select().single()
+    : await supabaseClient.from("member_posts").insert({ ...payload, author_id: currentUser.id }).select().single();
+  if (result.error) {
+    if (message) message.textContent = result.error.message;
+    return;
+  }
+  selectedMemberPostId = result.data.id;
+  await logAuditEvent(isUuid(id) ? "update" : "create", "member_post", {
+    targetId: result.data.id,
+    targetLabel: payload.title,
+    summary: `${isUuid(id) ? "Updated" : "Created"} member post`,
+    details: { contract: payload.contract, topic: payload.topic, status: payload.status }
+  });
+  await loadData();
+  renderAll();
+  if (message) message.textContent = status === "published" ? "Post published." : "Draft saved.";
+}
+
+async function deleteMemberPost(id) {
+  const post = memberPosts.find((item) => item.id === id);
+  if (!canEditMemberPost(post) || !confirm("Delete this post?")) return;
+  if (previewMode || !isConfigured || !isUuid(id)) {
+    memberPosts = memberPosts.filter((item) => item.id !== id);
+    selectedMemberPostId = null;
+    clearMemberPostFormFields();
+    renderMemberPostPanel();
+    return;
+  }
+  const { error } = await supabaseClient.from("member_posts").delete().eq("id", id);
+  if (error) return alert(error.message);
+  await logAuditEvent("delete", "member_post", {
+    targetId: id,
+    targetLabel: post.title,
+    summary: "Deleted member post",
+    details: { contract: post.contract, topic: post.topic }
+  });
+  selectedMemberPostId = null;
+  await loadData();
+  clearMemberPostFormFields();
+  renderAll();
+}
+
 function renderAll() {
   if (activeRole() === "committee") {
     activeAdminTab = "workspace";
     activeSectionTab = "resources";
+  } else if (activeRole() === "member") {
+    activeAdminTab = "member";
   }
   applyRoleVisibility();
   renderAdminTabs();
@@ -1339,6 +1676,7 @@ function renderAll() {
   renderElectionManager();
   renderInviteManager();
   renderAuditLog();
+  renderMemberPostPanel();
 }
 
 function renderAdminTabs() {
@@ -1354,6 +1692,23 @@ function renderAdminTabs() {
   const moderationTab = document.querySelector("#moderation-tab");
   const statsGrid = document.querySelector(".stats-grid");
   const approvalPanel = document.querySelector("#approval-panel");
+  const memberHome = document.querySelector("#member-home");
+
+  if (role === "member") {
+    document.querySelectorAll(".admin-nav-tab").forEach((button) => {
+      button.hidden = true;
+      button.classList.remove("active");
+    });
+    [statsGrid, workspaceTab, usersTab, contentTab, invitesTab, auditTab, moderationTab, approvalPanel].forEach((element) => {
+      if (element) element.hidden = true;
+    });
+    if (memberHome) memberHome.hidden = false;
+    activeAdminTab = "member";
+    renderSectionTabs();
+    return;
+  }
+
+  if (memberHome) memberHome.hidden = true;
 
   if (isCommitteeView) {
     document.querySelectorAll(".admin-nav-tab").forEach((button) => {
@@ -1382,7 +1737,7 @@ function renderAdminTabs() {
     const allowed = tab === "dashboard"
       || tab === "workspace"
       || tab === "public"
-      || tab === "invites"
+      || (tab === "invites" && isAdminView)
       || (tab === "audit" && isAdminView)
       || (tab === "admin" && isAdminView);
     button.hidden = !(allowed && (isAdminView || isStewardView));
@@ -1391,7 +1746,7 @@ function renderAdminTabs() {
   if (workspaceTab) workspaceTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "workspace";
   if (usersTab) usersTab.hidden = !isAdminView || activeAdminTab !== "admin";
   if (contentTab) contentTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
-  if (invitesTab) invitesTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "invites";
+  if (invitesTab) invitesTab.hidden = !isAdminView || activeAdminTab !== "invites";
   if (auditTab) auditTab.hidden = !isAdminView || activeAdminTab !== "audit";
   if (moderationTab) moderationTab.hidden = !(isAdminView || isStewardView) || activeAdminTab !== "public";
   if (approvalPanel) approvalPanel.hidden = !isAdminView || activeAdminTab !== "admin";
@@ -1643,7 +1998,7 @@ function renderRoleCard(profile, { pending }) {
           <span class="pill">${new Date(profile.created_at).toLocaleDateString()}</span>
         </div>
         <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
-          ${["admin", "steward", "committee"].map((role) => `
+          ${["member", "steward", "committee", "admin"].map((role) => `
             <label>
               <input type="checkbox" value="${role}" ${roles.includes(role) ? "checked" : ""}>
               ${roleLabels[role] || role}
@@ -1683,8 +2038,12 @@ function renderUsers() {
   const total = document.querySelector("#users-total");
   if (total) total.textContent = `${rows.length} users`;
   const intro = `
-    <div class="helper-text">
-      Manage profiles, roles, and contact visibility here. Use edit only when you need to change a specific user.
+    <div class="access-guide-admin">
+      <strong>Access guide</strong>
+      <div><span>Member</span><p>Profile and own agreement-guide posts only.</p></div>
+      <div><span>Committee</span><p>Member access plus committee forms and approved committee tools.</p></div>
+      <div><span>Steward</span><p>Assigned cases, case documents, internal files, public content, and Q&amp;A moderation.</p></div>
+      <div><span>Admin</span><p>All access, including users, approvals, roles, invites, audit, and deletion.</p></div>
     </div>
   `;
   list.innerHTML = rows.map((profile) => `
@@ -1728,7 +2087,7 @@ function renderUsers() {
             </label>
           </div>
           <div class="role-checks" data-role-checks="${escapeHtml(profile.id)}">
-            ${["admin", "steward", "committee"].map((role) => `
+            ${["member", "steward", "committee", "admin"].map((role) => `
               <label>
                 <input type="checkbox" value="${role}" ${assignedRoles(profile).includes(role) ? "checked" : ""}>
                 ${roleLabels[role] || role}
@@ -1801,7 +2160,7 @@ async function updateAccessRequest(profileId, approved, assignedRoles = []) {
   if (previewMode) {
     pendingProfiles = pendingProfiles.filter((profile) => profile.id !== profileId);
     if (approved) {
-      activeProfiles.push({ id: profileId, full_name: "Approved preview user", email: "preview@example.ca", role: assignedRoles[0] || "committee", assigned_roles: assignedRoles, share_email: false, share_phone: false, created_at: new Date().toISOString() });
+      activeProfiles.push({ id: profileId, full_name: "Approved preview user", email: "preview@example.ca", role: assignedRoles[0] || "member", assigned_roles: assignedRoles, share_email: false, share_phone: false, created_at: new Date().toISOString() });
     }
     selectedUserId = null;
     renderApprovals();
@@ -1809,7 +2168,7 @@ async function updateAccessRequest(profileId, approved, assignedRoles = []) {
   }
 
   const payload = approved
-    ? { active: true, access_status: "approved", role: assignedRoles[0] || "committee", assigned_roles: assignedRoles, approved_by: currentUser.id, approved_at: new Date().toISOString() }
+    ? { active: true, access_status: "approved", role: assignedRoles[0] || "member", assigned_roles: assignedRoles, approved_by: currentUser.id, approved_at: new Date().toISOString() }
     : { active: false, access_status: "rejected", approved_by: currentUser.id, approved_at: new Date().toISOString() };
   const { error } = await supabaseClient.from("profiles").update(payload).eq("id", profileId);
   if (error) return alert(error.message);
@@ -3296,7 +3655,7 @@ async function deleteElectionContact(id) {
 
 function renderInviteManager() {
   const list = document.querySelector("#invites-list");
-  if (!list || !isAdminOrSteward()) return;
+  if (!list || !isAdmin()) return;
   list.innerHTML = inviteCodes.map((item) => `
     <article class="resource-item">
       <div class="meeting-item-header">
@@ -3440,7 +3799,7 @@ async function copyInviteLink(id) {
 }
 
 async function createInviteCode() {
-  if (!isAdminOrSteward()) return;
+  if (!isAdmin()) return;
   const payload = {
     code: `L4005-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
     requested_role: value("invite-role-input") || "steward",
@@ -3470,7 +3829,7 @@ async function createInviteCode() {
 }
 
 async function deleteInviteCode(id) {
-  if (!isAdminOrSteward() || !confirm("Delete this invite code?")) return;
+  if (!isAdmin() || !confirm("Delete this invite code?")) return;
   const invite = inviteCodes.find((item) => item.id === id);
   if (previewMode || !isConfigured) {
     inviteCodes = inviteCodes.filter((item) => item.id !== id);

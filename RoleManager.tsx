@@ -10,12 +10,14 @@ import React, { useState } from "react";
 import { ROLES, isAdmin } from "./roleHelpers";
 
 const ROLE_LABELS = {
+  [ROLES.MEMBER]: "Member",
   [ROLES.ADMIN]: "Admin",
   [ROLES.STEWARD]: "Shop Steward",
   [ROLES.COMMITTEE]: "Committee Member",
 };
 
 const ROLE_COLORS = {
+  [ROLES.MEMBER]: { bg: "#f8fafc", text: "#334155", border: "#cbd5e1" },
   [ROLES.ADMIN]: { bg: "#fef2f2", text: "#991b1b", border: "#fca5a5" },
   [ROLES.STEWARD]: { bg: "#eff6ff", text: "#1d4ed8", border: "#93c5fd" },
   [ROLES.COMMITTEE]: { bg: "#f0fdf4", text: "#166534", border: "#86efac" },
@@ -85,7 +87,7 @@ export default function RoleManager({ currentUser, users = [], onRoleChange }) {
       ) : (
         <div style={styles.list}>
           {filtered.map((u) => {
-            const currentRole = u.role || (u.roles && u.roles[0]) || ROLES.COMMITTEE;
+            const currentRole = u.role || (u.roles && u.roles[0]) || ROLES.MEMBER;
             const selectedRole = pendingChanges[u.id] ?? currentRole;
             const isDirty = pendingChanges[u.id] && pendingChanges[u.id] !== currentRole;
             const colors = ROLE_COLORS[currentRole] || ROLE_COLORS[ROLES.COMMITTEE];

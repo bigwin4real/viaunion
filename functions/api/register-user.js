@@ -15,7 +15,6 @@ export async function onRequestPost({ request, env }) {
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   const inviteCode = String(body.invite_code || "").trim();
-  const requestedRole = normalizeRole(String(body.requested_role || "").trim());
   const requestNote = String(body.request_note || "").trim();
   const phone = String(body.phone || "").trim();
   const shareEmail = Boolean(body.share_email);
@@ -46,8 +45,8 @@ export async function onRequestPost({ request, env }) {
   if (!invite) return json({ error: "Invite code is invalid." }, 400);
 
   const inviteRole = normalizeRole(invite.requested_role);
-  if (requestedRole && inviteRole && requestedRole !== inviteRole) {
-    return json({ error: `This invite only allows ${inviteRole} access.` }, 400);
+  if (!inviteRole || inviteRole === "member") {
+    return json({ error: "This invite does not grant an elevated role." }, 400);
   }
 
   const existingProfileResponse = await fetch(
@@ -84,7 +83,7 @@ export async function onRequestPost({ request, env }) {
         user_metadata: {
           full_name: fullName,
           username,
-          requested_role: inviteRole || requestedRole || "steward",
+          requested_role: inviteRole,
           invite_code: inviteCode,
           request_note: requestNote || `Invite: ${inviteCode}`,
           phone: phone || null,
@@ -107,8 +106,8 @@ export async function onRequestPost({ request, env }) {
         phone: phone || null,
         share_email: shareEmail,
         share_phone: sharePhone,
-        role: inviteRole || requestedRole || "steward",
-        assigned_roles: [inviteRole || requestedRole || "steward"],
+        role: inviteRole,
+        assigned_roles: [inviteRole],
         active: true,
         access_status: "approved",
         request_note: requestNote || `Invite: ${inviteCode}`
@@ -119,6 +118,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: "Account email was confirmed, but profile activation failed.", detail }, 502);
     }
 
+    await consumeInvite(env, inviteCode, headers);
     return json({ ok: true, user_id: existingProfile.id, reused_existing_account: true });
   }
 
@@ -132,7 +132,7 @@ export async function onRequestPost({ request, env }) {
       user_metadata: {
         full_name: fullName,
         username,
-        requested_role: inviteRole || requestedRole || "steward",
+        requested_role: inviteRole,
         invite_code: inviteCode,
         request_note: requestNote || `Invite: ${inviteCode}`,
         phone: phone || null,
@@ -148,13 +148,26 @@ export async function onRequestPost({ request, env }) {
   }
 
   const createdUser = await createResponse.json();
+  await consumeInvite(env, inviteCode, headers);
   return json({ ok: true, user_id: createdUser?.id || createdUser?.user?.id || null });
+}
+
+async function consumeInvite(env, inviteCode, headers) {
+  try {
+    await fetch(
+      `${env.SUPABASE_URL}/rest/v1/invite_codes?code=eq.${encodeURIComponent(inviteCode)}`,
+      { method: "DELETE", headers }
+    );
+  } catch {
+    // Account creation succeeded. An admin can remove the invite manually if cleanup fails.
+  }
 }
 
 function normalizeRole(role) {
   const value = String(role || "").trim().toLowerCase();
   if (!value) return "";
-  return value === "election_committee" ? "committee" : value;
+  const normalized = value === "election_committee" ? "committee" : value;
+  return ["member", "steward", "committee", "admin"].includes(normalized) ? normalized : "";
 }
 
 function normalizeUsername(value) {

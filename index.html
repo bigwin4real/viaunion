@@ -22,11 +22,12 @@
           </div>
           <nav class="public-nav" aria-label="Section links">
             <a href="#announcements-title">Notices</a>
+            <a href="#agreement-guides-title">Agreement guides</a>
             <a href="#member-resources-title">Resources</a>
             <a href="#directory-title">Contacts</a>
             <a href="#qa-title">Q&amp;A</a>
           </nav>
-          <button id="staff-login" type="button">Steward/Admin sign in</button>
+          <button id="staff-login" type="button">Member sign in</button>
         </header>
 
         <section class="public-hero" aria-labelledby="hero-title">
@@ -72,6 +73,18 @@
           </div>
           <div id="public-resource-list" class="resource-toolbar"></div>
         </aside>
+
+        <section class="agreement-guides" aria-labelledby="agreement-guides-title">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Know your agreement</span>
+              <h2 id="agreement-guides-title">Agreement guides</h2>
+            </div>
+            <span id="agreement-guide-total"></span>
+          </div>
+          <p class="section-intro">Plain-language explanations written by approved Local 4005 users, with the source and agreement reference attached. If a summary differs from the signed agreement, the agreement controls.</p>
+          <div id="agreement-guide-list" class="agreement-guide-grid"></div>
+        </section>
 
         <section class="public-layout">
           <section aria-labelledby="announcements-title">
@@ -157,7 +170,7 @@
       <section class="auth-panel" aria-labelledby="auth-title">
         <div class="brand-mark">4005</div>
         <h1 id="auth-title">Authorized sign in</h1>
-        <p>Authorized access for Moncton shop stewards, administrators, and committee form users.</p>
+        <p>Sign in to your approved Local 4005 member, steward, committee, or admin account.</p>
         <form id="login-form" class="login-form">
           <label>
             Username or email
@@ -170,7 +183,7 @@
           <div class="button-row">
             <button type="submit">Sign in</button>
             <button id="reset-password" class="secondary" type="button">Email password reset</button>
-            <button id="request-access" class="secondary" type="button">Request access</button>
+            <button id="request-access" class="secondary" type="button">Create member account</button>
             <button id="back-public" class="secondary" type="button">Back to board</button>
           </div>
         </form>
@@ -204,8 +217,8 @@
     <template id="register-template">
       <section class="auth-panel" aria-labelledby="register-title">
         <div class="brand-mark">4005</div>
-        <h1 id="register-title">Request private access</h1>
-        <p>New steward, admin, and committee accounts are reviewed before they can use private tools.</p>
+        <h1 id="register-title">Create a member account</h1>
+        <p>New registrations start as member accounts and are reviewed before sign-in is activated. Steward, committee, and admin access is only assigned by an administrator or a role-specific invite.</p>
         <form id="register-form" class="login-form">
           <label>
             Full name
@@ -235,18 +248,12 @@
             </label>
             <p class="helper-text">Leave both unchecked if you only want members to contact you through Local 4005.</p>
           </fieldset>
-          <label>
-            Requested access
-            <select id="register-role">
-              <option value="steward">Steward</option>
-              <option value="committee">Committee - form access only</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-          <label>
-            Invite code
-            <input id="register-invite-code" placeholder="Optional invite code">
-          </label>
+          <input id="register-role" type="hidden" value="member">
+          <input id="register-invite-code" type="hidden">
+          <div class="access-summary" aria-live="polite">
+            <strong id="register-access-title">Member account</strong>
+            <p id="register-access-description">After approval, members can manage their profile and write agreement-guide posts. Grievance files, internal documents, committee tools, user management, and administration remain locked.</p>
+          </div>
           <p id="register-invite-helper" class="helper-text" hidden></p>
           <label>
             Reason
@@ -278,6 +285,7 @@
           <div class="account-box">
             <span id="user-label"></span>
             <button id="toggle-profile-panel" class="secondary" type="button">My profile</button>
+            <button id="toggle-post-panel" class="secondary" type="button">Write a post</button>
             <label id="role-switcher-wrap" class="role-switcher" hidden>
               View as
               <select id="role-switcher"></select>
@@ -302,7 +310,7 @@
             </label>
             <label>
               Email
-              <input id="self-profile-email" type="email" autocomplete="email">
+              <input id="self-profile-email" type="email" autocomplete="email" disabled>
             </label>
             <label>
               Phone
@@ -323,6 +331,105 @@
             <button id="save-self-profile" type="button">Save my profile</button>
           </div>
           <p id="self-profile-message" class="message" role="status"></p>
+        </section>
+
+        <section id="member-post-panel" class="member-post-panel" hidden>
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Member publishing</span>
+              <h2>Agreement guide post</h2>
+            </div>
+            <span>Draft or publish</span>
+          </div>
+          <p class="helper-text">Use the quick facts for allowances and benefits. Use the main explanation for anything members should know.</p>
+          <div class="post-editor-layout">
+            <div class="meeting-editor">
+              <input id="member-post-id" type="hidden">
+              <label>
+                Title
+                <input id="member-post-title" type="text" placeholder="Safety boot allowance">
+              </label>
+              <div class="form-row">
+                <label>
+                  Topic
+                  <input id="member-post-topic" type="text" placeholder="Allowance">
+                </label>
+                <label>
+                  Contract
+                  <select id="member-post-contract">
+                    <option value="Shared">Shared</option>
+                    <option value="Contract 1">Contract 1</option>
+                    <option value="Contract 2">Contract 2</option>
+                  </select>
+                </label>
+              </div>
+              <label>
+                Short summary
+                <textarea id="member-post-excerpt" rows="2" placeholder="One or two lines shown on the front page"></textarea>
+              </label>
+              <label>
+                Plain-language explanation
+                <textarea id="member-post-body" rows="7" placeholder="Explain what members are entitled to and what they need to do"></textarea>
+              </label>
+              <div class="post-facts-editor">
+                <label>
+                  Amount
+                  <input id="member-post-amount" type="text" placeholder="$150">
+                </label>
+                <label>
+                  How often
+                  <input id="member-post-frequency" type="text" placeholder="Every year">
+                </label>
+                <label>
+                  Timing
+                  <input id="member-post-timeframe" type="text" placeholder="Second pay period of September">
+                </label>
+              </div>
+              <label>
+                Requirements
+                <textarea id="member-post-requirements" rows="4" placeholder="One requirement per line"></textarea>
+              </label>
+              <div class="form-row">
+                <label>
+                  Agreement reference
+                  <input id="member-post-reference" type="text" placeholder="Agreement No. 1, Article 38.4">
+                </label>
+                <label>
+                  Source link
+                  <input id="member-post-source" type="url" placeholder="https://...">
+                </label>
+              </div>
+              <label>
+                Status
+                <select id="member-post-status">
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </label>
+              <div class="button-row">
+                <button id="save-member-post" type="button">Save post</button>
+                <button id="new-member-post" class="secondary" type="button">New post</button>
+                <button id="close-member-post" class="secondary" type="button">Close</button>
+              </div>
+              <p id="member-post-message" class="message" role="status"></p>
+            </div>
+            <div>
+              <h3>Your editable posts</h3>
+              <div id="member-post-manager-list" class="content-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="member-home" class="member-home" hidden>
+          <div>
+            <span class="eyebrow">Member account</span>
+            <h2>Welcome to Local 4005</h2>
+            <p>Your account can update its profile and publish agreement guides. Sensitive grievance records, internal files, committee tools, and administration are not available to member accounts.</p>
+          </div>
+          <div class="button-row">
+            <button id="member-home-write" type="button">Write an agreement guide</button>
+            <button id="member-home-board" class="secondary" type="button">Return to public board</button>
+          </div>
         </section>
 
         <!-- PRIVATE WORK AREAS -->
@@ -365,17 +472,17 @@
             <p>Announcements, resources, meetings, executive team, and Q&amp;A moderation.</p>
             <button class="secondary dashboard-jump" type="button" data-jump-tab="public">Open public site tools</button>
           </article>
-          <article class="dashboard-card">
+          <article class="dashboard-card admin-only-dashboard">
             <h2>Administration</h2>
             <p>Users, approvals, roles, and access control.</p>
             <button class="secondary dashboard-jump" type="button" data-jump-tab="admin">Open administration</button>
           </article>
-          <article class="dashboard-card">
+          <article class="dashboard-card admin-only-dashboard">
             <h2>Invites</h2>
             <p>Create and copy sign-up links for admins, stewards, and committee users.</p>
             <button class="secondary dashboard-jump" type="button" data-jump-tab="invites">Open invites</button>
           </article>
-          <article class="dashboard-card">
+          <article class="dashboard-card admin-only-dashboard">
             <h2>Audit</h2>
             <p>See who changed or accessed protected records, then open the event details.</p>
             <button class="secondary dashboard-jump" type="button" data-jump-tab="audit">Open audit</button>
@@ -403,6 +510,7 @@
               Filter by role
               <select id="user-role-filter">
                 <option value="all">All roles</option>
+                <option value="member">Member</option>
                 <option value="admin">Admin</option>
                 <option value="steward">Steward</option>
                 <option value="committee">Committee</option>

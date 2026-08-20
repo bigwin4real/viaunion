@@ -430,6 +430,192 @@ textarea {
   gap: 7px;
 }
 
+.agreement-guides {
+  margin: 18px 0;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, #ffffff 0%, #f4f7fb 100%);
+  box-shadow: var(--shadow);
+}
+
+.agreement-guides .section-heading h2 {
+  margin-top: 4px;
+}
+
+.section-intro {
+  max-width: 760px;
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+.agreement-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.agreement-guide-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-top: 5px solid var(--gold);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.agreement-guide-card h3,
+.agreement-guide-card p {
+  margin: 0;
+}
+
+.guide-excerpt {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.agreement-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 2px 0;
+}
+
+.agreement-facts div {
+  padding: 10px;
+  border-radius: 10px;
+  background: #f4f7fb;
+}
+
+.agreement-facts dt {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.agreement-facts dd {
+  margin: 4px 0 0;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.agreement-guide-card details {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.agreement-guide-card summary {
+  color: var(--navy);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.guide-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  line-height: 1.55;
+}
+
+.guide-body h4,
+.guide-body ul {
+  margin: 0;
+}
+
+.guide-source {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff8e7;
+}
+
+.member-post-panel {
+  margin-bottom: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-top: 5px solid var(--gold);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.member-home,
+.access-summary,
+.access-guide-admin {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.member-home {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: clamp(18px, 3vw, 26px);
+  border-top: 5px solid var(--gold);
+}
+
+.member-home h2,
+.member-home p,
+.access-summary p,
+.access-guide-admin p {
+  margin: 4px 0 0;
+}
+
+.member-home p,
+.access-summary p,
+.access-guide-admin p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.access-summary {
+  padding: 14px;
+  background: #f4f7fb;
+  box-shadow: none;
+}
+
+.access-guide-admin {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 14px;
+}
+
+.access-guide-admin > div {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.access-guide-admin span {
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.post-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.post-facts-editor {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .resource-tool {
   display: grid;
   gap: 2px;
@@ -1050,6 +1236,20 @@ textarea {
   display: none !important;
 }
 
+.portal[data-role="member"] .stats-grid,
+.portal[data-role="member"] #dashboard-grid,
+.portal[data-role="member"] #admin-nav,
+.portal[data-role="member"] #users-tab,
+.portal[data-role="member"] #content-tab,
+.portal[data-role="member"] #moderation-tab,
+.portal[data-role="member"] #approval-panel,
+.portal[data-role="member"] #files-section,
+.portal[data-role="member"] #cases-tab,
+.portal[data-role="member"] #resources-section,
+.portal[data-role="member"] #section-nav {
+  display: none !important;
+}
+
 .portal[data-role="committee"] #resources-section {
   display: block !important;
 }
@@ -1587,6 +1787,25 @@ textarea {
 }
 
 @media (max-width: 760px) {
+  .agreement-facts,
+  .post-facts-editor,
+  .post-editor-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .agreement-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .member-home {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .access-guide-admin > div {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
   .portal {
     padding: 10px;
   }

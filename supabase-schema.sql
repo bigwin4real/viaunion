@@ -1,4 +1,4 @@
-create type public.portal_role as enum ('admin', 'steward', 'committee', 'election_committee');
+create type public.portal_role as enum ('member', 'admin', 'steward', 'committee', 'election_committee');
 create type public.access_status as enum ('pending', 'approved', 'rejected');
 create type public.internal_file_kind as enum ('general', 'grievance_tracker');
 create type public.case_contract as enum ('Contract 1', 'Contract 2', 'Shared');
@@ -13,8 +13,8 @@ create table public.profiles (
   phone text,
   share_email boolean not null default false,
   share_phone boolean not null default false,
-  role public.portal_role not null default 'steward',
-  assigned_roles public.portal_role[] not null default array['steward']::public.portal_role[],
+  role public.portal_role not null default 'member',
+  assigned_roles public.portal_role[] not null default array['member']::public.portal_role[],
   active boolean not null default false,
   access_status public.access_status not null default 'pending',
   request_note text,
@@ -261,10 +261,7 @@ begin
 
   requested_role := case
     when is_invited then invite_role
-    when new.raw_user_meta_data ->> 'requested_role' = 'admin' then 'admin'::public.portal_role
-    when new.raw_user_meta_data ->> 'requested_role' = 'committee' then 'committee'::public.portal_role
-    when new.raw_user_meta_data ->> 'requested_role' = 'election_committee' then 'election_committee'::public.portal_role
-    else 'steward'::public.portal_role
+    else 'member'::public.portal_role
   end;
 
   insert into public.profiles (id, email, username, full_name, phone, share_email, share_phone, role, assigned_roles, active, access_status, request_note)
@@ -316,6 +313,47 @@ as $$
     where id = auth.uid() and active = true
   );
 $$;
+
+create or replace function public.update_own_profile(
+  new_full_name text,
+  new_username text,
+  new_phone text default null,
+  new_share_email boolean default false,
+  new_share_phone boolean default false
+)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  updated_profile public.profiles%rowtype;
+begin
+  if auth.uid() is null then
+    raise exception 'Sign-in required.' using errcode = '42501';
+  end if;
+
+  update public.profiles
+  set full_name = nullif(trim(new_full_name), ''),
+      username = nullif(lower(regexp_replace(trim(new_username), '[^a-z0-9._-]+', '-', 'g')), ''),
+      phone = nullif(trim(new_phone), ''),
+      share_email = coalesce(new_share_email, false),
+      share_phone = coalesce(new_share_phone, false),
+      updated_at = now()
+  where id = auth.uid()
+    and active = true
+  returning * into updated_profile;
+
+  if updated_profile.id is null then
+    raise exception 'Active profile not found.' using errcode = 'P0002';
+  end if;
+
+  return updated_profile;
+end;
+$$;
+
+revoke execute on function public.update_own_profile(text, text, text, boolean, boolean) from public, anon;
+grant execute on function public.update_own_profile(text, text, text, boolean, boolean) to authenticated;
 
 create or replace function public.is_admin()
 returns boolean
@@ -374,7 +412,7 @@ begin
       raw_user_meta_data = coalesce(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
         'full_name', coalesce(target_profile.full_name, target_profile.email, ''),
         'username', coalesce(target_profile.username, ''),
-        'requested_role', coalesce(target_profile.role::text, 'committee'),
+        'requested_role', coalesce(target_profile.role::text, 'member'),
         'phone', target_profile.phone,
         'share_email', target_profile.share_email,
         'share_phone', target_profile.share_phone
@@ -609,8 +647,8 @@ using (
 
 create policy "resources_admin_manage"
 on public.resources for all
-using (public.is_admin())
-with check (public.is_admin());
+using (public.is_admin_or_steward())
+with check (public.is_admin_or_steward());
 
 create policy "meetings_public_read"
 on public.meetings for select
@@ -641,8 +679,8 @@ with check (public.is_admin_or_steward());
 
 create policy "invite_codes_manage"
 on public.invite_codes for all
-using (public.is_admin_or_steward())
-with check (public.is_admin_or_steward());
+using (public.is_admin())
+with check (public.is_admin());
 
 create policy "election_contacts_authorized"
 on public.election_contacts for all
@@ -772,3 +810,71 @@ on conflict (title, category, contract) do update
 set description = excluded.description,
     url = excluded.url,
     updated_at = now();
+create table if not exists public.member_posts (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  topic text not null default 'Member update',
+  contract public.case_contract not null default 'Shared',
+  excerpt text not null,
+  body text not null,
+  amount text,
+  frequency text,
+  timeframe text,
+  requirements text,
+  agreement_reference text,
+  source_url text,
+  status text not null default 'draft' check (status in ('draft', 'published')),
+  author_id uuid references public.profiles(id) on delete set null,
+  author_name text not null default 'Local 4005 member',
+  published_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.member_posts enable row level security;
+
+drop trigger if exists member_posts_touch_updated_at on public.member_posts;
+create trigger member_posts_touch_updated_at
+before update on public.member_posts
+for each row execute function public.touch_updated_at();
+
+drop policy if exists "member_posts_read" on public.member_posts;
+create policy "member_posts_read" on public.member_posts for select
+using (status = 'published' or author_id = auth.uid() or public.is_admin());
+
+drop policy if exists "member_posts_active_insert" on public.member_posts;
+create policy "member_posts_active_insert" on public.member_posts for insert
+with check (public.is_active_user() and author_id = auth.uid());
+
+drop policy if exists "member_posts_author_update" on public.member_posts;
+create policy "member_posts_author_update" on public.member_posts for update
+using (public.is_active_user() and (author_id = auth.uid() or public.is_admin()))
+with check (public.is_active_user() and (author_id = auth.uid() or public.is_admin()));
+
+drop policy if exists "member_posts_author_delete" on public.member_posts;
+create policy "member_posts_author_delete" on public.member_posts for delete
+using (public.is_active_user() and (author_id = auth.uid() or public.is_admin()));
+
+insert into public.member_posts (
+  id, title, topic, contract, excerpt, body, amount, frequency, timeframe,
+  requirements, agreement_reference, source_url, status, author_name, published_at
+)
+select
+  '40050000-0000-4000-8000-000000000038'::uuid,
+  'Safety boot allowance',
+  'Allowance',
+  'Contract 1'::public.case_contract,
+  'Eligible employees required to wear safety footwear receive $150 each year.',
+  'The allowance is paid automatically in the second pay period of September. When you buy new safety footwear, bring the footwear and your proof of purchase to your immediate supervisor. The footwear must meet the applicable Canada Occupational Health and Safety requirements and be CSA approved.',
+  '$150',
+  'Every year',
+  'Second pay period of September',
+  E'Required by VIA Rail to wear safety footwear\nIn service at the beginning of the calendar year\nRendered compensated service during the year\nStill holds an employment relationship\nShow the footwear and proof of purchase to your supervisor\nFootwear must be CSA approved',
+  'Agreement No. 1 (2025–2027), Article 38.4',
+  'https://irp.cdn-website.com/a76b4e57/files/uploaded/Collective%2BAgreement%2B1%2B2025-2026-2027%2B-%2BEN.pdf',
+  'published',
+  'Local 4005',
+  now()
+where not exists (
+  select 1 from public.member_posts where lower(title) = lower('Safety boot allowance')
+);

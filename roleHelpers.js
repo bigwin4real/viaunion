@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────
 
 export const ROLES = {
+  MEMBER: "member",
   ADMIN: "admin",
   STEWARD: "steward",
   COMMITTEE: "committee",
@@ -29,6 +30,10 @@ export function isSteward(user) {
 
 export function isCommittee(user) {
   return getUserRole(user) === ROLES.COMMITTEE;
+}
+
+export function isMember(user) {
+  return getUserRole(user) === ROLES.MEMBER;
 }
 
 export function isAdminOrSteward(user) {
@@ -77,9 +82,14 @@ export function getPermissions(user) {
     canViewStats: isAdminOrSteward(user),
 
     // Forms
-    canViewWagesForm: true, // all roles
+    canViewWagesForm: isAdminOrSteward(user) || isCommittee(user),
+
+    // Publishing
+    canWriteOwnPosts: Boolean(getUserRole(user)),
+    canManageAllPosts: isAdmin(user),
 
     // Role management
     canManageRoles: isAdmin(user),
+    canCreateInvites: isAdmin(user),
   };
 }
