@@ -112,3 +112,11 @@ Public agreement links are sourced from Unifor National Council 4000:
 - VIA Rail Agreement No. 1 and No. 2: https://www.unifor4000.com/collective-agreements
 - Bylaws and constitution: https://www.unifor4000.com/bylaws-constitution
 - Local 4005 grievance resources: https://www.unifor4000.com/grievance-forms
+
+## Regression checks
+
+Run `npm install` and `npm test` with Node.js 20 or newer.
+
+The tests load the real HTML and application script in a simulated DOM with a mocked Supabase client. They cover search and filters, empty database results, public-only questions, link handling, committee/member query separation, duplicate post saves, and save failures. They do not replace an authenticated browser check against the deployed database.
+
+The public board no longer uses demonstration notices, meetings, or member posts when the live database is empty. Demonstration data is limited to the existing localhost preview.

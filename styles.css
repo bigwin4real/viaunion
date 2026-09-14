@@ -1860,6 +1860,76 @@ textarea {
   }
 }
 
+
+/* Public board navigation, search, and small-screen readability. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 8px;
+  left: 8px;
+  padding: 12px 18px;
+  background: var(--navy);
+  color: #fff;
+  transform: translateY(-160%);
+}
+.skip-link:focus { transform: translateY(0); }
+[id] { scroll-margin-top: 190px; }
+.public-board > * { min-width: 0; }
+.public-header { gap: 12px; }
+.public-nav { min-width: 0; }
+.public-nav a, button, summary { min-height: 44px; }
+button:disabled { opacity: 0.65; cursor: wait; }
+summary { cursor: pointer; padding: 10px 0; }
+summary:focus-visible { outline: 3px solid var(--via-blue); outline-offset: 3px; }
+.public-tools { grid-template-columns: minmax(0, 1fr) 180px auto; align-items: end; }
+.search-status { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+.data-status { display: flex; align-items: center; gap: 16px; padding: 14px 18px; margin: 14px 0; background: var(--gold-soft); border: 1px solid #d9bc63; border-radius: var(--radius); }
+.data-status p { flex: 1; margin: 0; line-height: 1.5; }
+.hero-copy { min-height: 280px; padding: clamp(24px, 4vw, 38px); }
+.hero-copy h2 { font-size: clamp(2rem, 3.7vw, 3rem); }
+.member-toolbar { position: static; float: none; width: auto; max-height: none; overflow: visible; margin: 16px 0; padding: 18px; }
+.member-toolbar h2 { font-size: 1.15rem; }
+.resource-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.public-layout { margin-right: 0; }
+.resource-tool, .contact-card, .agreement-guide-card, .qa-card, .answer-box { min-width: 0; overflow-wrap: anywhere; }
+.public-directory, .public-extra, .agreement-guides { clear: both; }
+@media (max-width: 860px) {
+  .public-header { position: static; padding: 16px; flex-direction: row; align-items: center; }
+  .public-header > div { flex: 1 1 200px; }
+  .public-header h1 { font-size: 1.45rem; }
+  .public-header .public-nav { display: flex; flex: 1 1 100%; order: 3; overflow-x: auto; flex-wrap: nowrap; gap: 2px; padding: 4px 0; scrollbar-width: thin; }
+  .public-nav a { flex: 0 0 auto; padding: 0 12px; }
+  .public-header #staff-login { flex: 0 1 auto; padding: 10px 14px; }
+  [id] { scroll-margin-top: 16px; }
+  .resource-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .public-tools { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .public-tools > label:first-child { grid-column: 1 / -1; }
+  input, select, textarea { font-size: 16px; }
+  .public-hero { gap: 12px; }
+  .hero-copy { min-height: 0; padding: 24px; }
+  .hero-copy h2 { font-size: 2rem; }
+  .hero-actions { margin-top: 20px; }
+  .hero-actions a { flex: 1 1 auto; padding: 12px; }
+  .data-status { align-items: stretch; flex-direction: column; gap: 10px; }
+  .member-toolbar { padding: 14px; }
+  .resource-tool { padding: 12px; }
+  .agreement-guides { padding: 16px; }
+  .meeting-tabs { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+
 @media print {
   @page {
     margin: 0.45in;
@@ -1878,6 +1948,9 @@ textarea {
 
   button,
   .hero-actions,
+  .public-nav,
+  .data-status,
+  .skip-link,
   .public-tools,
   .question-form,
   #staff-login,

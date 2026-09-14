@@ -4,12 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>VIA Rail Local 4005 Moncton</title>
+    <meta name="description" content="Local 4005 Moncton union resources: agreement guides, meeting notices, steward contacts, and the member portal.">
+    <meta name="theme-color" content="#14345b">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
   </head>
   <body>
-    <main id="app" class="app-shell">
+    <a class="skip-link" href="#app">Skip to content</a>
+    <main id="app" class="app-shell" tabindex="-1">
       <section class="public-board" aria-labelledby="app-title">
         <header class="public-header">
           <div>
@@ -21,6 +24,7 @@
             <p>Union board for Contract 1 and Contract 2 members.</p>
           </div>
           <nav class="public-nav" aria-label="Section links">
+            <a href="#meeting-title">Meetings</a>
             <a href="#announcements-title">Notices</a>
             <a href="#agreement-guides-title">Agreement guides</a>
             <a href="#member-resources-title">Resources</a>
@@ -30,31 +34,10 @@
           <button id="staff-login" type="button">Member sign in</button>
         </header>
 
-        <section class="public-hero" aria-labelledby="hero-title">
-          <div class="hero-copy">
-            <span class="eyebrow">Local 4005 member board</span>
-            <h2 id="hero-title">Moncton updates, meetings, agreements, and steward support in one place.</h2>
-            <p>Public information is open to everyone. Private grievance tools and internal files stay locked to approved stewards and admins.</p>
-            <div class="hero-actions">
-              <a href="#announcements-title">View notices</a>
-              <a href="#assistant-title">Ask agreements</a>
-              <a href="#qa-title">Post a question</a>
-            </div>
-          </div>
-          <aside class="meeting-board" aria-labelledby="meeting-title">
-            <div class="section-heading">
-              <h2 id="meeting-title">Meeting board</h2>
-              <span id="meeting-count"></span>
-            </div>
-            <div id="meeting-tabs" class="meeting-tabs"></div>
-            <article id="meeting-detail" class="meeting-detail"></article>
-          </aside>
-        </section>
-
         <section class="public-tools" aria-label="Board filters">
           <label>
-            Search
-            <input id="public-search" type="search" placeholder="Meeting, contract, grievance, resource">
+            Search your local
+            <input id="public-search" type="search" placeholder="Try boot allowance, a meeting, or a name" aria-describedby="public-search-status">
           </label>
           <label>
             Contract
@@ -65,6 +48,34 @@
               <option value="Shared">Shared</option>
             </select>
           </label>
+          <button id="clear-public-filters" class="secondary" type="button">Clear filters</button>
+          <p id="public-search-status" class="search-status" role="status" aria-live="polite" aria-atomic="true"></p>
+        </section>
+
+        <aside id="public-data-status" class="data-status" hidden>
+          <p id="public-data-message" role="status"></p>
+          <button id="retry-public-data" class="secondary" type="button">Try again</button>
+        </aside>
+
+        <section class="public-hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <span class="eyebrow">Local 4005 member board</span>
+            <h2 id="hero-title">Your agreement. Your local. Your support.</h2>
+            <p>Find the information you need at work, catch up on local updates, or get in touch with your shop steward.</p>
+            <div class="hero-actions">
+              <a href="#agreement-guides-title">Know your agreement</a>
+              <a href="#directory-title">Find a steward</a>
+              <a href="#announcements-title">Latest notices</a>
+            </div>
+          </div>
+          <aside class="meeting-board" aria-labelledby="meeting-title">
+            <div class="section-heading">
+              <h2 id="meeting-title">Meeting board</h2>
+              <span id="meeting-count"></span>
+            </div>
+            <div id="meeting-tabs" class="meeting-tabs"></div>
+            <article id="meeting-detail" class="meeting-detail"></article>
+          </aside>
         </section>
 
         <aside class="member-toolbar" aria-labelledby="member-resources-title">
@@ -135,12 +146,14 @@
               <h2 id="assistant-title">Agreement Q&A</h2>
               <span>Contract 1 and Contract 2</span>
             </div>
-            <label>
-              Ask a question about the VIA Rail agreements
-              <input id="assistant-question" placeholder="Example: What agreement covers Contract 2?">
-            </label>
-            <button id="assistant-ask" type="button">Ask agreement question</button>
-            <div id="assistant-answer" class="answer-box" hidden></div>
+            <form id="assistant-form" class="question-form">
+              <label>
+                Ask a question about the VIA Rail agreements
+                <input id="assistant-question" maxlength="2000" required placeholder="Example: Where can I find Agreement No. 2?">
+              </label>
+              <button id="assistant-ask" type="submit">Ask agreement question</button>
+            </form>
+            <div id="assistant-answer" class="answer-box" role="status" aria-live="polite" hidden></div>
           </section>
 
           <section aria-labelledby="qa-title">
@@ -151,13 +164,14 @@
             <form id="question-form" class="question-form">
               <label>
                 Name
-                <input id="question-name" placeholder="Optional">
+                <input id="question-name" autocomplete="name" maxlength="120" placeholder="Optional">
               </label>
               <label>
                 Question
-                <textarea id="question-body" rows="3" required></textarea>
+                <textarea id="question-body" rows="3" maxlength="4000" aria-describedby="question-privacy" required></textarea>
               </label>
-              <button type="submit">Post question</button>
+              <p id="question-privacy" class="helper-text">Answered questions are public. Keep personal grievance details out of your question and contact a steward privately.</p>
+              <button type="submit">Submit for review</button>
             </form>
             <p id="question-message" class="message" role="status"></p>
             <div id="qa-list" class="qa-list"></div>
@@ -174,7 +188,7 @@
         <form id="login-form" class="login-form">
           <label>
             Username or email
-            <input id="login-identifier" autocomplete="username email" required>
+            <input id="login-identifier" autocomplete="username" autocapitalize="none" spellcheck="false" required>
           </label>
           <label>
             Password
@@ -195,7 +209,7 @@
       <section class="auth-panel" aria-labelledby="password-update-title">
         <div class="brand-mark">4005</div>
         <h1 id="password-update-title">Set new password</h1>
-        <p>Enter a new password for your steward/admin account.</p>
+        <p>Enter a new password for your Local 4005 account.</p>
         <form id="password-update-form" class="login-form">
           <label>
             New password

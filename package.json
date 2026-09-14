@@ -9,7 +9,11 @@
     "deploy": "wrangler pages deploy . --project-name viarail4005moncton",
     "supabase:config": "node scripts/write-supabase-config.mjs",
     "supabase:create-admin": "node scripts/create-initial-admin.mjs",
-    "supabase:create-nicolas": "node scripts/create-nicolas-steward.mjs"
+    "supabase:create-nicolas": "node scripts/create-nicolas-steward.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {
+    "linkedom": "0.18.13"
+  }
 }

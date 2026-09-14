@@ -4,9 +4,10 @@ const SUPABASE_ANON_KEY = config.supabaseAnonKey || "YOUR_SUPABASE_ANON_KEY";
 const DOCUMENT_BUCKET = config.documentBucket || "steward-documents";
 const INTERNAL_BUCKET = config.internalBucket || "internal-files";
 
-const isConfigured = SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 30;
+const hasBackendConfig = SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 30;
+const isConfigured = hasBackendConfig && typeof window.supabase?.createClient === "function";
 const isLocalhost = ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
-const previewMode = !isConfigured && isLocalhost && new URLSearchParams(window.location.search).get("preview") === "1";
+const previewMode = !hasBackendConfig && isLocalhost && new URLSearchParams(window.location.search).get("preview") === "1";
 const supabaseClient = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const sampleCases = [
@@ -128,16 +129,13 @@ const publicDiscounts = [
 ];
 
 const publicResources = [
-  { title: "VIA Rail Agreement No. 1", category: "Agreements", contract: "Contract 1", description: "Council 4000 lists Agreement No. 1 - National as 2025-2027.", url: "https://www.unifor4000.com/agreements" },
-  { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/agreements" },
-  { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety agreement.", url: "https://www.unifor4000.com/agreements" },
+  { title: "VIA Rail Agreement No. 1", category: "Agreements", contract: "Contract 1", description: "Council 4000 lists Agreement No. 1 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
+  { title: "VIA Rail Agreement No. 2", category: "Agreements", contract: "Contract 2", description: "Council 4000 lists Agreement No. 2 - National as 2025-2027.", url: "https://www.unifor4000.com/collective-agreements" },
+  { title: "VIA Rail supplemental and safety agreements", category: "Agreements", contract: "Shared", description: "Council 4000 also links Agreement No. 1 and No. 2 supplementals plus the Safety agreement.", url: "https://www.unifor4000.com/collective-agreements" },
   { title: "Council 4000 bylaws", category: "Bylaws", contract: "Shared", description: "Council 4000 bylaws and constitution resources.", url: "https://www.unifor4000.com/bylaws-constitution" },
   { title: "Employee discounts", category: "Discounts", contract: "Shared", description: "Discount guide details copied onto this site for all employees.", url: "discounts.html" },
-  { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and general agenda information." },
-  { title: "New member guide", category: "Guide", contract: "Shared", description: "Plain-language starting point for Local 4005 members." },
-  { title: "Claims and payroll", category: "Guide", contract: "Shared", description: "Public-safe guidance on where to start with common questions." },
-  { title: "Health and safety", category: "Committee", contract: "Shared", description: "Committee information and public-safe safety resources." },
-  { title: "Contact a steward", category: "Support", contract: "Shared", description: "Use this area for approved contact instructions." }
+  { title: "Meetings", category: "Meetings", contract: "Shared", description: "Meeting notices and locations.", url: "#meeting-title" },
+  { title: "Contact a steward", category: "Support", contract: "Shared", description: "Find your Local 4005 contacts.", url: "#directory-title" }
 ];
 
 const local4005Companies = [
@@ -209,15 +207,15 @@ let pendingProfiles = [];
 let activeProfiles = [];
 let allProfiles = [];
 let internalFiles = [];
-let publicQuestions = [...sampleQuestions];
-let memberPosts = [...sampleMemberPosts];
-let announcementItems = publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item }));
+let publicQuestions = previewMode ? [...sampleQuestions] : [];
+let memberPosts = previewMode ? [...sampleMemberPosts] : [];
+let announcementItems = previewMode ? publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item })) : [];
 let publicResourceItems = [...publicResources];
-let meetingNotices = [...defaultMeetings];
+let meetingNotices = previewMode ? [...defaultMeetings] : [];
 let inviteCodes = [...sampleInvites];
 let electionContacts = [];
 let distributionCompanies = [];
-let selectedMeetingId = defaultMeetings[0]?.id || null;
+let selectedMeetingId = meetingNotices[0]?.id || null;
 let selectedAnnouncementId = announcementItems[0]?.id || null;
 let selectedPublicResourceId = null;
 let selectedExecutiveId = null;
@@ -233,6 +231,9 @@ let activeSectionTab = "cases";
 let selfProfilePanelOpen = false;
 let memberPostPanelOpen = false;
 let selectedMemberPostId = null;
+let portalRequestInFlight = false;
+let memberPostSaving = false;
+const publicLoadFailures = new Set();
 
 const roleLabels = {
   member: "Member",
@@ -341,91 +342,129 @@ if (previewMode) {
 } else if (isPasswordRecoveryLink()) {
   renderPasswordUpdate();
 } else if (isConfigured) {
-  if (!wantsPublicBoard() && !wantsRegisterFlow()) startAuthenticatedApp();
   wirePublicBoard();
+  if (!wantsPublicBoard() && !wantsRegisterFlow()) startAuthenticatedApp();
 } else {
   wirePublicBoard();
 }
 
 async function startAuthenticatedApp() {
-  const { data } = await supabaseClient.auth.getUser();
-  currentUser = data.user;
-  if (!currentUser) return;
-
-  const { data: profile, error } = await supabaseClient
-    .from("profiles")
-    .select("*")
-    .eq("id", currentUser.id)
-    .single();
-
-  if (error || !profile?.active) {
-    await supabaseClient.auth.signOut();
-    const authMessage = document.querySelector("#auth-message");
-    if (authMessage) authMessage.textContent = "This account has not been approved yet.";
-    return;
-  }
-
-  currentProfile = profile;
-  let shouldLogSignIn = true;
+  if (portalRequestInFlight || !supabaseClient) return;
+  portalRequestInFlight = true;
   try {
-    const loginKey = `audit-sign-in:${currentUser.id}`;
-    if (window.sessionStorage.getItem(loginKey) === "1") {
-      shouldLogSignIn = false;
-    } else {
-      window.sessionStorage.setItem(loginKey, "1");
+    const { data, error: userError } = await supabaseClient.auth.getUser();
+    if (userError && userError.name !== "AuthSessionMissingError") throw userError;
+    currentUser = data?.user || null;
+    if (!currentUser) return;
+
+    const { data: profile, error } = await supabaseClient
+      .from("profiles")
+      .select("*")
+      .eq("id", currentUser.id)
+      .single();
+
+    if (error) throw error;
+    if (!profile?.active) {
+      await supabaseClient.auth.signOut();
+      currentUser = null;
+      currentProfile = null;
+      renderAuth();
+      document.querySelector("#auth-message").textContent = "Your account is waiting for approval. Contact Local 4005 if you need help.";
+      return;
     }
-  } catch {
-    // Ignore sessionStorage restrictions and log sign-in.
-  }
-  if (shouldLogSignIn) {
-    await logAuditEvent("sign_in", "profile", {
-      targetId: currentUser.id,
-      targetLabel: profile.full_name || profile.email || currentUser.email || currentUser.id,
-      summary: "Signed in to the private portal",
-      details: {
-        roles: profileRoles(profile),
-        email: profile.email || currentUser.email || null
+
+    currentProfile = profile;
+    let shouldLogSignIn = true;
+    try {
+      const loginKey = `audit-sign-in:${currentUser.id}`;
+      if (window.sessionStorage.getItem(loginKey) === "1") {
+        shouldLogSignIn = false;
+      } else {
+        window.sessionStorage.setItem(loginKey, "1");
       }
-    });
+    } catch {
+      // Ignore sessionStorage restrictions and log sign-in.
+    }
+    if (shouldLogSignIn) {
+      await logAuditEvent("sign_in", "profile", {
+        targetId: currentUser.id,
+        targetLabel: profile.full_name || profile.email || currentUser.email || currentUser.id,
+        summary: "Signed in to the private portal",
+        details: {
+          roles: profileRoles(profile),
+          email: profile.email || currentUser.email || null
+        }
+      });
+    }
+    await loadData();
+    renderPortal();
+  } catch {
+    renderAuth();
+    document.querySelector("#auth-message").textContent = "We could not load your account. Check your connection and try signing in again.";
+  } finally {
+    portalRequestInFlight = false;
   }
-  await loadData();
-  renderPortal();
 }
 
 function wirePublicBoard() {
+  const params = new URLSearchParams(window.location.search);
+  setValue("public-search", params.get("q") || "");
+  const contract = params.get("contract") || "all";
+  setValue("public-contract", ["all", "Contract 1", "Contract 2", "Shared"].includes(contract) ? contract : "all");
   renderPublicBoard();
   renderMeetingBoard(selectedMeetingId);
   renderPublicDirectory();
   loadPublicAccountDirectory();
   loadOfficialContacts();
   loadPublicExecutiveTeam();
-  loadPublicQuestions();
-  loadPublicAnnouncements();
-  loadPublicMemberPosts();
-  loadPublicMeetings();
+  loadPublicBoardData();
   renderDiscounts();
   if (wantsRegisterFlow()) {
     renderRegister();
     return;
   }
   document.querySelector("#staff-login")?.addEventListener("click", openMemberPortal);
-  document.querySelector("#assistant-ask")?.addEventListener("click", answerPublicQuestion);
+  document.querySelector("#assistant-form")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    answerPublicQuestion();
+  });
+  document.querySelector("#retry-public-data")?.addEventListener("click", () => {
+    if (!isConfigured) window.location.reload(); else loadPublicBoardData();
+  });
+  document.querySelector("#clear-public-filters")?.addEventListener("click", () => {
+    setValue("public-search", "");
+    setValue("public-contract", "all");
+    updatePublicFilters();
+    document.querySelector("#public-search")?.focus();
+  });
+  window.addEventListener("popstate", () => {
+    if (!document.querySelector("#public-search")) return;
+    const params = new URLSearchParams(window.location.search);
+    setValue("public-search", params.get("q") || "");
+    setValue("public-contract", params.get("contract") || "all");
+    renderPublicBoard();
+  });
   document.querySelector("#question-form")?.addEventListener("submit", submitPublicQuestion);
   ["public-search", "public-contract"].forEach((id) => {
-    document.querySelector(`#${id}`)?.addEventListener("input", renderPublicBoard);
+    document.querySelector(`#${id}`)?.addEventListener("input", updatePublicFilters);
   });
 }
 
 async function openMemberPortal() {
-  if (isConfigured) {
-    const { data } = await supabaseClient.auth.getUser();
-    if (data.user) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-      await startAuthenticatedApp();
-      return;
+  try {
+    if (isConfigured) {
+      const { data } = await supabaseClient.auth.getUser();
+      if (data?.user) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        await startAuthenticatedApp();
+        return;
+      }
     }
+    renderAuth();
+  } catch {
+    renderAuth();
+    document.querySelector("#auth-message").textContent = "We could not check your session. Try signing in again.";
   }
-  renderAuth();
 }
 
 async function loadPublicMemberPosts() {
@@ -439,11 +478,12 @@ async function loadPublicMemberPosts() {
       .select("*")
       .eq("status", "published")
       .order("published_at", { ascending: false });
-    if (error) return;
-    memberPosts = Array.isArray(data) && data.length ? data : [...sampleMemberPosts];
+    if (currentUser || !document.querySelector(".public-board")) return;
+    if (error) throw error;
+    memberPosts = Array.isArray(data) ? data : [];
     renderPublicBoard();
   } catch {
-    // Keep the verified allowance guide while the posts table is being configured.
+    publicLoadFailures.add("agreement guides");
   }
 }
 
@@ -456,7 +496,7 @@ function showAssistantAnswer(html) {
 
 async function loadPublicExecutiveTeam() {
   if (!isConfigured) {
-    renderPublicDirectory();
+    renderPublicBoard();
     return;
   }
   try {
@@ -465,7 +505,8 @@ async function loadPublicExecutiveTeam() {
       .select("*")
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true });
-    if (error || !Array.isArray(data) || !data.length) return;
+    if (currentUser || !document.querySelector(".public-board")) return;
+    if (error || !Array.isArray(data)) return;
     publicExecutiveTeam = data.map((item) => ({
       id: item.id,
       name: item.name,
@@ -475,7 +516,7 @@ async function loadPublicExecutiveTeam() {
       note: item.note || ""
     }));
     selectedExecutiveId = publicExecutiveTeam[0]?.id || null;
-    renderPublicDirectory();
+    renderPublicBoard();
   } catch {
     // Keep fallback executive contacts when the table is not configured yet.
   }
@@ -492,8 +533,9 @@ async function loadPublicAnnouncements() {
       .select("*")
       .order("display_order", { ascending: true })
       .order("date", { ascending: false });
-    if (error || !Array.isArray(data) || !data.length) return;
-    announcementItems = data.map((item) => ({
+    if (currentUser || !document.querySelector(".public-board")) return;
+    if (error) throw error;
+    announcementItems = (data || []).map((item) => ({
       id: item.id,
       title: item.title,
       date: item.date,
@@ -505,7 +547,7 @@ async function loadPublicAnnouncements() {
     selectedAnnouncementId = announcementItems[0]?.id || null;
     renderPublicBoard();
   } catch {
-    // Keep fallback announcement content when the table is not configured yet.
+    publicLoadFailures.add("notices");
   }
 }
 
@@ -520,17 +562,15 @@ async function loadPublicMeetings() {
       .select("*")
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true });
-    if (error) {
-      meetingsStorageReady = false;
-      renderMeetingBoard(selectedMeetingId);
-      return;
-    }
+    if (currentUser || !document.querySelector(".public-board")) return;
+    if (error) throw error;
     meetingsStorageReady = true;
     meetingNotices = normalizeMeetings(data);
     selectedMeetingId = meetingNotices[0]?.id || null;
     renderMeetingBoard(selectedMeetingId);
   } catch {
     meetingsStorageReady = false;
+    publicLoadFailures.add("meetings");
     renderMeetingBoard(selectedMeetingId);
   }
 }
@@ -554,7 +594,7 @@ async function loadPublicAccountDirectory() {
     publicCommitteeMembers = (data || [])
       .filter((entry) => normalizeRoleName(entry.directory_role) === "committee")
       .map(directoryEntryToContact);
-    renderPublicDirectory();
+    renderPublicBoard();
   } catch {
     // Account-backed directory is optional until Supabase is configured.
   }
@@ -573,7 +613,7 @@ async function loadOfficialContacts() {
     if (!response.ok) return;
     const data = await response.json();
     if (Array.isArray(data.executiveTeam) && data.executiveTeam.length) publicExecutiveTeam = data.executiveTeam;
-    renderPublicDirectory();
+    renderPublicBoard();
   } catch {
     // Keep verified fallback contacts when the official-source sync is unavailable.
   }
@@ -608,22 +648,19 @@ function renderDiscounts() {
 }
 
 function renderPublicDirectory() {
-  const stewardList = document.querySelector("#public-steward-list");
-  const adminCard = document.querySelector("#admin-contact-card");
-  const committeeList = document.querySelector("#committee-list");
-  const executiveList = document.querySelector("#executive-list");
-  if (stewardList) {
-    stewardList.innerHTML = publicStewards.map(renderContactCard).join("") || `<div class="empty">No approved steward accounts are listed publicly yet.</div>`;
-  }
-  if (adminCard) {
-    adminCard.innerHTML = publicAdmins.map((person) => renderContactCard(person, true)).join("") || `<div class="empty">No approved admin accounts are listed publicly yet.</div>`;
-  }
-  if (committeeList) {
-    committeeList.innerHTML = publicCommitteeMembers.map(renderContactCard).join("") || `<div class="empty">No committee members are listed publicly yet.</div>`;
-  }
-  if (executiveList) {
-    executiveList.innerHTML = publicExecutiveTeam.map(renderContactCard).join("");
-  }
+  const groups = [
+    ["#public-steward-list", publicStewards, false],
+    ["#admin-contact-card", publicAdmins, true],
+    ["#committee-list", publicCommitteeMembers, false],
+    ["#executive-list", publicExecutiveTeam, false]
+  ];
+  groups.forEach(([selector, people, featured]) => {
+    const list = document.querySelector(selector);
+    if (!list) return;
+    const rows = people.filter(publicBoardMatches);
+    list.innerHTML = rows.map((person) => renderContactCard(person, featured)).join("")
+      || '<div class="empty">No public contacts match these filters.</div>';
+  });
 }
 
 function renderContactCard(person, featured = false) {
@@ -643,17 +680,91 @@ function renderContactCard(person, featured = false) {
   `;
 }
 
-function renderPublicBoard() {
-  const term = document.querySelector("#public-search")?.value.trim().toLowerCase() || "";
+
+function normalizeSearch(text) {
+  return String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function publicBoardMatches(item) {
+  const term = normalizeSearch(document.querySelector("#public-search")?.value);
   const contract = document.querySelector("#public-contract")?.value || "all";
-  const matches = (item) => {
-    const text = [
-      item.title, item.category, item.topic, item.contract, item.summary, item.description,
-      item.excerpt, item.body, item.amount, item.frequency, item.timeframe,
-      item.requirements, item.agreement_reference
-    ].join(" ").toLowerCase();
-    return (!term || text.includes(term)) && (contract === "all" || item.contract === contract || item.contract === "Shared");
-  };
+  const itemContract = item.contract || "Shared";
+  const text = normalizeSearch([
+    item.title, item.category, item.topic, item.contract, item.summary, item.description,
+    item.excerpt, item.body, item.amount, item.frequency, item.timeframe,
+    item.requirements, item.agreement_reference, item.name, item.role, item.area,
+    item.contact, item.note, item.location, item.room, item.date, item.question, item.answer
+  ].join(" "));
+  return term.split(/\s+/).filter(Boolean).every((word) => text.includes(word))
+    && (contract === "all" || itemContract === contract || itemContract === "Shared");
+}
+
+async function fetchWithTimeout(url, options = {}, timeout = 20000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function safeLink(value, allowRelative = true) {
+  const raw = String(value || "").trim();
+  if (!raw || /[\u0000-\u0020\u007f]/.test(raw)) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (allowRelative && !/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^[\\/]{2}/.test(raw) && !raw.includes("\\")) return raw;
+  return "";
+}
+
+function updatePublicFilters() {
+  const url = new URL(window.location.href);
+  const term = document.querySelector("#public-search")?.value.trim() || "";
+  const contract = document.querySelector("#public-contract")?.value || "all";
+  if (term) url.searchParams.set("q", term); else url.searchParams.delete("q");
+  if (contract !== "all") url.searchParams.set("contract", contract); else url.searchParams.delete("contract");
+  url.searchParams.set("board", "1");
+  window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+  renderPublicBoard();
+}
+
+function renderPublicLoadStatus() {
+  const status = document.querySelector("#public-data-status");
+  const message = document.querySelector("#public-data-message");
+  const retry = document.querySelector("#retry-public-data");
+  if (!status || !message) return;
+  const unavailable = !isConfigured && !previewMode;
+  status.hidden = !unavailable && publicLoadFailures.size === 0;
+  if (unavailable) {
+    message.textContent = "Live updates are temporarily unavailable. You can still open the agreements and contact resources below.";
+  } else if (publicLoadFailures.size) {
+    message.textContent = "We could not refresh " + [...publicLoadFailures].join(", ") + ". The information shown may be incomplete.";
+  }
+  if (retry) retry.textContent = unavailable ? "Reload page" : "Try again";
+}
+
+async function loadPublicBoardData() {
+  const retry = document.querySelector("#retry-public-data");
+  if (retry?.disabled) return;
+  if (!isConfigured) {
+    renderPublicLoadStatus();
+    return;
+  }
+  if (retry) retry.disabled = true;
+  publicLoadFailures.clear();
+  try {
+    await Promise.allSettled([
+      loadPublicQuestions(), loadPublicAnnouncements(), loadPublicMemberPosts(), loadPublicMeetings()
+    ]);
+    renderPublicBoard();
+  } finally {
+    if (retry) retry.disabled = false;
+    renderPublicLoadStatus();
+  }
+}
+
+function renderPublicBoard() {
+  const matches = publicBoardMatches;
   const announcements = announcementItems.filter(matches);
   const announcementList = document.querySelector("#announcement-list");
   const announcementTotal = document.querySelector("#announcement-total");
@@ -677,8 +788,8 @@ function renderPublicBoard() {
   const publicRows = publicResourceItems.filter(matches);
   if (resourceList) {
     resourceList.innerHTML = publicRows.map((item) => `
-      ${item.url ? `
-        <a class="resource-tool" href="${escapeHtml(item.url)}" ${item.url.startsWith("http") ? `target="_blank" rel="noopener"` : ""}>
+      ${safeLink(item.url) ? `
+        <a class="resource-tool" href="${escapeHtml(safeLink(item.url))}" ${item.url.startsWith("http") ? `target="_blank" rel="noopener"` : ""}>
           <span>${escapeHtml(item.title)}</span>
           <small>${escapeHtml(item.category)} · ${escapeHtml(item.contract)}</small>
         </a>
@@ -692,6 +803,17 @@ function renderPublicBoard() {
   }
   renderAgreementGuides(matches);
   renderQABoard();
+  renderMeetingBoard(selectedMeetingId);
+  renderPublicDirectory();
+  const status = document.querySelector("#public-search-status");
+  if (status) {
+    const count = announcements.length + publicRows.length
+      + memberPosts.filter((item) => item.status === "published" && matches(item)).length
+      + meetingNotices.filter(matches).length
+      + [...publicStewards, ...publicAdmins, ...publicCommitteeMembers, ...publicExecutiveTeam].filter(matches).length
+      + publicQuestions.filter((item) => item.status === "answered" && matches(item)).length;
+    status.textContent = count === 0 ? "No results. Try fewer words or clear the filters." : `${count} result${count === 1 ? "" : "s"} across guides, resources, notices, meetings, contacts, and answered questions.`;
+  }
 }
 
 function renderAgreementGuides(matches) {
@@ -701,6 +823,7 @@ function renderAgreementGuides(matches) {
   const rows = memberPosts.filter((item) => item.status === "published" && matches(item));
   if (total) total.textContent = `${rows.length} guide${rows.length === 1 ? "" : "s"}`;
   list.innerHTML = rows.map((item) => {
+    const expanded = Array.from(list.querySelectorAll("[data-guide-id]")).find((card) => card.dataset.guideId === item.id)?.querySelector("details")?.open;
     const requirements = String(item.requirements || "")
       .split(/\n+/)
       .map((requirement) => requirement.trim())
@@ -711,7 +834,7 @@ function renderAgreementGuides(matches) {
       ["Timing", item.timeframe]
     ].filter(([, value]) => value);
     return `
-      <article class="agreement-guide-card">
+      <article class="agreement-guide-card" data-guide-id="${escapeHtml(item.id)}">
         <div class="meta-row">
           <span class="pill strong">${escapeHtml(item.topic || "Agreement guide")}</span>
           <span class="pill">${escapeHtml(item.contract || "Shared")}</span>
@@ -719,14 +842,14 @@ function renderAgreementGuides(matches) {
         <h3>${escapeHtml(item.title)}</h3>
         <p class="guide-excerpt">${escapeHtml(item.excerpt || "")}</p>
         ${facts.length ? `<dl class="agreement-facts">${facts.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("")}</dl>` : ""}
-        <details>
-          <summary>Read full guide</summary>
+        <details ${expanded ? "open" : ""}>
+          <summary>Read full guide<span class="visually-hidden">: ${escapeHtml(item.title)}</span></summary>
           <div class="guide-body">
             <p>${formatPostText(item.body)}</p>
             ${requirements.length ? `<h4>Requirements</h4><ul>${requirements.map((requirement) => `<li>${escapeHtml(requirement)}</li>`).join("")}</ul>` : ""}
             <div class="guide-source">
               ${item.agreement_reference ? `<strong>${escapeHtml(item.agreement_reference)}</strong>` : ""}
-              ${item.source_url ? `<a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener">Open source agreement</a>` : ""}
+              ${safeLink(item.source_url, false) ? `<a href="${escapeHtml(safeLink(item.source_url, false))}" target="_blank" rel="noopener">Open source agreement</a>` : ""}
             </div>
           </div>
         </details>
@@ -745,18 +868,17 @@ function renderMeetingBoard(activeId) {
   const detail = document.querySelector("#meeting-detail");
   const count = document.querySelector("#meeting-count");
   if (!tabs || !detail) return;
-  const rows = meetingNotices.length ? meetingNotices : [...defaultMeetings];
+  const rows = meetingNotices.filter(publicBoardMatches);
   const active = rows.find((meeting) => meeting.id === activeId) || rows[0];
+  if (count) count.textContent = `${rows.length} notice${rows.length === 1 ? "" : "s"}`;
   if (!active) {
     tabs.innerHTML = "";
-    detail.innerHTML = `<div class="empty">No meeting notices posted yet.</div>`;
-    if (count) count.textContent = "0 notices";
+    detail.innerHTML = '<div class="empty">No meeting notices match these filters.</div>';
     return;
   }
   selectedMeetingId = active.id;
-  if (count) count.textContent = `${rows.length} notices`;
   tabs.innerHTML = rows.map((meeting) => `
-    <button class="meeting-tab ${meeting.id === active.id ? "active" : ""}" type="button" data-meeting-id="${escapeHtml(meeting.id)}">
+    <button class="meeting-tab ${meeting.id === active.id ? "active" : ""}" type="button" aria-pressed="${meeting.id === active.id}" aria-controls="meeting-detail" data-meeting-id="${escapeHtml(meeting.id)}">
       <span>${escapeHtml(meeting.title)}</span>
       <small>${escapeHtml(meeting.contract)}</small>
     </button>
@@ -768,46 +890,41 @@ function renderMeetingBoard(activeId) {
     <p>${escapeHtml(active.note)}</p>
   `;
   tabs.querySelectorAll("[data-meeting-id]").forEach((button) => {
-    button.addEventListener("click", () => renderMeetingBoard(button.dataset.meetingId));
+    button.addEventListener("click", () => {
+      const id = button.dataset.meetingId;
+      renderMeetingBoard(id);
+      Array.from(tabs.querySelectorAll("[data-meeting-id]")).find((item) => item.dataset.meetingId === id)?.focus();
+    });
   });
 }
 
 async function answerPublicQuestion() {
-  const question = value("assistant-question").toLowerCase();
+  const question = value("assistant-question");
+  const button = document.querySelector("#assistant-ask");
   const answerBox = document.querySelector("#assistant-answer");
-  if (!question) {
-    showAssistantAnswer("Type a question about Agreement No. 1, Agreement No. 2, supplementals, or the Safety and Health Agreement.");
-    return;
-  }
-  if (answerBox) {
-    answerBox.hidden = false;
-    answerBox.textContent = "Checking agreement assistant...";
-  }
+  if (!question || button?.disabled) return;
+  if (button) { button.disabled = true; button.textContent = "Checking…"; }
+  if (answerBox) { answerBox.hidden = false; answerBox.textContent = "Looking for agreement guidance…"; }
   try {
-    const response = await fetch("/api/ask", {
+    const response = await fetchWithTimeout("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question })
     });
-    if (response.ok) {
-      const data = await response.json();
-      let html = `<p>${escapeHtml(data.answer)}</p>`;
-      if (data.sources?.length) {
-        html += `<div class="meta-row">${data.sources.map((source) => `<a class="pill" href="${escapeHtml(source.url)}" target="_blank" rel="noopener">${escapeHtml(source.title)}</a>`).join("")}</div>`;
-      }
-      showAssistantAnswer(html);
-      return;
+    if (!response.ok) throw new Error("Assistant unavailable");
+    const data = await response.json();
+    if (typeof data.answer !== "string" || !data.answer.trim()) throw new Error("Empty answer");
+    const sources = Array.isArray(data.sources) ? data.sources.filter((source) => safeLink(source.url, false)) : [];
+    let html = `<p>${formatPostText(data.answer)}</p>`;
+    if (sources.length) {
+      html += `<div class="meta-row">${sources.map((source) => `<a class="pill" href="${escapeHtml(safeLink(source.url, false))}" target="_blank" rel="noopener">${escapeHtml(source.title)}</a>`).join("")}</div>`;
     }
-  } catch (error) {
-    // Fall back to local search when the Cloudflare AI endpoint is not configured yet.
+    showAssistantAnswer(html);
+  } catch {
+    showAssistantAnswer('<p>The agreement assistant is temporarily unavailable. You can search the published guides above or open the agreements below.</p><a href="https://www.unifor4000.com/collective-agreements" target="_blank" rel="noopener">Open the Council 4000 agreements</a>');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = "Ask agreement question"; }
   }
-  const matches = publicKnowledge.filter((item) => {
-    const text = [item.title, item.category, item.text].join(" ").toLowerCase();
-    return question.split(/\s+/).some((word) => word.length > 2 && text.includes(word));
-  });
-  showAssistantAnswer(matches.length
-    ? matches.map((item) => `<p><strong>${escapeHtml(item.title)}:</strong> ${escapeHtml(item.text)}</p>`).join("")
-    : `<p>No matching agreement note yet. Check the linked Council 4000 agreements and contact a steward for interpretation.</p>`);
 }
 
 async function loadPublicQuestions() {
@@ -821,86 +938,105 @@ async function loadPublicQuestions() {
       .select("*")
       .eq("status", "answered")
       .order("answered_at", { ascending: false });
-    if (error) return;
+    if (currentUser || !document.querySelector(".public-board")) return;
+    if (error) throw error;
     publicQuestions = data || [];
   } catch (error) {
-    // Network or Supabase error: leave sample/local questions in place.
+    publicLoadFailures.add("answered questions");
   }
   renderQABoard();
 }
 
 async function submitPublicQuestion(event) {
   event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
   const message = document.querySelector("#question-message");
   const question = value("question-body");
   const name = value("question-name") || "Anonymous";
-  if (!question) return;
-
-  if (isConfigured) {
+  if (!question || button.disabled) return;
+  if (!isConfigured) {
+    message.textContent = "Questions cannot be submitted right now. Please try again later or contact a steward.";
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "Submitting…";
+  message.textContent = "";
+  try {
     const { error } = await supabaseClient.from("public_questions").insert({ name, question });
     if (error) {
-      message.textContent = error.message;
+      message.textContent = "Your question could not be submitted. Your text is still here; please try again.";
       return;
     }
-    message.textContent = "Thanks — your question was submitted. Once a steward answers it, it will appear on this board for everyone.";
-  } else {
-    publicQuestions.unshift({ id: crypto.randomUUID(), name, question, answer: "Pending review.", status: "pending", created_at: new Date().toISOString() });
-    message.textContent = "Question added locally for preview.";
-    renderQABoard();
+    message.textContent = "Question submitted for review. It will appear publicly after a steward answers it.";
+    form.reset();
+  } catch {
+    message.textContent = "We could not confirm the submission. Your text is still here. Please check your connection.";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Submit for review";
   }
-  document.querySelector("#question-form").reset();
 }
 
 function renderQABoard() {
   const list = document.querySelector("#qa-list");
   if (!list) return;
-  list.innerHTML = publicQuestions.length
-    ? publicQuestions.map((item) => `
-        <article class="qa-card">
-          <h3>${escapeHtml(item.question)}</h3>
-          <p>${escapeHtml(item.answer || "Pending review.")}</p>
-          <div class="meta-row">
-            <span class="pill">${escapeHtml(item.name || "Anonymous")}</span>
-          </div>
-        </article>
-      `).join("")
-    : `<div class="empty">No answered questions yet. Ask one above — once a steward answers, it will be posted here for everyone.</div>`;
+  const rows = publicQuestions.filter((item) => item.status === "answered" && publicBoardMatches(item));
+  list.innerHTML = rows.map((item) => `
+    <article class="qa-card">
+      <h3>${escapeHtml(item.question)}</h3>
+      <p>${formatPostText(item.answer)}</p>
+      <div class="meta-row"><span class="pill">${escapeHtml(item.name || "Anonymous")}</span></div>
+    </article>
+  `).join("") || '<div class="empty">No answered questions match these filters. You can submit a question below for a steward to review.</div>';
 }
 
 function renderAuth() {
   app.innerHTML = document.querySelector("#auth-template").innerHTML;
-  document.querySelector("#back-public").addEventListener("click", () => window.location.reload());
+  document.querySelector("#back-public").addEventListener("click", () => { window.location.href = `${window.location.pathname}?board=1`; });
   document.querySelector("#request-access").addEventListener("click", renderRegister);
   document.querySelector("#reset-password").addEventListener("click", sendPasswordReset);
   document.querySelector("#login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const authMessage = document.querySelector("#auth-message");
     if (!isConfigured) {
-      authMessage.innerHTML = `Supabase is not configured. Create <strong>config.js</strong> from <strong>config.example.js</strong> with your project URL and anon key.`;
+      authMessage.textContent = "Member sign-in is temporarily unavailable. Refresh the page and try again.";
       if (isLocalhost) {
         authMessage.innerHTML += ` For layout review only, open <a href="?preview=1">localhost preview mode</a>.`;
       }
       return;
     }
 
-    const identifier = value("login-identifier");
-    const password = document.querySelector("#password").value;
-    const response = await fetch("/api/login-with-identifier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier, password })
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      authMessage.textContent = payload.error || "Unable to sign in.";
-      return;
+    const submitButton = event.currentTarget.querySelector('button[type="submit"]');
+    if (submitButton.disabled) return;
+    submitButton.disabled = true;
+    submitButton.textContent = "Signing in…";
+    authMessage.textContent = "";
+    try {
+      const identifier = value("login-identifier");
+      const password = document.querySelector("#password").value;
+      const response = await fetchWithTimeout("/api/login-with-identifier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ identifier, password })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        authMessage.textContent = payload.error || "Unable to sign in.";
+        return;
+      }
+      const { error } = await supabaseClient.auth.setSession({
+        access_token: payload.access_token,
+        refresh_token: payload.refresh_token
+      });
+      authMessage.textContent = error ? error.message : "Signed in.";
+      if (!error) await startAuthenticatedApp();
+    } catch {
+      authMessage.textContent = "Sign-in could not be completed. Check your connection and try again.";
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = "Sign in";
     }
-    const { error } = await supabaseClient.auth.setSession({
-      access_token: payload.access_token,
-      refresh_token: payload.refresh_token
-    });
-    authMessage.textContent = error ? error.message : "Signed in.";
-    if (!error) await startAuthenticatedApp();
   });
 }
 
@@ -1112,8 +1248,8 @@ async function loadData() {
       ? supabaseClient.from("invite_codes").select("*").order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("public_executive_team").select("*").order("display_order", { ascending: true }).order("created_at", { ascending: true }),
-    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true }),
-    limitedAccount ? Promise.resolve({ data: [] }) : supabaseClient.from("distribution_companies").select("*").order("company", { ascending: true }),
+    memberOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("election_contacts").select("*").order("company", { ascending: true }).order("member_name", { ascending: true }),
+    memberOnly ? Promise.resolve({ data: [] }) : supabaseClient.from("distribution_companies").select("*").order("company", { ascending: true }),
     canManageUsers ? supabaseClient.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200) : Promise.resolve({ data: [] }),
     supabaseClient.from("member_posts").select("*").order("updated_at", { ascending: false })
   ]);
@@ -1144,7 +1280,7 @@ async function loadData() {
     priority: item.priority || "",
     summary: item.summary || ""
   }));
-  if (!announcementItems.length) announcementItems = publicAnnouncements.map((item, index) => ({ id: `announcement-${index + 1}`, ...item }));
+
   inviteCodes = inviteResult.data || [];
   if (Array.isArray(executiveResult.data) && executiveResult.data.length) {
     publicExecutiveTeam = executiveResult.data.map((item) => ({
@@ -1164,10 +1300,10 @@ async function loadData() {
   if (!memberPostResult.error) {
     memberPosts = memberPostResult.data || [];
   }
-  if (!memberPosts.length) memberPosts = [...sampleMemberPosts];
+
   if (meetingResult.error) {
     meetingsStorageReady = false;
-    meetingNotices = [...defaultMeetings];
+    meetingNotices = [];
   } else {
     meetingsStorageReady = true;
     meetingNotices = normalizeMeetings(meetingResult.data);
@@ -1180,7 +1316,7 @@ async function loadData() {
   selectedElectionId = electionContacts.find((item) => item.id === selectedElectionId)?.id || electionContacts[0]?.id || null;
   selectedAuditId = auditEntries.find((item) => item.id === selectedAuditId)?.id || auditEntries[0]?.id || null;
   selectedMemberPostId = memberPosts.find((item) => item.id === selectedMemberPostId)?.id || null;
-  selectedCaseId = cases[0]?.id || null;
+  selectedCaseId = cases.find((item) => item.id === selectedCaseId)?.id || cases[0]?.id || null;
   if (selectedCaseId) await loadCaseChildren(selectedCaseId);
 }
 
@@ -1570,7 +1706,7 @@ function clearMemberPostFormFields() {
 }
 
 async function saveMemberPost() {
-  if (!currentUser || !currentProfile?.active) return;
+  if (!currentUser || !currentProfile?.active || memberPostSaving) return;
   const id = value("member-post-id");
   const existing = memberPosts.find((item) => item.id === id);
   if (existing && !canEditMemberPost(existing)) return;
@@ -1588,7 +1724,7 @@ async function saveMemberPost() {
     agreement_reference: value("member-post-reference") || null,
     source_url: value("member-post-source") || null,
     status,
-    author_name: existing?.author_name || currentProfile.full_name || currentUser.email || "Local 4005 member",
+    author_name: existing?.author_name || currentProfile.full_name || "Local 4005 member",
     published_at: status === "published" ? (existing?.published_at || new Date().toISOString()) : null
   };
   const message = document.querySelector("#member-post-message");
@@ -1596,35 +1732,54 @@ async function saveMemberPost() {
     if (message) message.textContent = "Title, short summary, and explanation are required.";
     return;
   }
-
-  if (previewMode || !isConfigured) {
-    const localId = id || crypto.randomUUID();
-    const row = { ...existing, ...payload, id: localId, author_id: currentUser.id, updated_at: new Date().toISOString() };
-    const index = memberPosts.findIndex((item) => item.id === localId);
+  if (payload.source_url && !safeLink(payload.source_url, false)) {
+    if (message) message.textContent = "Use a complete https:// or http:// source link.";
+    document.querySelector("#member-post-source")?.focus();
+    return;
+  }
+  memberPostSaving = true;
+  const button = document.querySelector("#save-member-post");
+  const editorActions = document.querySelectorAll("#new-member-post, [data-edit-member-post], [data-delete-member-post]");
+  editorActions.forEach((action) => { action.disabled = true; });
+  if (button) { button.disabled = true; button.textContent = "Saving…"; }
+  if (message) message.textContent = "";
+  try {
+    let row;
+    if (previewMode || !isConfigured) {
+      row = { ...existing, ...payload, id: id || crypto.randomUUID(), author_id: existing?.author_id || currentUser.id, updated_at: new Date().toISOString() };
+    } else {
+      const result = isUuid(id)
+        ? await supabaseClient.from("member_posts").update(payload).eq("id", id).select().single()
+        : await supabaseClient.from("member_posts").insert({ ...payload, author_id: currentUser.id }).select().single();
+      if (result.error) {
+        if (message) message.textContent = "The post could not be saved. Your text is still here. " + result.error.message;
+        return;
+      }
+      row = result.data;
+    }
+    // Keep the returned ID in the editor so subsequent saves update this post.
+    selectedMemberPostId = row.id;
+    setValue("member-post-id", row.id);
+    const index = memberPosts.findIndex((item) => item.id === row.id);
     if (index >= 0) memberPosts[index] = row; else memberPosts.unshift(row);
-    selectedMemberPostId = localId;
-    if (message) message.textContent = status === "published" ? "Post published in preview." : "Draft saved in preview.";
     renderMemberPostPanel();
-    return;
+    if (message) message.textContent = (status === "published" ? "Post published." : "Draft saved.") + (previewMode ? " Preview only." : "");
+    try {
+      await logAuditEvent(id ? "update" : "create", "member_post", {
+        targetId: row.id, targetLabel: payload.title,
+        summary: `${id ? "Updated" : "Created"} member post`,
+        details: { contract: payload.contract, topic: payload.topic, status: payload.status }
+      });
+    } catch {
+      // A saved post remains saved if the separate audit request is unavailable.
+    }
+  } catch {
+    if (message) message.textContent = "We could not confirm the save. Your text is still here. Check your posts before trying again.";
+  } finally {
+    memberPostSaving = false;
+    if (button) { button.disabled = false; button.textContent = "Save post"; }
+    editorActions.forEach((action) => { action.disabled = false; });
   }
-
-  const result = isUuid(id)
-    ? await supabaseClient.from("member_posts").update(payload).eq("id", id).select().single()
-    : await supabaseClient.from("member_posts").insert({ ...payload, author_id: currentUser.id }).select().single();
-  if (result.error) {
-    if (message) message.textContent = result.error.message;
-    return;
-  }
-  selectedMemberPostId = result.data.id;
-  await logAuditEvent(isUuid(id) ? "update" : "create", "member_post", {
-    targetId: result.data.id,
-    targetLabel: payload.title,
-    summary: `${isUuid(id) ? "Updated" : "Created"} member post`,
-    details: { contract: payload.contract, topic: payload.topic, status: payload.status }
-  });
-  await loadData();
-  renderAll();
-  if (message) message.textContent = status === "published" ? "Post published." : "Draft saved.";
 }
 
 async function deleteMemberPost(id) {
@@ -2583,7 +2738,7 @@ function renderResources() {
 }
 
 function normalizeMeetings(rows) {
-  if (!Array.isArray(rows) || !rows.length) return [...defaultMeetings];
+  if (!Array.isArray(rows)) return [];
   return rows.map((meeting) => ({
     id: meeting.id,
     title: meeting.title,
