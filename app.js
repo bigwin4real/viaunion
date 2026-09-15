@@ -226,6 +226,11 @@ let selectedUserId = null;
 let auditEntries = [];
 let selectedAuditId = null;
 let activePortalRole = null;
+let routedProfileSignature = "";
+let renderedPortalRole = null;
+let profileRefreshInFlight = false;
+let profileRefreshWired = false;
+let memberPostsStorageReady = previewMode;
 let activeAdminTab = "dashboard";
 let activeSectionTab = "cases";
 let selfProfilePanelOpen = false;
@@ -243,7 +248,8 @@ const roleLabels = {
 };
 
 function sanitizeAssignedRoles(roles = []) {
-  let normalized = [...new Set((roles || []).map(normalizeRoleName).filter(Boolean))];
+  const selected = new Set((roles || []).map(normalizeRoleName));
+  let normalized = ["admin", "steward", "committee", "member"].filter((role) => selected.has(role));
   if (normalized.some((role) => role !== "member")) {
     normalized = normalized.filter((role) => role !== "member");
   }
@@ -480,9 +486,11 @@ async function loadPublicMemberPosts() {
       .order("published_at", { ascending: false });
     if (currentUser || !document.querySelector(".public-board")) return;
     if (error) throw error;
+    memberPostsStorageReady = true;
     memberPosts = Array.isArray(data) ? data : [];
     renderPublicBoard();
   } catch {
+    memberPostsStorageReady = false;
     publicLoadFailures.add("agreement guides");
   }
 }
@@ -1297,6 +1305,7 @@ async function loadData() {
     ? companyResult.data
     : [...defaultDistributionCompanies];
   auditEntries = auditResult.data || [];
+  memberPostsStorageReady = !memberPostResult.error;
   if (!memberPostResult.error) {
     memberPosts = memberPostResult.data || [];
   }
@@ -1335,15 +1344,80 @@ async function loadCaseChildren(caseId) {
   documents = documentRows || [];
 }
 
-function renderPortal() {
-  app.innerHTML = document.querySelector("#portal-template").innerHTML;
-  activePortalRole = activeRole();
-  if (activePortalRole === "committee") {
-    activeAdminTab = "workspace";
-    activeSectionTab = "resources";
-  } else if (activePortalRole === "member") {
-    activeAdminTab = "member";
+function profileAccessSignature(profile) {
+  return JSON.stringify([profile?.id, profile?.active, profileRoles(profile)]);
+}
+
+function setRoleDashboard(role) {
+  activeAdminTab = role === "committee" ? "workspace" : role === "member" ? "member" : "dashboard";
+  activeSectionTab = role === "committee" || role === "member" ? "resources" : "cases";
+}
+
+function syncPortalRoute() {
+  const signature = profileAccessSignature(currentProfile);
+  if (signature !== routedProfileSignature) {
+    activePortalRole = profileRoles(currentProfile)[0];
+    routedProfileSignature = signature;
+    renderedPortalRole = null;
   }
+  const role = activeRole();
+  const allowed = role === "admin" ? ["dashboard", "workspace", "public", "invites", "audit", "admin"]
+    : role === "steward" ? ["dashboard", "workspace", "public"]
+    : role === "committee" ? ["workspace"] : ["member"];
+  if (role !== renderedPortalRole || !allowed.includes(activeAdminTab)) setRoleDashboard(role);
+  renderedPortalRole = role;
+}
+
+function wireProfileAccessRefresh() {
+  if (previewMode || !isConfigured || profileRefreshWired) return;
+  profileRefreshWired = true;
+  window.addEventListener("focus", refreshCurrentProfileAccess);
+  document.addEventListener("visibilitychange", refreshCurrentProfileAccess);
+  window.setInterval?.(refreshCurrentProfileAccess, 60000);
+}
+
+async function refreshCurrentProfileAccess() {
+  if (previewMode || !currentUser || profileRefreshInFlight || memberPostSaving || portalRequestInFlight
+      || document.visibilityState === "hidden" || !document.querySelector(".portal")) return;
+  profileRefreshInFlight = true;
+  const userId = currentUser.id;
+  try {
+    const { data: profile, error } = await supabaseClient.from("profiles").select("*").eq("id", userId).single();
+    if (error || !profile || currentUser?.id !== userId || profileAccessSignature(profile) === profileAccessSignature(currentProfile)) return;
+    const draftId = value("member-post-id");
+    const draftPost = memberPosts.find((post) => post.id === draftId);
+    const draft = Array.from(document.querySelectorAll('#member-post-panel input, #member-post-panel textarea, #member-post-panel select'))
+      .map((field) => [field.id, field.value]);
+    currentProfile = profile;
+    cases = []; notes = []; documents = []; resources = []; internalFiles = [];
+    pendingProfiles = []; activeProfiles = []; allProfiles = []; publicQuestions = [];
+    inviteCodes = []; auditEntries = []; electionContacts = []; distributionCompanies = []; memberPosts = [];
+    selectedCaseId = null; selectedUserId = null; selectedMemberPostId = null;
+    memberPostsStorageReady = false;
+    if (!profile.active) {
+      currentUser = null; currentProfile = null; activePortalRole = null; routedProfileSignature = "";
+      renderAuth();
+      document.querySelector("#auth-message").textContent = "Your access has changed. Contact your local administrator before signing in again.";
+      await supabaseClient.auth.signOut();
+      return;
+    }
+    // Replace the old view immediately so removed access never leaves stale private records on screen.
+    syncPortalRoute();
+    renderPortal();
+    try { await loadData(); } catch { /* Keep the new role's empty view until the next successful load. */ }
+    if (currentUser?.id !== userId) return;
+    renderPortal();
+    if (!draftId || (draftPost && canEditMemberPost(draftPost))) {
+      draft.forEach(([id, content]) => setValue(id, content));
+    }
+  } catch { /* A failed check does not change the last confirmed role. */ }
+  finally { profileRefreshInFlight = false; }
+}
+
+function renderPortal() {
+  syncPortalRoute();
+  app.innerHTML = document.querySelector("#portal-template").innerHTML;
+  wireProfileAccessRefresh();
   wirePortalEvents();
   renderRoleSwitcher();
   document.querySelector("#user-label").textContent = `${currentProfile.full_name || currentUser.email} (${currentProfile.role})`;
@@ -1390,19 +1464,11 @@ function renderRoleSwitcher() {
   if (select.value !== activeRole()) {
     select.selectedIndex = roles.indexOf(activeRole());
   }
-  select.addEventListener("change", () => {
+  select.onchange = () => {
     activePortalRole = select.value;
-    if (activePortalRole === "committee") {
-      activeAdminTab = "workspace";
-      activeSectionTab = "resources";
-    } else if (activePortalRole === "member") {
-      activeAdminTab = "member";
-    } else if (activeAdminTab === "workspace" && activeSectionTab === "resources") {
-      activeSectionTab = "cases";
-    }
-    applyRoleVisibility();
+    setRoleDashboard(activeRole());
     renderAll();
-  });
+  };
 }
 
 function applyRoleVisibility() {
@@ -1441,7 +1507,7 @@ function applyRoleVisibility() {
     ".internal-files": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "files",
     "#cases-tab": (role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "cases",
     ".resources": committeeView || (((role === "steward" || role === "admin") && isWorkspaceTab && activeSectionTab === "resources")),
-    "#admin-nav": isAdmin() || isSteward(),
+    "#admin-nav": role === "admin" || role === "steward",
     "#users-tab": isAdmin() && isAdminTab,
     "#content-tab": (isAdmin() || isSteward()) && isPublicTab,
     "#member-home": memberView
@@ -1452,7 +1518,7 @@ function applyRoleVisibility() {
     if (element) element.hidden = !visible;
   });
   document.querySelectorAll(".admin-only-dashboard").forEach((element) => {
-    element.hidden = !hasAdminAccount();
+    element.hidden = role !== "admin";
   });
 
   const resourcesTitle = document.querySelector("#resources-title");
@@ -1640,6 +1706,10 @@ function renderMemberPostPanel() {
   panel.hidden = !memberPostPanelOpen;
   if (!memberPostPanelOpen) return;
 
+  if (!memberPostsStorageReady) {
+    list.innerHTML = '<div class="empty">Posts are temporarily unavailable. Your text stays here; try again after the connection is restored.</div>';
+    return;
+  }
   const editablePosts = memberPosts.filter(canEditMemberPost);
   list.innerHTML = editablePosts.map((post) => `
     <article class="resource-item ${post.id === selectedMemberPostId ? "meeting-item-active" : ""}">
@@ -1707,6 +1777,11 @@ function clearMemberPostFormFields() {
 
 async function saveMemberPost() {
   if (!currentUser || !currentProfile?.active || memberPostSaving) return;
+  if (!memberPostsStorageReady) {
+    const message = document.querySelector("#member-post-message");
+    if (message) message.textContent = "Posts are temporarily unavailable. Your text has not been submitted. Please try again later.";
+    return;
+  }
   const id = value("member-post-id");
   const existing = memberPosts.find((item) => item.id === id);
   if (existing && !canEditMemberPost(existing)) return;
@@ -1783,6 +1858,7 @@ async function saveMemberPost() {
 }
 
 async function deleteMemberPost(id) {
+  if (!memberPostsStorageReady || !currentUser || !currentProfile?.active) return;
   const post = memberPosts.find((item) => item.id === id);
   if (!canEditMemberPost(post) || !confirm("Delete this post?")) return;
   if (previewMode || !isConfigured || !isUuid(id)) {
@@ -1807,12 +1883,7 @@ async function deleteMemberPost(id) {
 }
 
 function renderAll() {
-  if (activeRole() === "committee") {
-    activeAdminTab = "workspace";
-    activeSectionTab = "resources";
-  } else if (activeRole() === "member") {
-    activeAdminTab = "member";
-  }
+  syncPortalRoute();
   applyRoleVisibility();
   renderAdminTabs();
   renderSectionTabs();
@@ -1836,8 +1907,8 @@ function renderAll() {
 
 function renderAdminTabs() {
   const role = activeRole();
-  const isAdminView = hasAdminAccount();
-  const isStewardView = hasStewardAccount() || isAdminView;
+  const isAdminView = role === "admin";
+  const isStewardView = role === "steward" || isAdminView;
   const isCommitteeView = role === "committee";
   const workspaceTab = document.querySelector("#workspace-tab");
   const usersTab = document.querySelector("#users-tab");
@@ -2311,6 +2382,8 @@ function selectedRolesForProfile(profileId) {
 }
 
 async function updateAccessRequest(profileId, approved, assignedRoles = []) {
+  if (!hasAdminAccount()) return;
+  assignedRoles = sanitizeAssignedRoles(assignedRoles);
   const profile = pendingProfiles.find((item) => item.id === profileId) || activeProfiles.find((item) => item.id === profileId);
   if (previewMode) {
     pendingProfiles = pendingProfiles.filter((profile) => profile.id !== profileId);
@@ -2343,7 +2416,9 @@ async function updateAccessRequest(profileId, approved, assignedRoles = []) {
 }
 
 async function updateProfileRoles(profileId, assignedRoles) {
+  if (!hasAdminAccount()) return;
   if (!assignedRoles.length) return alert("Select at least one role.");
+  assignedRoles = sanitizeAssignedRoles(assignedRoles);
   const profile = activeProfiles.find((item) => item.id === profileId) || pendingProfiles.find((item) => item.id === profileId);
   if (previewMode) {
     const profile = activeProfiles.find((item) => item.id === profileId);
@@ -2353,8 +2428,7 @@ async function updateProfileRoles(profileId, assignedRoles) {
       if (profile.id === currentProfile.id) currentProfile = { ...currentProfile, role: profile.role, assigned_roles: assignedRoles };
     }
     selectedUserId = null;
-    renderRoleSwitcher();
-    renderApprovals();
+    renderPortal();
     return;
   }
   const { error } = await supabaseClient
@@ -4227,3 +4301,4 @@ function escapeHtml(text) {
     "'": "&#039;"
   }[char]));
 }
+

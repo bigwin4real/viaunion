@@ -1905,8 +1905,8 @@ summary:focus-visible { outline: 3px solid var(--via-blue); outline-offset: 3px;
   .public-header { position: static; padding: 16px; flex-direction: row; align-items: center; }
   .public-header > div { flex: 1 1 200px; }
   .public-header h1 { font-size: 1.45rem; }
-  .public-header .public-nav { display: flex; flex: 1 1 100%; order: 3; overflow-x: auto; flex-wrap: nowrap; gap: 2px; padding: 4px 0; scrollbar-width: thin; }
-  .public-nav a { flex: 0 0 auto; padding: 0 12px; }
+  .public-header .public-nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); flex: 1 1 100%; order: 3; gap: 6px; padding: 4px 0; }
+  .public-nav a { min-width: 0; padding: 10px 8px; text-align: center; white-space: normal; overflow-wrap: anywhere; background: #edf3f9; border-radius: var(--radius-sm); }
   .public-header #staff-login { flex: 0 1 auto; padding: 10px 14px; }
   [id] { scroll-margin-top: 16px; }
   .resource-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -2134,4 +2134,9 @@ summary:focus-visible { outline: 3px solid var(--via-blue); outline-offset: 3px;
     font-size: 9px;
     padding: 2px 5px;
   }
+}
+
+
+@media (max-width: 600px) {
+  .public-header .public-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -195,6 +195,7 @@ test("saving a new draft twice updates one post and blocks concurrent submits", 
 
 test("a failed draft save keeps the text and enables retry", async () => {
   const h = harness({ rejectTable: "member_posts" }); await h.settle(); editor(h);
+  h.evaluate("memberPostsStorageReady = true");
   await h.evaluate("saveMemberPost()");
   assert.equal(h.document.querySelector("#member-post-body").value, "Detailed explanation");
   assert.equal(h.document.querySelector("#save-member-post").disabled, false);
@@ -216,4 +217,106 @@ test("public navigation anchors and filter descriptions resolve", async () => {
   }
   assert.ok(h.document.querySelector("#" + h.document.querySelector("#public-search").getAttribute("aria-describedby")));
   assert.equal(h.document.querySelector("#assistant-ask").type, "submit");
+});
+
+
+function openRole(h, role) {
+  const profile = { id: 'user-1', full_name: 'Test User', active: true, role, assigned_roles: [role] };
+  h.tables.profiles = [profile];
+  h.evaluate(`currentUser = {id: 'user-1', email: 'test@example.ca'}; currentProfile = ${JSON.stringify(profile)}; renderPortal();`);
+}
+
+for (const [role, tab] of [['admin', 'dashboard'], ['steward', 'dashboard'], ['committee', 'workspace'], ['member', 'member']]) {
+  test(`${role} opens the correct dashboard`, async () => {
+    const h = harness(); await h.settle(); openRole(h, role);
+    assert.equal(h.evaluate('activeAdminTab'), tab);
+    assert.equal(h.document.querySelector('#dashboard-grid').hidden, !['admin', 'steward'].includes(role));
+  });
+}
+
+test('switching member view back to admin restores its dashboard', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'admin');
+  const select = h.document.querySelector('#role-switcher');
+  select.value = 'member'; select.onchange();
+  select.value = 'admin'; select.onchange();
+  assert.equal(h.evaluate('activeAdminTab'), 'dashboard');
+  assert.equal(h.document.querySelector('#dashboard-grid').hidden, false);
+  assert.equal(h.document.querySelector('#member-home').hidden, true);
+});
+
+test('steward view leaves administration and hides admin-only controls', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'admin');
+  h.evaluate('activeAdminTab = "admin"; renderAll()');
+  const select = h.document.querySelector('#role-switcher'); select.value = 'steward'; select.onchange();
+  assert.equal(h.evaluate('activeAdminTab'), 'dashboard');
+  assert.equal(h.document.querySelector('#users-tab').hidden, true);
+  for (const card of h.document.querySelectorAll('.admin-only-dashboard')) assert.equal(card.hidden, true);
+});
+
+test('an externally assigned role refreshes the dashboard and preserves a new post', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'member');
+  h.evaluate('memberPostPanelOpen = true; renderAll()');
+  h.document.querySelector('#member-post-body').value = 'Unsent writing';
+  h.tables.profiles[0] = {...h.tables.profiles[0], role:'steward', assigned_roles:['steward']};
+  await h.evaluate('refreshCurrentProfileAccess()');
+  assert.equal(h.evaluate('activeRole()'), 'steward');
+  assert.equal(h.evaluate('activeAdminTab'), 'dashboard');
+  assert.equal(h.document.querySelector('#member-post-body').value, 'Unsent writing');
+});
+
+test('demotion clears private records and routes to committee forms', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'admin');
+  h.evaluate('cases = [{id:"old-case"}]; internalFiles = [{id:"old-file"}]');
+  h.tables.profiles[0] = {...h.tables.profiles[0], role:'committee', assigned_roles:['committee']};
+  await h.evaluate('refreshCurrentProfileAccess()');
+  assert.equal(h.evaluate('cases.length + internalFiles.length'), 0);
+  assert.equal(h.evaluate('activeAdminTab'), 'workspace');
+  assert.equal(h.document.querySelector('#users-tab').hidden, true);
+});
+
+test('unchanged role refresh does not interrupt the current tab', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'admin');
+  h.evaluate('activeAdminTab = "admin"; renderAll()');
+  await h.evaluate('refreshCurrentProfileAccess()');
+  assert.equal(h.evaluate('activeAdminTab'), 'admin');
+});
+
+test('inactive accounts leave the portal on refresh', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'member');
+  h.tables.profiles[0] = {...h.tables.profiles[0], active:false};
+  await h.evaluate('refreshCurrentProfileAccess()');
+  assert.equal(h.evaluate('currentUser'), null);
+  assert.match(h.document.querySelector('#auth-message').textContent, /access has changed/);
+});
+
+test('role priority is independent of checkbox selection order', async () => {
+  const h = harness(); await h.settle();
+  assert.equal(h.evaluate('sanitizeAssignedRoles(["committee","admin"])[0]'), 'admin');
+});
+
+test('unavailable post storage blocks writes while preserving text', async () => {
+  const h = harness({errorTable:'member_posts'}); await h.settle(); editor(h); h.calls.length = 0;
+  await h.evaluate('saveMemberPost()');
+  assert.equal(h.calls.length, 0);
+  assert.equal(h.document.querySelector('#member-post-body').value, 'Detailed explanation');
+  assert.match(h.document.querySelector('#member-post-message').textContent, /not been submitted/);
+});
+
+test('assigning another person a role keeps the admin in user management', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'admin');
+  h.tables.profiles.push({id:'other', full_name:'Other User', role:'member', assigned_roles:['member'], active:true});
+  h.evaluate(`activeProfiles = ${JSON.stringify(h.tables.profiles)}; activeAdminTab = 'admin'; upsertApprovedDirectoryEntry = async () => {}; logAuditEvent = async () => {};`);
+  await h.evaluate('updateProfileRoles("other", ["committee", "steward"])');
+  assert.equal(h.tables.profiles[1].role, 'steward');
+  assert.equal(h.evaluate('activeRole()'), 'admin');
+  assert.equal(h.evaluate('activeAdminTab'), 'admin');
+});
+
+test('changing own assigned roles immediately opens the new dashboard', async () => {
+  const h = harness(); await h.settle(); openRole(h, 'admin');
+  h.evaluate(`activeProfiles = ${JSON.stringify(h.tables.profiles)}; activeAdminTab = 'admin'; upsertApprovedDirectoryEntry = async () => {}; logAuditEvent = async () => {};`);
+  await h.evaluate('updateProfileRoles("user-1", ["committee"])');
+  assert.equal(h.evaluate('activeRole()'), 'committee');
+  assert.equal(h.evaluate('activeAdminTab'), 'workspace');
+  assert.equal(h.document.querySelector('#users-tab').hidden, true);
 });
